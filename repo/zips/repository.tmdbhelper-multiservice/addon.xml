@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.tmdbhelper-multiservice" name="TMDb Helper Multiservice" version="1.0.0" provider-name="minhgi">
+    <extension point="xbmc.addon.repository" name="TMDb Helper Multiservice Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>TMDb Helper Multiservice</summary>
+        <description>Repository for the TMDb Helper fork with MDBList and Simkl integration, plus the script modules it needs.</description>
+        <disclaimer></disclaimer>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>
