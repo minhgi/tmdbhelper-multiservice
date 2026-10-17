@@ -24,7 +24,7 @@
 1. In Kodi: **Settings → File Manager → Add source**, enter `https://minhgi.github.io/tmdbhelper-multiservice/` and give it any name (e.g. "TMDb Helper Multiservice").
 2. **Add-ons → Install from zip file** → pick that source → `repository.tmdbhelper-multiservice-1.0.0.zip`.
 3. **Install from repository → TMDb Helper Multiservice → Video add-ons → TMDb Helper**.
-4. Add players (see [Players](#players)).
+4. Install the players: **Settings → Players → Install players → Install from URL**, see [Players](#players).
 
 If the source cannot be browsed, use **Install from zip file → Web Location…** with `https://minhgi.github.io/tmdbhelper-multiservice/repository.tmdbhelper-multiservice-1.0.0.zip`.
 
@@ -119,7 +119,13 @@ The Trakt, MDBList and Simkl menus each have:
 
 The [`players/`](players) folder holds the player definitions used with this fork: the open-players pack plus players for Seren, Prism, Red Light (Fen Light shape), Otaku Testing and others. `players/tmdbhelper_players.zip` is the same set zipped.
 
-Install: **TMDb Helper → Settings → Players → Install players**, then choose `tmdbhelper_players.zip` (a local copy of the file from this repository).
+Install from the URL (tested):
+1. **TMDb Helper → Settings → Players → Install players → Install from URL** (or **Update players from URL**).
+2. Enter `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/players/tmdbhelper_players.zip` and confirm.
+
+TMDb Helper remembers the URL, so a later update only needs a confirm. The install replaces the player files already in TMDb Helper's players folder with the ones in the pack.
+
+Or install from a file: download `tmdbhelper_players.zip` from `players/`, then **Install players → Install from zip file** and pick it.
 
 Note for writing your own player files: `tmdb_type` is the correct key for the media type in these players, not `item_type`.
 
