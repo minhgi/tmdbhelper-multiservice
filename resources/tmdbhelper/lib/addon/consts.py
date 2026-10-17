@@ -614,6 +614,11 @@ TRAKT_BASIC_LISTS = {
         'plugin_category': '{localized} {plural}',
         'localized': 32414
     },
+    'trakt_mostviewers_monthly': {
+        'path': '{trakt_type}s/watched/monthly',
+        'route': TRAKT_BASIC_LISTS_ROUTE,
+        'plugin_category': 'Most Watched This Month {plural}'
+    },
     'trakt_anticipated': {
         'path': '{trakt_type}s/anticipated',
         'route': TRAKT_BASIC_LISTS_ROUTE,
@@ -632,6 +637,13 @@ TRAKT_BASIC_LISTS = {
         'route': TRAKT_BASIC_LISTS_ROUTE,
         'plugin_category': '{plural} {localized}',
         'localized': 32198
+    },
+    'trakt_dropped': {
+        'route': {
+            'module_name': 'tmdbhelper.lib.api.trakt.lists',
+            'import_attr': 'ListDropped'},
+        'plugin_category': '{localized}',
+        'localized': 32568
     },
     'trakt_myairing': {
         'path': 'calendars/my/{trakt_type}s',
@@ -659,7 +671,9 @@ TRAKT_SYNC_LISTS = {
     'trakt_watchlist': {
         'sync_type': 'watchlist',
         'sort_by': 'unsorted',
-        'route': TRAKT_SYNC_LISTS_ROUTE,
+        'route': {
+            'module_name': 'tmdbhelper.lib.api.trakt.lists',
+            'import_attr': 'ListWatchlist'},
         'plugin_category': '{plural} {localized}',
         'localized': 32193
     },
@@ -780,6 +794,12 @@ MDBLIST_LIST_OF_LISTS = {
         'route': MDBLIST_LIST_OF_LISTS_ROUTE,
         'plugin_category': '{localized}',
         'localized': 32211},
+    'mdblist_likedlists': {
+        'path': 'lists/liked',
+        'user_endpoint': True,
+        'route': MDBLIST_LIST_OF_LISTS_ROUTE,
+        'plugin_category': '{localized}',
+        'localized': 32210},
 }
 
 
@@ -841,6 +861,9 @@ ROUTE_NOID = {
     'trakt_searchlists': {'route': {
         'module_name': 'tmdbhelper.lib.api.trakt.lists',
         'import_attr': 'ListCustomSearch'}},
+    'trakt_userlists': {'route': {
+        'module_name': 'tmdbhelper.lib.api.trakt.lists',
+        'import_attr': 'ListUserLists'}},
     'trakt_sortby': {'route': {
         'module_name': 'tmdbhelper.lib.api.trakt.lists',
         'import_attr': 'ListSortBy'}},
@@ -859,6 +882,9 @@ ROUTE_NOID = {
     'mdblist_searchlists': {'route': {
         'module_name': 'tmdbhelper.lib.api.mdblist.lists',
         'import_attr': 'ListCustomSearch'}},
+    'mdblist_userlists': {'route': {
+        'module_name': 'tmdbhelper.lib.api.mdblist.lists',
+        'import_attr': 'ListUserLists'}},
     'mdblist_watchlist': {'route': {
         'module_name': 'tmdbhelper.lib.api.mdblist.lists',
         'import_attr': 'ListWatchlist'}},
@@ -868,6 +894,15 @@ ROUTE_NOID = {
     'mdblist_upnext': {'route': {
         'module_name': 'tmdbhelper.lib.api.mdblist.lists',
         'import_attr': 'ListInProgress'}},
+    'mdblist_nextup': {'route': {
+        'module_name': 'tmdbhelper.lib.api.mdblist.lists',
+        'import_attr': 'ListNextUp'}},
+    'mdblist_collection': {'route': {
+        'module_name': 'tmdbhelper.lib.api.mdblist.lists',
+        'import_attr': 'ListCollection'}},
+    'mdblist_dropped': {'route': {
+        'module_name': 'tmdbhelper.lib.api.mdblist.lists',
+        'import_attr': 'ListDroppedShows'}},
     'simkl_plantowatch': {'route': {
         'module_name': 'tmdbhelper.lib.api.simkl.lists',
         'import_attr': 'ListPlanToWatch'}},
@@ -877,6 +912,54 @@ ROUTE_NOID = {
     'simkl_upnext': {'route': {
         'module_name': 'tmdbhelper.lib.api.simkl.lists',
         'import_attr': 'ListInProgress'}},
+    'simkl_nextup': {'route': {
+        'module_name': 'tmdbhelper.lib.api.simkl.lists',
+        'import_attr': 'ListNextUp'}},
+    'simkl_dropped': {'route': {
+        'module_name': 'tmdbhelper.lib.api.simkl.lists',
+        'import_attr': 'ListDropped'}},
+    'simkl_watching': {'route': {
+        'module_name': 'tmdbhelper.lib.api.simkl.lists',
+        'import_attr': 'ListWatching'}},
+    'asian_trending': {'route': {
+        'module_name': 'tmdbhelper.lib.api.asiandrama.lists',
+        'import_attr': 'ListAsianTrending'}},
+    'asian_mostwatched': {'route': {
+        'module_name': 'tmdbhelper.lib.api.asiandrama.lists',
+        'import_attr': 'ListAsianMostWatched'}},
+    'scoped_search': {'route': {
+        'module_name': 'tmdbhelper.lib.api.asiandrama.lists',
+        'import_attr': 'ListScopedSearch'}},
+    'asian_movie_trending': {'route': {
+        'module_name': 'tmdbhelper.lib.api.asiandrama.lists',
+        'import_attr': 'ListAsianMovieTrending'}},
+    'asian_movie_mostwatched': {'route': {
+        'module_name': 'tmdbhelper.lib.api.asiandrama.lists',
+        'import_attr': 'ListAsianMovieMostWatched'}},
+    'anime_season': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeSeason'}},
+    'anime_trending': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeTrending'}},
+    'anime_popular': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimePopular'}},
+    'anime_top100': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeTop100'}},
+    'anime_genres': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeGenres'}},
+    'anime_genre': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeGenre'}},
+    'anime_genre_pick': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeGenrePick'}},
+    'simkl_hold': {'route': {
+        'module_name': 'tmdbhelper.lib.api.simkl.lists',
+        'import_attr': 'ListHold'}},
     'all_items': {'route': {
         'module_name': 'tmdbhelper.lib.api.tmdb.lists',
         'import_attr': 'ListAll'}},

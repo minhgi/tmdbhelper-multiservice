@@ -1,3 +1,319 @@
+v6.0.196
+- Fixed: In the movie calendar windows, Left and Right now change the month even when the month has no movies (before, only the arrow buttons worked on an empty month).
+
+v6.0.195
+- Changed: The Movies and TV Shows rows in the Trakt, MDBList and Simkl menus are now called Movies and TV Shows Progress.
+
+v6.0.194
+- Added: Trakt menu gets a Movies and TV Shows row below Your In-Progress Episodes (Unwatched) (the six progress lists with anime and Asian titles left out), and its unfiltered progress rows are renamed All In-Progress Movies / TV shows / Episodes / Movies (Unwatched) / Episodes (Unwatched) and All Next Episodes, like the MDBList and Simkl menus.
+
+v6.0.193
+- Added: Simkl menu gets a Movies and TV Shows row below Next Up (the four progress lists with anime and Asian titles left out), and its unfiltered rows are renamed All In-Progress Movies / TV shows / Combined and All Next Up, like the MDBList menu.
+
+v6.0.192
+- Changed: In the MDBList menu the progress rows are named All In-Progress Movies / TV shows / Combined (not All Movies ...), and Next Up stays All Next Up.
+
+v6.0.191
+- Changed: In the MDBList menu, Your In-Progress Movies / TV shows / Combined are now All Movies / All TV shows / All Combined, and Next Up is All Next Up. The Movies and TV Shows, Anime Progress and Asian Progress submenus keep the old names.
+
+v6.0.190
+- Added: MDBList menu gets a Movies and TV Shows row below Next Up: the four progress lists (In-Progress Movies, TV shows, Combined and Next Up) with anime and Asian titles left out.
+
+v6.0.189
+- Added: Trakt Anime Progress and Asian Progress also list Your Next Episodes (Trakt's Next Up) limited to anime or to Asian shows, as a sixth row.
+
+v6.0.188
+- Added: Trakt menu gets Anime Progress and Asian Progress rows after Your In-Progress Episodes (Unwatched). Each opens the five Trakt progress lists (In-Progress Movies, TV shows, Episodes, Movies (Unwatched), Episodes (Unwatched)) limited to anime or to Asian titles.
+
+v6.0.187
+- Added: Simkl menu gets Anime Progress and Asian Progress rows after Next Up, with the same four anime-only / Asian-only lists as the MDBList ones: In-Progress Movies, In-Progress TV shows, In-Progress Combined and Next Up.
+
+v6.0.186
+- Added: Asian Progress in the MDBList menu now lists your Asian titles only, as the same four rows as Anime Progress: In-Progress Movies, In-Progress TV shows, In-Progress Combined and Next Up (Asian follows the Asian Cinema and TV menus: Chinese, Korean, Japanese or Thai language, no animation, reality or talk shows).
+
+v6.0.185
+- Added: Anime Progress in the MDBList menu now lists your anime only, as four rows: In-Progress Movies, In-Progress TV shows, In-Progress Combined and Next Up (anime means Japanese-language animation). Asian Progress is still blank.
+
+v6.0.184
+- Changed: The MDBList menu rows after Next Up are now Anime Progress and Asian Progress. They open blank menus for now.
+
+v6.0.183
+- Added: MDBList menu gets Anime Next Up and Asian Next Up rows right after Next Up (menu rows only for now; they open the normal MDBList Next Up list until the filtering is built).
+
+v6.0.182
+- Changed: The "No episodes on this day" message on the TV calendar pages is now centred on the whole window.
+
+v6.0.181
+- Fixed: On the TV day pages, Left and Right now change the day even when the day has no episodes (before, the arrow keys only moved between the buttons and you had to use the menu button).
+
+v6.0.180
+- Changed: All the Trakt TV calendars now open the one-day show page: All Calendar Premieres, All Calendar New, the Asian drama calendars (all countries and each country) and the Anime TV calendar, next to Your Calendar, Premieres, New and All Calendar. Left and Right change the day. The Kodi library Next Aired calendar is unchanged.
+
+v6.0.179
+- Changed: On the All Calendar day page the previous and next day buttons sit right next to the Close button, like the movie calendars.
+
+v6.0.178
+- Changed: The TV calendar page (Your Calendar, Premieres, New and the All Calendar day page) shows its date line centred and bold on the second line, the same as the movie calendars. The date line is the date range, the day, or the show whose unwatched episodes are listed.
+
+v6.0.177
+- Changed: In the movie month-grid windows the previous and next month buttons sit right next to the Close button.
+
+v6.0.176
+- Changed: The month and year of the movie month-grid windows sit one row lower, on the line under the title, still centred and bold.
+
+v6.0.175
+- Fixed: The frame around the selected poster in the movie month-grid windows was cut off at the top for the first row; the grid now has room for it.
+
+v6.0.174
+- Changed: The movie month-grid windows show the month and year centred at the top, in bold.
+
+v6.0.173
+- Changed: The movie month-grid windows (Movies, Asian and Anime calendars) are styled like the TV show page: dark teal background, plain title with the month under it, flat teal buttons and selection frame, thin scrollbar at the right. The posters, badges, dates and ratings are unchanged.
+
+v6.0.172
+- New (test): TV > All Calendar opens the show page one day at a time: every episode airing that day, grouped by show, in the same look as Your Calendar. Left and Right (or the arrow buttons) go to the previous and next day; Select a show for its unwatched episodes, an episode for its information and Play. All Calendar Premieres and All Calendar New are still lists.
+
+v6.0.171
+- Changed: TV > Your Calendar Premieres and Your Calendar New open the same scrollable show page as Your Calendar (a header row per show, its episodes under it; Select a show for its unwatched episodes, an episode for its information and Play). The All calendars are unchanged.
+
+v6.0.170
+- Changed: The Your TV Calendar page now looks like the TMDb Helper menus in your skin: the poster and description of the selected row on the left, flat rows on the right with one teal selection bar, a dark teal background, and plain coloured status text (Aired, Today, In N days, Watched) instead of coloured boxes.
+
+v6.0.169
+- Changed: The Your TV Calendar page uses the TMDb colours (navy background, TMDb blue for the selected row and buttons, TMDb green for the show summaries and the Aired badge). Text on the selected row is dark for contrast.
+
+v6.0.168
+- New (test): TV > Your Calendar opens one scrollable page with every show you follow. Each show is a header row with its episodes under it (aired and not yet aired, from 14 days back to about 19 days ahead); watched episodes stay in the list, dimmed. Select a show to see its unwatched episodes (Back returns to the page); Select an episode to open its information, with Play and the other buttons. The old day-by-day list can still be opened from a saved widget path; Premieres, New and the All calendars are unchanged.
+
+v6.0.167
+- Changed: The TV calendars now put the show name after the episode, in colour: 1x02. Episode Title (Show Name). An episode without a title shows 1x02 (Show Name), and stacked episodes show 1x01-1x03. 3 Episodes (Show Name). The show name uses the TMDb name and follows your language setting.
+
+v6.0.166
+- Changed: The TV calendars (Your, All, Premieres, New, and the Asian drama and Anime calendars) put the show name in front of each episode: Show Name - 1x02. Episode Title. An episode without a title shows Show Name - 1x02, and stacked episodes show Show Name - 1x01-1x03. 3 Episodes. Before, the label was only the episode title, which could be empty. The movie calendars are unchanged.
+
+v6.0.165
+- New: The Asian and Anime movie calendars open the Seren-style month poster grid too: the Calendar row in Asian Movies (all five countries), in each country's movie list, and in Anime Movies. Same grid as the Movies calendars: Left and Right at the edge, or the previous and next buttons, change month; Select opens the movie information. The TV calendars stay as day-by-day lists.
+
+v6.0.164
+- New: The other three Movies calendar rows (Your Calendar, Your Calendar DVD and All Calendar DVD) also open the Seren-style month poster grid, like All Calendar did in 6.0.163. Your Calendar and Your Calendar DVD show the movies you follow; the DVD rows show physical releases; the All rows follow your region when the region filter is on. Saved widget paths to the old day-by-day lists still work.
+
+v6.0.163
+- New (test): Movies > All Calendar opens a month poster grid in the style of Seren's Movie Calendar instead of the day-by-day list. Each poster shows the title, the release date, a countdown badge (days until release, or a star once released) and the rating; Left / Right at the edge of the grid, or the previous and next buttons, change month; Select opens the movie's information. It lists the same movies as before (by your region when the region filter is on). The other three movie calendar rows (Your Calendar, Your DVD, All DVD) are still lists, and the old list can still be opened from a saved widget path.
+- Changed: The window uses the fonts font10, font12, font13, font14 and font37 of your skin.
+
+v6.0.162
+- New: Anime calendars. The Anime menu (TV shows) and the Anime Movies menu get a Calendar row next to the season rows (after Airing Next Season / Next Season Releases). Each opens the usual day lists (Today, Tomorrow, the weekdays, This Week, Last Week and so on) from the Trakt calendar, limited to titles Trakt tags as anime; the movie calendar covers Japanese anime films and does not follow the region setting.
+- Changed: Menu descriptions for the two Anime calendar rows. The other calendars are unchanged.
+
+v6.0.161
+- New: Asian calendars. The Asian Cinema and TV menus get a Calendar row next to the other date rows: in Asian Movies (after Coming Soon) and Asian Drama (after Airing Next) for all five countries together, and in each country's list (Chinese, Korean, Japanese, Thai, Taiwanese; after In Theaters / Airing Now). Each opens the usual day lists (Today, Tomorrow, the weekdays, This Week, Last Week and so on) from the Trakt calendar. Anime, donghua, animation, reality, talk shows and documentaries are left out, the same as in the other Asian lists, so Japan's calendar shows live-action titles only.
+- Changed: The Asian calendars always use their own countries; the region setting does not apply to them. The TV and Movies calendars are unchanged.
+
+v6.0.160
+- New: Movie calendars. The Movies menu gets Your Calendar, Your Calendar DVD, All Calendar and All Calendar DVD next to the TV calendar rows. Each opens the same day lists as the TV calendar (Today, Tomorrow, the weekdays, This Week, Last Week and so on) with the movies released on those days, from the Trakt calendar; the DVD rows list physical releases. All Calendar follows the region of your TMDb Helper language (turn on "Ignore region release filter" in the settings to see every country); Your Calendar is not filtered.
+- Changed: Menu descriptions for the new movie calendar rows. The TV calendar rows and their lists are unchanged.
+
+v6.0.159
+- Changed: Corrected the notes of the previous entry (no code change).
+
+v6.0.158
+- Changed: Lists open about twice as fast (12 lists on the test account: 11.7 s in total before, 6.1 s after; trending movies 1.7 s to 0.4 s; the items, watched marks and resume points are identical): the synced Trakt, MDBList and Simkl data is now checked once per list instead of once for every item. Changes you make yourself are picked up on the next open as before.
+- Changed: Removed a dead line in the person-stats code (clean-up, no behaviour change).
+
+v6.0.157
+- Fixed: A widget whose background rebuild comes back empty is dropped instead of showing old items; a widget that keeps failing is left alone for 30 minutes instead of being rebuilt in a loop.
+- Fixed: The widget cache index is written safely when several widgets open at once (own temp file per writer, retry, leftover temp files removed).
+- Fixed: Marking something watched or syncing a list through TMDb Helper rebuilds the widget at once, as before (the background rebuild only fills the cache; it never serves old data after a change you made).
+
+v6.0.156
+- New: Widgets open faster. The service now rebuilds, in the background, the widget lists you opened in the last 24 hours (not while a video plays), so opening one is a cache hit. Right after a restart a widget may briefly show its previous contents and then refreshes itself. Anything you change yourself (mark watched, edit a list) still rebuilds the widget at once.
+- New: While you read a list, the next page is fetched in the background so Next Page opens faster.
+- New: Setting Widgets > "Rebuild widgets in the background" (on by default). With it off nothing runs in the background and widgets behave as before.
+- Changed: The widget cache file is written in one step (never half-written).
+
+v6.0.155
+- New: Opening a list that has nothing in it (an empty collection, no liked lists, nothing on a watchlist, ...) now shows a "Nothing here yet" notice instead of silently returning to the menu.
+
+v6.0.154
+- Fixed: Simkl > Watching, On Hold and Dropped now show a show by what Simkl says you watched, like Plan to Watch already did. A show you finished on Trakt but left on hold at Simkl used to count as watched, so Kodi's "Unwatched" view hid it and the list looked empty.
+- Fixed: The built-in Trakt client id now matches the one the Account Manager issues tokens for (the previous one is rejected by Trakt on the hidden / dropped endpoints).
+
+v6.0.153
+- Fixed: Simkl lists (Plan to Watch, Recently Watched, Dropped, Watching, On Hold) no longer leave out an anime that Simkl has no TMDb id for: it is now found by title (Japanese animation on TMDb), the same way the Anime menus match AniList titles.
+
+v6.0.152
+- New: Every row of the browse menus now shows a one-line description when highlighted (Movies, TV Shows, Anime, Asian Cinema & TV, TheMovieDb, Trakt, MDBList, Simkl, TVDb, Randomised and their sub-menus).
+
+v6.0.151
+- New: Trakt menu now has User Lists, like MDBList: type a Trakt username to browse that person's public lists.
+
+v6.0.150
+- Changed: The Trakt, MDBList and Simkl sync progress bars are no longer shown while a video is playing (the sync itself still runs), the same as the Cross-Service Sync notification.
+
+v6.0.149
+- New: Cross-Service Sync now shows a notification while it runs (a progress bar with the step it is on) and a short message afterwards when it copied items between Trakt, MDBList and Simkl. It follows the "Trakt / MDBList / Simkl sync progress notifications" setting and is not shown while a video is playing.
+
+v6.0.148
+- New: every category and every setting in the settings window now has a one-line description at the bottom of the window when highlighted (before, only 9 settings had one).
+
+v6.0.147
+- Change: the changelog is now also stored in addon.xml (<news>), like Seren, so Kodi's addon information screen shows it as well as Tools > Changelog. Keep changelog.txt and <news> in step: add each new version to both.
+
+v6.0.146
+- Fix: Tools > Sync Tools > Clear last sync time now clears only the last-sync timestamps and keeps the "data is complete" markers, so the next sync just re-checks instead of refetching everything, and the Trakt / MDBList / Simkl bridge keeps reading Trakt straight away.
+- Changelog brought up to date (it stopped at v6.0.65).
+
+v6.0.145
+- New: Tools menu filled in, following Seren's Tools menu: Sync Tools (Clear last sync time, Force a sync, Rebuild Database; shown only when Trakt, MDBList or Simkl is signed in), Clear Cache Tool (Clear Cache, Clear Search History, Clear Anime and Asian Lists Cache), Open Settings Menu, Backup and Reset (Backup / Restore Settings) and Changelog.
+
+v6.0.144
+- New: empty "Tools" entry added to the main menu after Settings.
+
+v6.0.143
+- Change: in the Movies and TV Shows menus the Search entry now sits after Most Voted.
+
+v6.0.142
+- Change: the Search row in the Anime and Asian Cinema & TV menus is labelled "Search Movies & TV Shows".
+
+v6.0.141
+- New: Search row at the bottom of each Anime / Asian Movies / TV Shows submenu, searching only that kind (for example Asian Movies only).
+
+v6.0.140
+- New: scoped search in the Anime and Asian Cinema & TV menus: TMDb search narrowed to anime (Japanese animation) or Asian-language movies and TV.
+
+v6.0.139
+- Change: main menu now has two hubs, Anime and Asian Cinema & TV, each with Movies and TV Shows submenus.
+
+v6.0.138
+- New: Anime Movies menu (the Anime menu's rows, movie format only), listed below Anime.
+
+v6.0.137
+- New: Asian Movies menu using the Asian Drama layout (country lists, Trending, Most Watched, Top Rated, Genres) with movie data.
+
+v6.0.136
+- Change: main Asian Drama Trending is the five country lists combined.
+
+v6.0.135
+- New: Japanese Drama gets Most Watched This Week / This Month.
+
+v6.0.134
+- Change: Asian Drama country Trending ranks new dramas by their combined IMDb / TMDb / Trakt rating.
+
+v6.0.133
+- New: Trending added to the Asian Drama main menu.
+
+v6.0.132
+- Change: Asian Drama Most Watched This Week / This Month now come before Popular.
+
+v6.0.131
+- Change: Chinese Drama is listed before Korean Drama.
+
+v6.0.130
+- New: Asian Drama menus (Discover + Trakt).
+- Fix: Trakt items carrying a plex-id object no longer break the listing.
+
+v6.0.126-6.0.129
+- Change: Anime menu fully AniList-backed (Trending and Popular with five periods, Airing Next Season, genres), the way Otaku does it.
+- Fix: Multi Select paging.
+
+v6.0.124
+- New: Anime Trending gets Otaku's five entries (Last Year, This Year, Last Season, This Season, All Time) ahead of the Simkl 24 hour / 7 day / 30 day windows.
+
+v6.0.123
+- Change: Anime menu is native (Simkl CDN); Otaku Testing is no longer needed.
+
+v6.0.121-6.0.122
+- Change: Anime and Asian Drama become two separate main menus.
+
+v6.0.117-6.0.119
+- Fix: the Simkl Dropped, Plan-To-Watch, Watching, On-Hold, Completed and Next Up views now list anime too.
+
+v6.0.113-6.0.116
+- Fix: Simkl list statuses of the whole account reach the local flags, so Remove From Dropped / Hold / Plan works for items put there elsewhere.
+- Fix: Simkl status changes are exclusive, so Plan -> Hold no longer leaves two "Remove" entries; the watchlist mirror to Simkl clears the other status flags.
+- Fix: Simkl watched sync reaches anime and uses the watched-episode count for completed shows.
+
+v6.0.112
+- Fix: an MDBList own-list tag turned Trakt's "Add To User List" into "Remove" (regression from 6.0.108).
+
+v6.0.110-6.0.111
+- Fix: the Simkl Dropped view showed the whole library; taking an anime off a Simkl list now finds it in the anime bucket.
+
+v6.0.109
+- Change: logging out of MDBList or Simkl clears its local sync data.
+
+v6.0.108
+- New: MDBList list management: Add / Remove To List wired in, New List, Manage Lists.
+
+v6.0.104-6.0.107
+- Fix: Simkl Drop falls back to "dropped"; the bridge's skip-dropped filters match both status names.
+- Fix: taking a show or movie off Plan-To-Watch, Hold or Dropped no longer wipes its watch history.
+- Change: a watched movie asks before going to Plan-To-Watch / Hold / Dropped; the Trakt / MDBList watchlist mirror leaves a watched Simkl movie alone.
+
+v6.0.103
+- New: Recently Watched Movies from the MDBList server.
+
+v6.0.102
+- New: Simkl Next Up.
+
+v6.0.101
+- New: Simkl rating and "Set As Watching".
+
+v6.0.99-6.0.100
+- New: Dropped shows for Trakt and MDBList; dropped shows are hidden from Progress and Next Up.
+
+v6.0.98
+- New: Reset Resume Position for MDBList and Simkl.
+
+v6.0.97
+- Fix: MDBList episodes that cannot be matched are given up on once instead of being retried.
+
+v6.0.95-6.0.96
+- Change: the Trakt / MDBList / Simkl bridge uses Seren's snapshot-delta design (shows are never pushed, season 0 is left out, Trakt is refreshed first).
+- New: Simkl joins the episode and watchlist sync.
+
+v6.0.94
+- Fix: Trakt sync now reads every page of its sync endpoints (it read only the first page before).
+- Change: the bridge gets a pushed-ledger, a per-cycle cap, real watch dates and a readiness gate.
+
+v6.0.92-6.0.93
+- Fix: MDBList / Simkl sync failure guard.
+- New: bulk whole-show / whole-season watched marks, which only fill in shows and seasons that have no individual episodes.
+
+v6.0.91
+- New: Account Info screens for Trakt, MDBList and Simkl.
+
+v6.0.87-6.0.90
+- Change: MDBList and Simkl menus reordered; MDBList menu parity with Seren (Liked Lists, User Lists, Next Up).
+- Fix: MDBList and Simkl menu rows have their own icons instead of Trakt's.
+
+v6.0.85-6.0.86
+- Fix: empty-body (HTTP 204) responses no longer raise JSONDecodeError.
+- Fix: settings label fixes (Simkl in the sync-notification label, Anime setting labels).
+
+v6.0.83-6.0.84
+- Fix: Trakt In-Progress Shows TypeError.
+- Fix: per-show Trakt progress sync restores watched-episode counts and season / episode rows.
+
+v6.0.82
+- New: Simkl / MDBList status-bucket menus and cross-service sync-engine fixes, ported from Seren 3.3.260.
+
+v6.0.78-6.0.81
+- New: Simkl cross-service sync (Phase F), including cross-device movie resume sync.
+- Fix: MDBList Recently Watched movies and combined lists.
+
+v6.0.76-6.0.77
+- New: Simkl scrobbler running alongside the Trakt and MDBList scrobblers (Phase D); three home-screen widget entries under Settings > Browse > Simkl (Phase E).
+
+v6.0.71-6.0.75
+- New: Simkl options in the context menu (Phase C): mark watched, mark unwatched, plan-to-watch, hold, drop, for movies, shows and seasons.
+
+v6.0.69-6.0.70
+- New: Simkl sign-in (PIN) and watched indicators (Phases A and B).
+
+v6.0.66-6.0.68
+- New: cross-service sync between Trakt and MDBList: context-menu actions mirror silently to the other service.
+
 v6.0.65
 - Fix: _parse_watchlist() in sync/itemdata.py now extracts tmdb_id from flat format (item['id'], confirmed from POV reference v6.0.54) with nested-format fallback. Timestamp falls back to '2000-01-01T00:00:00.000Z' sentinel (same pattern as store_last_activity) when no real field is present. Watchlist toggle now shows correct initial state on fresh DB without requiring a prior user interaction.
 - Fix: removed unreachable base-class update_rating_in_db() from ItemMDbListSyncBase. ItemMDbListRating always overrides this method for all media levels; the base version was never called.

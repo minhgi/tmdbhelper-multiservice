@@ -211,3 +211,11 @@ class TraktContent():
             from tmdbhelper.lib.api.trakt.methods.calendar import get_calendar_episodes_list
             self._get_calendar_episodes_list = get_calendar_episodes_list
             return self._get_calendar_episodes_list(self, *args, **kwargs)
+
+    def get_calendar_movies_list(self, *args, **kwargs):
+        try:
+            return self._get_calendar_movies_list(self, *args, **kwargs)
+        except AttributeError:
+            from tmdbhelper.lib.api.trakt.methods.calendar import get_calendar_movies_list
+            self._get_calendar_movies_list = get_calendar_movies_list
+            return self._get_calendar_movies_list(self, *args, **kwargs)

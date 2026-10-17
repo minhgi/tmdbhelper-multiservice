@@ -468,6 +468,163 @@ class ItemMDbListCollection(ItemMDbListSyncBase):
             mirror_collection_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, self.remove)
 
 
+class ItemMDbListDrop(ItemMDbListSyncBase):
+    """Drop a show on MDBList (one-way; restore from the Dropped Shows list). Show level only.
+
+    POST /sync/dropped {"shows": [{"ids": {"tmdb": N}, "dropped_at": "..."}]} (live-checked 2026-10-14: any known show is accepted, watch
+    history is not required, dropped_at is optional; an unknown id comes back as not_found {"shows": 1} plus an errors list) - a count or an
+    itemized list are both handled, and that case gets its own message.
+    """
+    preconfigured = True
+
+    def get_self(self):
+        if not super().get_self():
+            return None
+        if self.mdb_type != 'show':
+            return None
+        return self
+
+    def get_name(self):
+        return get_localized(32577)  # "Drop show"
+
+    def build_payload(self, extra_fields=None):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        return {'shows': [{'ids': {'tmdb': int(self.tmdb_id)}, 'dropped_at': ts}]}
+
+    def get_sync_response(self):
+        return self.call_api('sync', 'dropped')
+
+    @cached_property
+    def reply(self):
+        try:
+            data = self.sync_response.json()
+        except (ValueError, AttributeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    @cached_property
+    def not_found_shows(self):
+        from tmdbhelper.lib.script.sync.dropped import count_of
+        return count_of((self.reply.get('not_found') or {}).get('shows'))
+
+    @cached_property
+    def is_successful_sync(self):
+        return self.sync_response is not None and not self.not_found_shows
+
+    def display_dialog(self):
+        if self.sync_response is not None and self.not_found_shows:
+            Dialog().ok(self.name, get_localized(32579))
+            return
+        super().display_dialog()
+
+    def sync(self):
+        self.display_dialog()
+        self.refresh_containers()
+
+
+class ItemMDbListClearProgress(ItemMDbListSyncBase):
+    """Clear the resume point of a movie / episode on MDBList without marking it unwatched.
+
+    Endpoint: POST /scrobble/clear {"id": <playback entry id>}.
+    Shown only while a local resume point exists (paused_progress), same gate idea as Trakt's
+    progress item. The entry ids are looked up live from GET /sync/playback by TMDb ids rather
+    than taken from the local paused_id: the scrobbler writes paused_progress/paused_at on pause
+    but the id only arrives with the next playback sync, so a fresh bookmark has no id yet.
+    """
+    allow_episodes = True
+    preconfigured = True
+
+    def get_self(self):
+        if not super().get_self():
+            return None
+        if self.mdb_type not in ('movie', 'episode'):
+            return None  # show/season have no single resume point
+        if not self.get_sync_value('paused_progress'):
+            return None
+        return self
+
+    def get_name(self):
+        return get_localized(38209)  # "Reset resume position" (Kodi core string, same label as Trakt's item)
+
+    @staticmethod
+    def _to_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def get_playback_ids(self):
+        """Ids of this item's entries in GET /sync/playback, or None when the read failed."""
+        url = self.mdblist_api.get_request_url('sync', 'playback')
+        response = self.mdblist_api.get_api_request(url, headers=self.mdblist_api.auth_headers)
+        if response is None:
+            return None
+        try:
+            entries = response.json()
+        except (ValueError, AttributeError):
+            return None
+        if not isinstance(entries, list):
+            return None
+        tmdb_id = self._to_int(self.tmdb_id)
+        ids = []
+        for entry in entries:
+            if not isinstance(entry, dict) or entry.get('id') is None:
+                continue
+            if self.mdb_type == 'movie':
+                if entry.get('type') != 'movie':
+                    continue
+                if self._to_int(((entry.get('movie') or {}).get('ids') or {}).get('tmdb')) != tmdb_id:
+                    continue
+            else:
+                if entry.get('type') != 'episode':
+                    continue
+                episode = entry.get('episode') or {}
+                if self._to_int(((entry.get('show') or {}).get('ids') or {}).get('tmdb')) != tmdb_id:
+                    continue
+                if self._to_int(episode.get('season')) != self._to_int(self.season):
+                    continue
+                if self._to_int(episode.get('number')) != self._to_int(self.episode):
+                    continue
+            ids.append(entry['id'])
+        return ids
+
+    def get_sync_response(self):
+        """A dict (truthy for is_successful_sync) when every entry was cleared or none was left; None on failure."""
+        with BusyDialog():
+            ids = self.get_playback_ids()
+            if ids is None:
+                return None  # could not read the server - leave the local row alone
+            url = self.mdblist_api.get_request_url('scrobble', 'clear')
+            for playback_id in ids:
+                response = self.mdblist_api.get_api_request(
+                    url, postdata={'id': playback_id}, method='json',
+                    headers=self.mdblist_api.auth_headers)
+                if response is None:
+                    return None
+        return {'cleared': len(ids)}
+
+    def update_progress_in_db(self):
+        if not self.is_successful_sync:
+            return
+        try:
+            db_type = 'movie' if self.mdb_type == 'movie' else 'tv'
+            season = int(self.season) if self.mdb_type == 'episode' else None
+            episode = int(self.episode) if self.mdb_type == 'episode' else None
+            item_id = self.mdblist_syncdata.get_name(db_type, int(self.tmdb_id), season, episode)
+            self.mdblist_syncdata.cache.execute_sql(
+                'UPDATE simplecache SET paused_progress=0, paused_at=NULL, paused_id=NULL WHERE id=?',
+                (item_id,))
+        except Exception:
+            pass
+
+    def sync(self):
+        _ = self.sync_response
+        self.update_progress_in_db()
+        self.display_dialog()
+        self.refresh_containers()
+
+
 class ItemMDbListRating(ItemMDbListSyncBase):
     """Rate a movie, show, season, or episode on MDBList.
 

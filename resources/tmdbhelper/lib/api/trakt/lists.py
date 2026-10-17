@@ -56,7 +56,17 @@ class ListBasic(ContainerDirectory):
 
 
 class ListSync(ContainerDirectory):
-    def get_list_items(self, sync_type, item_type, page=1, limit=None, sort_by=None, sort_how=None, params=None, next_page=True, filters=None, tmdb_id=None, **kwargs):
+    def _keep_scope(self, items, scope):
+        """Keep the rows of an anime / Asian Progress list that belong to that scope (TMDb details, cached)."""
+        from tmdbhelper.lib.api.mdblist.lists import _in_scope
+        kept = []
+        for i in items:
+            tmdb_type = 'movie' if i.get('mediatype') == 'movie' else 'tv'
+            if i.get('id') and _in_scope(self.tmdb_api.get_request_sc(tmdb_type, i['id']) or {}, scope, tmdb_type):
+                kept.append(i)
+        return kept
+
+    def get_list_items(self, sync_type, item_type, page=1, limit=None, sort_by=None, sort_how=None, params=None, next_page=True, filters=None, tmdb_id=None, scope=None, **kwargs):
         from tmdbhelper.lib.api.trakt.sync.itemlist import ItemListSyncDataFactory
         from tmdbhelper.lib.items.itemlist import ItemListPagination
 
@@ -66,9 +76,13 @@ class ListSync(ContainerDirectory):
         if not sync_list.items:
             return
 
+        items = self._keep_scope(sync_list.items, scope) if scope else sync_list.items
+        if not items:
+            return
+
         limit = limit or self.trakt_api.sync_item_limit
         params_def = {item_type: params} if params else None
-        response = ItemListPagination({item_type: sync_list.items}, page=page or 1, limit=limit, params_def=params_def, filters=filters)
+        response = ItemListPagination({item_type: items}, page=page or 1, limit=limit, params_def=params_def, filters=filters)
 
         return response.items if not next_page or sort_by == 'random' else response.items + response.next_page
 
@@ -90,6 +104,45 @@ class ListSync(ContainerDirectory):
         self.container_content = convert_type(info_tmdb_type, 'container', items=items)
         self.plugin_category = get_plugin_category(info_model, convert_type(info_tmdb_type, 'plural'))
         return items
+
+
+class ListWatchlist(ListSync):
+    """Trakt watchlist; TV page 1 (not a widget) starts with a 'Drop Shows from Watchlist' action."""
+    def get_items(self, info, tmdb_type, page=None, **kwargs):
+        items = super().get_items(info, tmdb_type, page=page, **kwargs)
+        if tmdb_type != 'tv':
+            return items
+        from tmdbhelper.lib.script.sync.dropped import with_header, HEADER_TRAKT_DROP
+        return with_header(items, HEADER_TRAKT_DROP, self.is_widget, page)
+
+
+class ListDropped(ContainerDirectory):
+    """Trakt dropped shows - GET /users/hidden/dropped?type=show. Read live, never through the cached basic list, so a show
+    that was just dropped or restored is reflected at once. Page 1 (not a widget) starts with 'Restore Dropped Shows'."""
+    def get_items(self, info, tmdb_type=None, page=None, **kwargs):
+        from tmdbhelper.lib.api.trakt.api import is_authorized
+        from tmdbhelper.lib.api.trakt.items import TraktItems
+        from tmdbhelper.lib.items.pages import get_next_page
+        from tmdbhelper.lib.script.sync.dropped import with_header, HEADER_TRAKT_RESTORE
+
+        @is_authorized
+        def _get_response(api):
+            return api.get_response('users', 'hidden', 'dropped', type='show', page=try_int(page, fallback=1) or 1, limit=self.trakt_api.item_limit)
+
+        response = _get_response(self.trakt_api)
+        if response is None:
+            return
+        try:
+            data = response.json()
+        except (ValueError, AttributeError):
+            return
+        items = TraktItems(data, headers=response.headers, trakt_type='show').configure_items()['items']
+        self.tmdb_cache_only = False
+        self.kodi_db = self.get_kodi_database('tv')
+        self.library = 'video'
+        self.container_content = 'tvshows'
+        self.plugin_category = get_localized(32568)
+        return with_header(items, HEADER_TRAKT_RESTORE, self.is_widget, page) + (get_next_page(response.headers) if items else [])
 
 
 class ListToWatch(ListSync):
@@ -174,8 +227,34 @@ class ListBecauseYouWatched(ListSync):
 
 
 class ListCalendar(ContainerDirectory):
-    def _get_calendar_items(self, info, startdate, days, page=None, kodi_db=None, endpoint=None, user=True, **kwargs):
+    def _get_calendar_movies(self, startdate, days, page=None, endpoint=None, user=True, countries=None, calendar_filter=None, genres=None):
+        # Movies: the "All" calendar follows the region of TMDb Helper's language setting (Trakt filters by a title's
+        # country of origin); nothing is filtered when the region release filter is ignored. "Your" is never filtered.
+        # A calendar that names its own countries or genres (the Asian and Anime calendars) uses those instead, whatever the region setting says.
+        iso_region = None if user or countries or genres else self.tmdb_api.iso_region
+        items = self.trakt_api.get_calendar_movies_list(
+            try_int(startdate),
+            try_int(days),
+            user=user,
+            page=page,
+            endpoint=endpoint,
+            countries=countries or (iso_region.lower() if iso_region else None),
+            **{k: v for k, v in (('calendar_filter', calendar_filter), ('genres', genres)) if v})
+
+        self.kodi_db = self.get_kodi_database('movie')
+        self.tmdb_cache_only = False
+        self.library = 'video'
+        self.container_content = 'movies'
+        return items
+
+    def _get_calendar_items(self, info, startdate, days, page=None, kodi_db=None, endpoint=None, user=True, tmdb_type=None, countries=None, calendar_filter=None, genres=None, unstacked=None, **kwargs):
         from tmdbhelper.lib.addon.tmdate import get_calendar_name
+
+        if tmdb_type == 'movie':
+            items = self._get_calendar_movies(startdate, days, page=page, endpoint=endpoint, user=user, countries=countries, calendar_filter=calendar_filter, genres=genres)
+            self.plugin_category = get_calendar_name(startdate=try_int(startdate), days=try_int(days))
+            self.thumb_override = get_setting('calendar_art', 'int')
+            return items
 
         items = self.trakt_api.get_calendar_episodes_list(
             try_int(startdate),
@@ -183,7 +262,9 @@ class ListCalendar(ContainerDirectory):
             kodi_db=kodi_db,
             user=user,
             page=page,
-            endpoint=endpoint)
+            endpoint=endpoint,
+            **{k: v for k, v in (('countries', countries), ('calendar_filter', calendar_filter), ('genres', genres)) if v},
+            **({'stack': False} if unstacked == 'true' else {}))
 
         self.kodi_db = self.get_kodi_database('tv')
         self.tmdb_cache_only = False
@@ -208,19 +289,21 @@ class ListLibraryCalendar(ListCalendar):
 
 
 class ListOnDeck(ListSync):
-    def get_ondeck_movies(self, page=None, sort_by=None, sort_how=None, unwatched=False, **kwargs):
+    def get_ondeck_movies(self, page=None, sort_by=None, sort_how=None, unwatched=False, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        from tmdbhelper.lib.api.mdblist.lists import _get_scope
         self.container_content = 'movies'
         self.plugin_category = f'{get_localized(32196)} {convert_type("movie", "plural")}'
         self.kodi_db = self.get_kodi_database('movie')
         sync_type = 'unwatchedplayback' if unwatched else 'playback'
-        return self.get_list_items(sync_type=sync_type, item_type='movie', page=page, sort_by=sort_by, sort_how=sort_how)
+        return self.get_list_items(sync_type=sync_type, item_type='movie', page=page, sort_by=sort_by, sort_how=sort_how, scope=_get_scope(anime_only, asian_only, other_only))
 
-    def get_ondeck_episodes(self, page=None, sort_by=None, sort_how=None, unwatched=False, **kwargs):
+    def get_ondeck_episodes(self, page=None, sort_by=None, sort_how=None, unwatched=False, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        from tmdbhelper.lib.api.mdblist.lists import _get_scope
         self.container_content = 'episodes'
         self.plugin_category = get_localized(32406)
         self.kodi_db = self.get_kodi_database('tv')
         sync_type = 'unwatchedplayback' if unwatched else 'playback'
-        return self.get_list_items(sync_type=sync_type, item_type='episode', page=page, sort_by=sort_by, sort_how=sort_how)
+        return self.get_list_items(sync_type=sync_type, item_type='episode', page=page, sort_by=sort_by, sort_how=sort_how, scope=_get_scope(anime_only, asian_only, other_only))
 
     def get_items(self, **kwargs):
         self.tmdb_cache_only = False
@@ -237,12 +320,13 @@ class ListOnDeckUnWatched(ListOnDeck):
 
 
 class ListInProgress(ListOnDeck):
-    def get_items(self, info, tmdb_type, page=None, sort_by=None, sort_how=None, **kwargs):
+    def get_items(self, info, tmdb_type, page=None, sort_by=None, sort_how=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        from tmdbhelper.lib.api.mdblist.lists import _get_scope
         self.tmdb_cache_only = False
         self.library = convert_type(tmdb_type, 'library')
 
         if tmdb_type != 'tv':
-            return self.get_ondeck_movies(page=page, sort_by=sort_by, sort_how=sort_how, **kwargs)
+            return self.get_ondeck_movies(page=page, sort_by=sort_by, sort_how=sort_how, anime_only=anime_only, asian_only=asian_only, other_only=other_only, **kwargs)
 
         params = {
             'info': 'trakt_upnext',
@@ -252,11 +336,14 @@ class ListInProgress(ListOnDeck):
         self.kodi_db = self.get_kodi_database(tmdb_type)
         self.container_content = convert_type(tmdb_type, 'container')
         self.plugin_category = f'{get_localized(32196)} {convert_type(tmdb_type, "plural")}'
-        return self.get_list_items(sync_type='inprogress', item_type='show', page=page, sort_by=sort_by, sort_how=sort_how, params=params)
+        return self.get_list_items(
+            sync_type='inprogress', item_type='show', page=page, sort_by=sort_by, sort_how=sort_how, params=params,
+            scope=_get_scope(anime_only, asian_only, other_only))
 
 
 class ListNextEpisodes(ListSync):
-    def get_items(self, info, tmdb_type, page=None, **kwargs):
+    def get_items(self, info, tmdb_type, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        from tmdbhelper.lib.api.mdblist.lists import _get_scope
         if tmdb_type != 'tv':
             return
         self.tmdb_cache_only = False
@@ -268,7 +355,8 @@ class ListNextEpisodes(ListSync):
         self.container_content = 'episodes'
         self.thumb_override = get_setting('calendar_art', 'int')
         self.plugin_category = get_localized(32197)
-        return self.get_list_items(sync_type='nextup', item_type='episode', page=page, sort_by=sort_by, sort_how=sort_how)
+        return self.get_list_items(
+            sync_type='nextup', item_type='episode', page=page, sort_by=sort_by, sort_how=sort_how, scope=_get_scope(anime_only, asian_only, other_only))
 
 
 class ListUpNext(ListSync):
@@ -354,6 +442,25 @@ class ListCustomSearch(ContainerDirectory):
             self.container_update = f'{encode_url(PLUGINPATH, **kwargs)},replace'
         items = self.trakt_api.get_list_of_lists(path=f'search/list?query={query}&fields=name', sort_likes=True, authorize=False)
         self.library = 'video'
+        return items
+
+
+class ListUserLists(ContainerDirectory):
+    """Browse another Trakt user's public lists (GET users/{username}/lists)."""
+
+    def get_items(self, username=None, page=None, **kwargs):
+        if not username:
+            from xbmcgui import Dialog
+            kwargs['username'] = username = Dialog().input(get_localized(32573))
+            if not username:
+                return
+            self.container_update = f'{encode_url(PLUGINPATH, **kwargs)},replace'
+        from urllib.parse import quote
+        from xbmcplugin import SORT_METHOD_UNSORTED
+        items = self.trakt_api.get_list_of_lists(path=f"users/{quote(username, safe='')}/lists", page=page or 1, authorize=False)
+        self.library = 'video'
+        self.plugin_category = f'{get_localized(32573)}: {username}'
+        self.sort_methods = [{'sortMethod': SORT_METHOD_UNSORTED, 'label2Mask': '%U'}]  # Label2 Mask by Studio (i.e. User Name)
         return items
 
 

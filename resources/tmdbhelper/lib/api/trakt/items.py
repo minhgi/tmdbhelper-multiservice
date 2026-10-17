@@ -129,6 +129,8 @@ def _get_item_unique_ids(item, unique_ids=None, prefix=None, show=None):
     prefix = prefix or ''
     unique_ids = unique_ids or {}
     for k, v in item.get('ids', {}).items():
+        if isinstance(v, (dict, list)):  # Trakt now sends plex as {'guid': ..., 'slug': ...}; Kodi properties must be strings
+            continue
         unique_ids[f'{prefix}{k}'] = v
     if show:
         unique_ids = _get_item_unique_ids(show, unique_ids, prefix='tvshow.')

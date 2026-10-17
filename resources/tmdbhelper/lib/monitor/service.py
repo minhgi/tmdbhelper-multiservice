@@ -2,6 +2,7 @@ from tmdbhelper.lib.addon.plugin import get_setting
 from jurialmunkey.window import get_property, wait_for_property
 from tmdbhelper.lib.monitor.listitemtools import ListItemMonitorFunctions
 from tmdbhelper.lib.monitor.cronjob import CronJobMonitor
+from tmdbhelper.lib.monitor.widget_warmer import WidgetWarmer
 from tmdbhelper.lib.monitor.player import PlayerMonitor
 from tmdbhelper.lib.monitor.update import UpdateMonitor
 from tmdbhelper.lib.monitor.imgmon import ImagesMonitor
@@ -24,6 +25,10 @@ class ServiceMonitor(Poller):
         self.cron_job = CronJobMonitor(self, update_hour=get_setting('library_autoupdate_hour', 'int'))
         self.cron_job.setName('Cron Thread')
         self.cron_job.start()
+
+        self.widget_warmer = WidgetWarmer(self)
+        self.widget_warmer.setName('Widget Warmer Thread')
+        self.widget_warmer.start()
 
         self.images_monitor = ImagesMonitor(self)
         self.images_monitor.setName('Image Thread')
@@ -63,6 +68,7 @@ class ServiceMonitor(Poller):
 
     def _on_exit(self):
         self.cron_job.exit = True
+        self.widget_warmer.exit = True
         self.images_monitor.exit = True
         if not self.update_monitor.abortRequested():
             get_property('ServiceStarted', clear_property=True)

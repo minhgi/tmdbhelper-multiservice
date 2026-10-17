@@ -8,8 +8,9 @@ from tmdbhelper.lib.items.itemlist import ItemListPagination, ListPagination
 class MDbListPaginationLists(ListPagination):
     """ Paginates and configures items in a list of lists """
 
-    @staticmethod
-    def map_item(i):
+    owner = False  # True when the list of lists is the signed-in user's own ('Your lists')
+
+    def map_item(self, i):
         item = {}
         item['label'] = i.get('name')
         item['infolabels'] = {'plot': i.get('description'), 'studio': [i.get('user_name')]}
@@ -25,6 +26,10 @@ class MDbListPaginationLists(ListPagination):
             'user': i.get('user_id')}
         if i.get('dynamic'):
             item['params']['dynamic'] = 'true'
+        if self.owner:
+            # Lets the list's items offer 'Remove from list' (only own lists can be edited). NOT named 'owner': Trakt's
+            # 'Add to user list' item reads param.owner too (without checking the source) and would turn into 'Remove'.
+            item['params']['mdblist_owner'] = 'true'
         return item
 
     @property
@@ -185,13 +190,45 @@ class MDbList(RequestAPI):
                 postdata={'token': token, 'client_id': self.client_id})
 
         self.user_token.value = ''
+        self.mdblist_syncdata.clear_all()  # Nothing of this account may survive into the next login
         kodi_log('MDBList logged out', 1)
+        from tmdbhelper.lib.script.method.kodi_utils import container_refresh
+        container_refresh()
         Dialog().ok('MDBList', 'MDBList account logged out.')
 
     def modify_static_list(self, list_id, media_type, media_id, media_provider='tmdb', action='add'):
         item = {f'{media_type}s': [{media_provider: media_id}]}
         path = self.get_request_url('lists', list_id, 'items', action)
         return self.get_api_request(path, postdata=item, method='json')
+
+    def get_static_lists(self):
+        """ Own static lists (dynamic lists reject manual add/remove). Never cached, so a picker opened straight
+        after a create / rename / delete is current. Returns None without credentials, a (possibly empty) list otherwise. """
+        if not (self.api_key or self.user_token.value):
+            return
+        response = self.get_request('lists', 'user', headers=self.auth_headers or None, cache_refresh=True)
+        return [i for i in (response if isinstance(response, list) else []) if isinstance(i, dict) and not i.get('dynamic')]
+
+    def write_list_request(self, method, *path_parts, payload=None):
+        """ List-management write. Returns the response object whatever its status (None only if the request never got
+        an answer), because get_api_request throws a 4xx body away and the list limit (403) has to be told apart.
+        reqapi has no JSON-body PUT ('put' sends form data), so PUT carries a serialised body plus a Content-Type. """
+        from json import dumps
+        headers = dict(self.auth_headers)
+        if method == 'put':
+            headers['Content-Type'] = 'application/json'
+            payload = dumps(payload)
+        return self.get_simple_api_request(
+            self.get_request_url(*path_parts), postdata=payload, headers=headers or None, method=method)
+
+    def create_list(self, name, private=True):
+        return self.write_list_request('json', 'lists', 'user', 'add', payload={'name': name, 'private': bool(private)})
+
+    def update_list(self, list_id, **fields):
+        return self.write_list_request('put', 'lists', list_id, payload=fields)
+
+    def delete_list(self, list_id):
+        return self.write_list_request('delete', 'lists', list_id)
 
     def get_details(self, media_type, media_id, media_provider='tmdb'):
         return self.get_request_sc(media_provider, media_type, media_id)  # TODO: Add append_to_response=review ?
@@ -201,9 +238,10 @@ class MDbList(RequestAPI):
         response = MDbListRatingMapping(response)
         return response.ratings
 
-    def get_list_of_lists(self, path, page=1, limit: int = None):
+    def get_list_of_lists(self, path, page=1, limit: int = None, owner=False):
         response = self.get_request_sc(path, cache_refresh=True if page == 1 else False)
         response = MDbListPaginationLists(response, page=page, limit=limit or 250)
+        response.owner = owner
         return response.items if not response.next_page else response.items + response.next_page
 
     def get_list_of_lists_search(self, query):

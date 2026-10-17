@@ -5,6 +5,8 @@ from jurialmunkey.checks import has_arg_value
 from tmdbhelper.lib.addon.consts import LASTACTIVITIES_DATA
 from tmdbhelper.lib.api.trakt.sync.database import SyncDataBase
 
+SYNC_RECHECK = 5  # seconds a data route is trusted as up to date after it was checked (see sync())
+
 
 class SyncDataSetters:
     """ Add-in class to group setter methods for SyncData class """
@@ -226,6 +228,9 @@ class SyncDataGetterAllUnHiddenShowsInProgress:
         return True
 
     def is_inprogress_show(self, tmdb_id, aired_episodes, watched_episodes):
+        # Counts are NULL until a watched sync has stored them (e.g. rows written by an older version) - unknown means still in progress
+        if aired_episodes is None or watched_episodes is None:
+            return True
         if aired_episodes <= watched_episodes:
             if self.is_calendar_watched(tmdb_id):
                 return False
@@ -366,6 +371,7 @@ class SyncData(SyncDataGetters):
 
     def reset_lastactivities(self):
         self.window.get_property(LASTACTIVITIES_DATA, clear_property=True)  # Wipe new last activities cache
+        self.__dict__.pop('_sync_checked', None)
 
     @cached_property
     def cache(self):
@@ -403,6 +409,15 @@ class SyncData(SyncDataGetters):
         return data[0] if data else None
 
     def sync(self, item_type, keys, forced=False):
+        """ Make sure the synced data is up to date for these keys. Every value read calls this, so a route that was checked
+        in the last SYNC_RECHECK seconds is not checked again (each check takes a cross-process lock and reads the stored
+        activity): a list of 20 items used to do ~100 checks. forced=True and reset_lastactivities() always bypass it. """
         from jurialmunkey.modimp import importmodule
+        from time import monotonic
+        checked = self.__dict__.setdefault('_sync_checked', {})
         for route in set([j for j in (self.routes.get(k) for k in keys) if j]):
+            stamp = (route, item_type)
+            if not forced and monotonic() - checked.get(stamp, -SYNC_RECHECK) < SYNC_RECHECK:
+                continue
             importmodule(*route)(self, item_type).sync(forced=forced)
+            checked[stamp] = monotonic()

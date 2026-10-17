@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <!-- Movie Calendar: month poster grid, laid out like Seren's Movie Calendar.
+         Uses only font12/13/37 (present in Estuary and Titan) and the media calendar_bg.png / white.png; styled like the TV show page (script-tmdbhelper-showcalendar.xml).
+         Properties set by resources/tmdbhelper/lib/window/moviecalendar.py: window_title, month_year_label, no_items.
+         Tile properties come from the calendar list items: air_date_short, days_until_aired, days_from_aired. -->
+    <coordinates>
+        <left>0</left>
+        <top>0</top>
+        <width>1920</width>
+        <height>1080</height>
+    </coordinates>
+    <defaultcontrol always="true">1000</defaultcontrol>
+    <controls>
+
+        <!-- Background (same as the TV show page) -->
+        <control type="image">
+            <left>0</left>
+            <top>0</top>
+            <width>1920</width>
+            <height>1080</height>
+            <aspectratio>stretch</aspectratio>
+            <texture>calendar_bg.png</texture>
+        </control>
+
+        <!-- Title and month -->
+        <control type="label">
+            <left>40</left>
+            <top>22</top>
+            <width>700</width>
+            <height>44</height>
+            <font>font37</font>
+            <textcolor>FFFFFFFF</textcolor>
+            <aligny>center</aligny>
+            <label>$INFO[Window.Property(window_title)]</label>
+        </control>
+        <control type="label">
+            <left>0</left>
+            <top>68</top>
+            <width>1920</width>
+            <height>48</height>
+            <font>font37</font>
+            <textcolor>FFFFFFFF</textcolor>
+            <align>center</align>
+            <aligny>center</aligny>
+            <label>[B]$INFO[Window.Property(month_year_label)][/B]</label>
+        </control>
+
+        <!-- Month buttons and Close -->
+        <control type="group">
+            <left>1410</left>
+            <top>26</top>
+            <control type="button" id="3001">
+                <left>160</left>
+                <top>0</top>
+                <width>70</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>&lt;</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onright>3002</onright>
+                <ondown>1000</ondown>
+            </control>
+            <control type="button" id="3002">
+                <left>240</left>
+                <top>0</top>
+                <width>70</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>&gt;</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onleft>3001</onleft>
+                <onright>2999</onright>
+                <ondown>1000</ondown>
+            </control>
+            <control type="button" id="2999">
+                <left>320</left>
+                <top>0</top>
+                <width>150</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>Close</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onleft>3002</onleft>
+                <ondown>1000</ondown>
+            </control>
+        </control>
+
+        <!-- Empty month -->
+        <control type="label">
+            <left>0</left>
+            <top>480</top>
+            <width>1920</width>
+            <height>60</height>
+            <font>font37</font>
+            <textcolor>99FFFFFF</textcolor>
+            <align>center</align>
+            <aligny>center</aligny>
+            <label>No movies this month</label>
+            <visible>!String.IsEmpty(Window.Property(no_items))</visible>
+        </control>
+
+        <!-- Scrollbar -->
+        <control type="scrollbar" id="1111">
+            <left>1908</left>
+            <top>130</top>
+            <width>8</width>
+            <height>900</height>
+            <onleft>1000</onleft>
+            <showonepage>false</showonepage>
+            <orientation>vertical</orientation>
+            <texturesliderbackground colordiffuse="22FFFFFF">white.png</texturesliderbackground>
+            <texturesliderbar colordiffuse="66FFFFFF">white.png</texturesliderbar>
+            <texturesliderbarfocus colordiffuse="FF0F89AE">white.png</texturesliderbarfocus>
+        </control>
+
+        <!-- Poster grid. Left / Right off the edge of the grid land on the month buttons (see moviecalendar.py onAction) -->
+        <control type="panel" id="1000">
+            <viewtype label="Grid">panel</viewtype>
+            <pagecontrol>1111</pagecontrol>
+            <onleft>3001</onleft>
+            <onright>3002</onright>
+            <onup>3001</onup>
+            <left>40</left>
+            <top>122</top>
+            <width>1840</width>
+            <height>908</height>
+
+            <itemlayout width="230" height="400">
+                <!-- poster -->
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <aspectratio>stretch</aspectratio>
+                    <texture>DefaultVideo.png</texture>
+                    <visible>String.IsEmpty(ListItem.Art(poster))</visible>
+                    <colordiffuse>AAFFFFFF</colordiffuse>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <aspectratio>stretch</aspectratio>
+                    <texture>$INFO[ListItem.Art(poster)]</texture>
+                    <visible>!String.IsEmpty(ListItem.Art(poster))</visible>
+                    <colordiffuse>AAFFFFFF</colordiffuse>
+                </control>
+                <!-- title on the lower edge of the poster -->
+                <control type="image">
+                    <left>10</left>
+                    <top>275</top>
+                    <width>210</width>
+                    <height>48</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>14</left>
+                    <top>277</top>
+                    <width>202</width>
+                    <height>44</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <wrapmultiline>true</wrapmultiline>
+                    <label>$INFO[ListItem.Label]</label>
+                </control>
+                <!-- badge, top-right of the poster: days until release (grey) or released (green star) -->
+                <control type="image">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF9E9E9E</colordiffuse>
+                    <visible>!String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="label">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(days_until_aired)]</label>
+                    <visible>!String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="image">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF4CAF50</colordiffuse>
+                    <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="image">
+                    <left>180</left>
+                    <top>24</top>
+                    <width>24</width>
+                    <height>24</height>
+                    <texture>star.png</texture>
+                    <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <!-- bottom-left: release date -->
+                <control type="image">
+                    <left>10</left>
+                    <top>328</top>
+                    <width>140</width>
+                    <height>36</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>16</left>
+                    <top>328</top>
+                    <width>132</width>
+                    <height>36</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>left</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_date_short)]</label>
+                </control>
+                <!-- bottom-right: rating -->
+                <control type="image">
+                    <left>150</left>
+                    <top>328</top>
+                    <width>70</width>
+                    <height>36</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>150</left>
+                    <top>328</top>
+                    <width>64</width>
+                    <height>36</height>
+                    <font>font12</font>
+                    <textcolor>FFFFD700</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Rating]</label>
+                </control>
+            </itemlayout>
+
+            <focusedlayout width="230" height="400">
+                <!-- accent glow behind the poster -->
+                <control type="image">
+                    <left>4</left>
+                    <top>4</top>
+                    <width>222</width>
+                    <height>327</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF0F89AE</colordiffuse>
+                    <visible>Control.HasFocus(1000)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <aspectratio>stretch</aspectratio>
+                    <texture>DefaultVideo.png</texture>
+                    <visible>String.IsEmpty(ListItem.Art(poster))</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <aspectratio>stretch</aspectratio>
+                    <texture>$INFO[ListItem.Art(poster)]</texture>
+                    <visible>!String.IsEmpty(ListItem.Art(poster))</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>275</top>
+                    <width>210</width>
+                    <height>48</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>14</left>
+                    <top>277</top>
+                    <width>202</width>
+                    <height>44</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <wrapmultiline>true</wrapmultiline>
+                    <label>$INFO[ListItem.Label]</label>
+                </control>
+                <control type="image">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF9E9E9E</colordiffuse>
+                    <visible>!String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="label">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(days_until_aired)]</label>
+                    <visible>!String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="image">
+                    <left>172</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF4CAF50</colordiffuse>
+                    <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="image">
+                    <left>180</left>
+                    <top>24</top>
+                    <width>24</width>
+                    <height>24</height>
+                    <texture>star.png</texture>
+                    <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>328</top>
+                    <width>140</width>
+                    <height>36</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>16</left>
+                    <top>328</top>
+                    <width>132</width>
+                    <height>36</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>left</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_date_short)]</label>
+                </control>
+                <control type="image">
+                    <left>150</left>
+                    <top>328</top>
+                    <width>70</width>
+                    <height>36</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>99000000</colordiffuse>
+                </control>
+                <control type="label">
+                    <left>150</left>
+                    <top>328</top>
+                    <width>64</width>
+                    <height>36</height>
+                    <font>font12</font>
+                    <textcolor>FFFFD700</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Rating]</label>
+                </control>
+            </focusedlayout>
+        </control>
+    </controls>
+</window>

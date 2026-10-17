@@ -259,8 +259,6 @@ class CommonMonitorDetails(CommonContainerAPIs):
     def get_person_stats(self, item, tmdb_type, tmdb_id):
         if tmdb_type != 'person':
             return item
-
-            return item
         try:
             name = item['infolabels']['title']
         except (KeyError, AttributeError, NameError):

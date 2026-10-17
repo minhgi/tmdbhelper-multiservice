@@ -2713,7 +2713,7 @@ msgstr ""
 
 #: /resources/settings.xml
 msgctxt "#32534"
-msgid "Trakt / MDBList sync progress notifications"
+msgid "Trakt / MDBList / Simkl sync progress notifications"
 msgstr ""
 
 msgctxt "#30030"
@@ -3126,4 +3126,632 @@ msgstr ""
 
 msgctxt "#32564"
 msgid "In-Progress"
+msgstr ""
+
+msgctxt "#32565"
+msgid "Sync Interval (Minutes)"
+msgstr ""
+
+msgctxt "#32566"
+msgid "How often Cross-Service Sync runs its full reconciliation pass, in minutes. Lower values pick up changes made outside Kodi sooner; higher values make fewer API calls."
+msgstr ""
+
+msgctxt "#32567"
+msgid "Collection"
+msgstr ""
+
+msgctxt "#32568"
+msgid "Dropped Shows"
+msgstr ""
+
+msgctxt "#32569"
+msgid "Anime"
+msgstr ""
+
+msgctxt "#32570"
+msgid "Anime episode enrichment (Seren)"
+msgstr ""
+
+msgctxt "#32571"
+msgid "Overlay anime-specific episode titles, plots, and thumbnails from Seren's anime cache. Requires Seren with anime features enabled."
+msgstr ""
+
+msgctxt "#32572"
+msgid "Next Up"
+msgstr ""
+
+msgctxt "#32573"
+msgid "User Lists"
+msgstr ""
+
+msgctxt "#32574"
+msgid "Account Info"
+msgstr ""
+
+msgctxt "#32575"
+msgid "Restore Dropped Shows"
+msgstr ""
+
+msgctxt "#32576"
+msgid "Drop Shows from Watchlist"
+msgstr ""
+
+msgctxt "#32577"
+msgid "Drop show"
+msgstr ""
+
+msgctxt "#32579"
+msgid "MDBList could not find this show."
+msgstr ""
+
+msgctxt "#32580"
+msgid "Trakt could not find this show."
+msgstr ""
+
+msgctxt "#32581"
+msgid "There are no dropped shows."
+msgstr ""
+
+msgctxt "#32582"
+msgid "There are no shows on your watchlist."
+msgstr ""
+
+msgctxt "#32583"
+msgid "{} show(s) restored."
+msgstr ""
+
+msgctxt "#32584"
+msgid "{} show(s) dropped."
+msgstr ""
+
+msgctxt "#32585"
+msgid "The list could not be read or updated. Please try again."
+msgstr ""
+
+msgctxt "#32586"
+msgid "Not logged in."
+msgstr ""
+
+msgctxt "#32587"
+msgid "Set as watching"
+msgstr ""
+
+msgctxt "#32588"
+msgid "Removing it from this list also deletes your Simkl rating ({}). Remove it anyway?"
+msgstr ""
+
+msgctxt "#32589"
+msgid "This movie is marked as watched on Simkl. Moving it to this list marks it as unwatched there. Continue?"
+msgstr ""
+
+msgctxt "#32590"
+msgid "Private"
+msgstr ""
+
+msgctxt "#32591"
+msgid "Public"
+msgstr ""
+
+msgctxt "#32592"
+msgid "Make this list private or public?"
+msgstr ""
+
+msgctxt "#32593"
+msgid "MDbList did not create the list. You may have reached your MDbList list limit."
+msgstr ""
+
+msgctxt "#32594"
+msgid "Manage MDbList lists"
+msgstr ""
+
+msgctxt "#32595"
+msgid "Edit list (name and privacy)"
+msgstr ""
+
+msgctxt "#32596"
+msgid "Delete list"
+msgstr ""
+
+msgctxt "#32597"
+msgid "MDbList could not complete that request."
+msgstr ""
+
+msgctxt "#32598"
+msgid "MDbList list '{}' updated."
+msgstr ""
+
+msgctxt "#32599"
+msgid "Delete the MDbList list '{}'? This cannot be undone."
+msgstr ""
+
+msgctxt "#32600"
+msgid "MDbList list '{}' deleted."
+msgstr ""
+
+msgctxt "#32601"
+msgid "Language and country, the MPAA prefix, and where TMDb Helper gets extra details and artwork (your local Kodi library and TMDb)."
+msgstr ""
+
+msgctxt "#32602"
+msgid "What selecting an item does, and which unaired items, specials and season folders are hidden or flattened."
+msgstr ""
+
+msgctxt "#32603"
+msgid "Options for widgets: the next page item, hiding watched items, and how Next Aired and Next Episodes behave."
+msgstr ""
+
+msgctxt "#32604"
+msgid "Add items to your Kodi library: folders, automatic updates and Trakt list monitoring."
+msgstr ""
+
+msgctxt "#32605"
+msgid "Your OMDb, Fanart.tv, TVDb and TMDb keys and tokens, and how artwork lookups use them."
+msgstr ""
+
+msgctxt "#32606"
+msgid "Connect Trakt, MDBList and Simkl, choose what each one syncs, and set up Cross-Service Sync."
+msgstr ""
+
+msgctxt "#32607"
+msgid "Choose the default players and install or configure the players used to play movies and episodes."
+msgstr ""
+
+msgctxt "#32608"
+msgid "Item details and context menus: caching, page sizes, which context menu entries show, icon folders and notifications."
+msgstr ""
+
+msgctxt "#32609"
+msgid "Advanced options: dummy playback tuning, player rerouting, threads, cache locations, backup and logging."
+msgstr ""
+
+msgctxt "#32610"
+msgid "When on, lists and details are not limited to releases in your chosen country (see Language and country)."
+msgstr ""
+
+msgctxt "#32611"
+msgid "Adds details from your local Kodi library, such as watched state and local files, to items that are also in it."
+msgstr ""
+
+msgctxt "#32612"
+msgid "Looks up extra details and artwork from TMDb for the items in lists. Turning it off is faster but shows less information."
+msgstr ""
+
+msgctxt "#32613"
+msgid "Size of the artwork downloaded from TMDb. Larger looks better but loads more slowly."
+msgstr ""
+
+msgctxt "#32614"
+msgid "What selecting a movie or episode does in the add-on: play it, or open its related items."
+msgstr ""
+
+msgctxt "#32615"
+msgid "Hides movies that have not been released yet."
+msgstr ""
+
+msgctxt "#32616"
+msgid "Hides episodes that have not aired yet."
+msgstr ""
+
+msgctxt "#32617"
+msgid "Treats items with no air or release date as unaired, so the hide unaired options hide them too."
+msgstr ""
+
+msgctxt "#32618"
+msgid "Choose which of the Specials, Up Next and Episode Groups folders appear in a TV show's season list."
+msgstr ""
+
+msgctxt "#32619"
+msgid "Lists the episodes of all seasons together instead of opening a folder for each season."
+msgstr ""
+
+msgctxt "#32620"
+msgid "Adds a Next Page item to the end of long widget lists."
+msgstr ""
+
+msgctxt "#32621"
+msgid "Hides watched items in widgets."
+msgstr ""
+
+msgctxt "#32622"
+msgid "When several episodes of one show air on the same day, shows them as a single item."
+msgstr ""
+
+msgctxt "#32623"
+msgid "Selecting an item in the Next Aired library calendar opens the show in your local Kodi library."
+msgstr ""
+
+msgctxt "#32624"
+msgid "Artwork used for episode thumbnails in calendars and Next Episodes: thumbs, fanart or landscape."
+msgstr ""
+
+msgctxt "#32625"
+msgid "How Next Episodes are sorted: by air date, recently watched, today's or last week's."
+msgstr ""
+
+msgctxt "#32626"
+msgid "Checks the Trakt calendar when working out next episodes. More accurate but slower."
+msgstr ""
+
+msgctxt "#32627"
+msgid "Folder where movies added to your library are saved."
+msgstr ""
+
+msgctxt "#32628"
+msgid "Folder where TV shows added to your library are saved."
+msgstr ""
+
+msgctxt "#32629"
+msgid "Updates the Kodi video library straight after you add an item to it."
+msgstr ""
+
+msgctxt "#32630"
+msgid "Updates the library once a day at the chosen time, adding new or missing episodes of the shows you have added."
+msgstr ""
+
+msgctxt "#32631"
+msgid "Time of day for the automatic library update."
+msgstr ""
+
+msgctxt "#32632"
+msgid "Choose Trakt lists whose items are added to your library during the automatic update."
+msgstr ""
+
+msgctxt "#32633"
+msgid "Runs the library update now."
+msgstr ""
+
+msgctxt "#32634"
+msgid "Skips the check that a library folder exists after it is created, for systems that report new folders slowly."
+msgstr ""
+
+msgctxt "#32635"
+msgid "Saves library .nfo files under an alternative filename."
+msgstr ""
+
+msgctxt "#32636"
+msgid "Your OMDb API key, used to add ratings from sources such as IMDb and Rotten Tomatoes."
+msgstr ""
+
+msgctxt "#32637"
+msgid "Lets other add-ons (for example a skin or a player) use this key or token from TMDb Helper instead of asking you to enter it again."
+msgstr ""
+
+msgctxt "#32638"
+msgid "Your fanart.tv personal API key, needed for fanart.tv artwork."
+msgstr ""
+
+msgctxt "#32639"
+msgid "Uses fanart.tv artwork when browsing the add-on. Slower than TMDb artwork alone."
+msgstr ""
+
+msgctxt "#32640"
+msgid "Uses fanart.tv artwork in widgets. Slower than TMDb artwork alone."
+msgstr ""
+
+msgctxt "#32641"
+msgid "Uses fanart.tv artwork for the service monitor that supplies details to skins."
+msgstr ""
+
+msgctxt "#32642"
+msgid "Uses TMDb artwork when it has some and only turns to fanart.tv when it does not."
+msgstr ""
+
+msgctxt "#32643"
+msgid "If no artwork exists in your language, uses English artwork instead."
+msgstr ""
+
+msgctxt "#32644"
+msgid "Your TVDb token, used for TVDb lists and data."
+msgstr ""
+
+msgctxt "#32645"
+msgid "Your TMDb user token, used for your own TMDb lists, ratings and watchlist."
+msgstr ""
+
+msgctxt "#32646"
+msgid "Turns Trakt features on or off."
+msgstr ""
+
+msgctxt "#32647"
+msgid "The stored Trakt login. It is filled in when you authenticate, so there is no need to edit it by hand."
+msgstr ""
+
+msgctxt "#32648"
+msgid "Signs in to your Trakt account using a code shown on screen."
+msgstr ""
+
+msgctxt "#32649"
+msgid "Shows your Trakt account details."
+msgstr ""
+
+msgctxt "#32650"
+msgid "Signs out of your Trakt account."
+msgstr ""
+
+msgctxt "#32651"
+msgid "Tells Trakt what you watch when you play items through TMDb Helper."
+msgstr ""
+
+msgctxt "#32652"
+msgid "Looks up episode types, such as season premiere or finale. Slower."
+msgstr ""
+
+msgctxt "#32653"
+msgid "Shows watched marks and episode counts from Trakt. Slower."
+msgstr ""
+
+msgctxt "#32654"
+msgid "Shows resume points from Trakt. Experimental and slower."
+msgstr ""
+
+msgctxt "#32655"
+msgid "Ignores leading words such as The and A when sorting lists alphabetically."
+msgstr ""
+
+msgctxt "#32656"
+msgid "Keeps the items of custom lists you own in the cache for 24 hours instead of reloading them each time."
+msgstr ""
+
+msgctxt "#32657"
+msgid "Turns MDBList features on or off."
+msgstr ""
+
+msgctxt "#32658"
+msgid "The stored MDBList login. It is filled in when you authorize, so there is no need to edit it by hand."
+msgstr ""
+
+msgctxt "#32659"
+msgid "Signs in to your MDBList account."
+msgstr ""
+
+msgctxt "#32660"
+msgid "Shows your MDBList account details."
+msgstr ""
+
+msgctxt "#32661"
+msgid "Signs out of your MDBList account."
+msgstr ""
+
+msgctxt "#32662"
+msgid "Tells MDBList what you watch when you play items through TMDb Helper."
+msgstr ""
+
+msgctxt "#32663"
+msgid "Shows watched marks and episode counts from MDBList. Slower."
+msgstr ""
+
+msgctxt "#32664"
+msgid "Shows resume points from MDBList. Experimental and slower."
+msgstr ""
+
+msgctxt "#32665"
+msgid "Your MDBList API key, used for MDBList lists."
+msgstr ""
+
+msgctxt "#32666"
+msgid "Turns Simkl features on or off."
+msgstr ""
+
+msgctxt "#32667"
+msgid "The stored Simkl login. It is filled in when you authorize, so there is no need to edit it by hand."
+msgstr ""
+
+msgctxt "#32668"
+msgid "Signs in to your Simkl account."
+msgstr ""
+
+msgctxt "#32669"
+msgid "Shows your Simkl account details."
+msgstr ""
+
+msgctxt "#32670"
+msgid "Signs out of your Simkl account."
+msgstr ""
+
+msgctxt "#32671"
+msgid "Tells Simkl what you watch when you play items through TMDb Helper."
+msgstr ""
+
+msgctxt "#32672"
+msgid "Shows watched marks and episode counts from Simkl. Slower."
+msgstr ""
+
+msgctxt "#32673"
+msgid "Shows resume points from Simkl. Experimental and slower."
+msgstr ""
+
+msgctxt "#32674"
+msgid "Player used for movies. When none is set you are asked which player to use each time."
+msgstr ""
+
+msgctxt "#32675"
+msgid "Player used for episodes. When none is set you are asked which player to use each time."
+msgstr ""
+
+msgctxt "#32676"
+msgid "Plays automatically using the available providers instead of asking you to choose one."
+msgstr ""
+
+msgctxt "#32677"
+msgid "How an item that is already in your Kodi library is played: never offer the local file, play it automatically, or ask."
+msgstr ""
+
+msgctxt "#32678"
+msgid "Lists all of a plugin's players as a single entry in the player list."
+msgstr ""
+
+msgctxt "#32679"
+msgid "Also uses the players that come with TMDb Helper."
+msgstr ""
+
+msgctxt "#32680"
+msgid "Installs ready-made player files for movies and episodes."
+msgstr ""
+
+msgctxt "#32681"
+msgid "Downloads player files from a web address you enter."
+msgstr ""
+
+msgctxt "#32682"
+msgid "Opens the player configuration, where you set up each installed player."
+msgstr ""
+
+msgctxt "#32683"
+msgid "Choose which streaming providers are used when showing where an item can be watched."
+msgstr ""
+
+msgctxt "#32684"
+msgid "While idle, loads details for the next items in a list ahead of time so they show up faster."
+msgstr ""
+
+msgctxt "#32685"
+msgid "Rebuilds TMDb Helper's saved copy of your Kodi library details now."
+msgstr ""
+
+msgctxt "#32686"
+msgid "How many pages of items load at once in library windows. Higher shows more items per page but is slower."
+msgstr ""
+
+msgctxt "#32687"
+msgid "How many pages of items load at once in TMDb lists. Higher shows more items per page but is slower."
+msgstr ""
+
+msgctxt "#32688"
+msgid "How many pages of items load at once in Trakt lists. Higher shows more items per page but is slower."
+msgstr ""
+
+msgctxt "#32689"
+msgid "How many pages of items load at once in Trakt sync lists such as your watchlist. Higher shows more items per page but is slower."
+msgstr ""
+
+msgctxt "#32690"
+msgid "Shows the Browse lists entry in the item context menu."
+msgstr ""
+
+msgctxt "#32691"
+msgid "Shows the Trakt options entry in the item context menu."
+msgstr ""
+
+msgctxt "#32692"
+msgid "Shows the MDBList options entry in the item context menu."
+msgstr ""
+
+msgctxt "#32693"
+msgid "Shows the Simkl options entry in the item context menu."
+msgstr ""
+
+msgctxt "#32694"
+msgid "Shows the TMDb user options entry in the item context menu."
+msgstr ""
+
+msgctxt "#32695"
+msgid "Shows the Manage artwork entry in the item context menu."
+msgstr ""
+
+msgctxt "#32696"
+msgid "Shows the Refresh details entry in the item context menu."
+msgstr ""
+
+msgctxt "#32697"
+msgid "Shows the Add to library entry in the item context menu."
+msgstr ""
+
+msgctxt "#32698"
+msgid "Shows the Add/Remove as Custom Node entry in the item context menu."
+msgstr ""
+
+msgctxt "#32699"
+msgid "Folder holding your own genre icons for TMDb genre lists."
+msgstr ""
+
+msgctxt "#32700"
+msgid "Folder holding your own genre icons for Trakt genre lists."
+msgstr ""
+
+msgctxt "#32701"
+msgid "Folder holding your own provider icons for TMDb provider lists."
+msgstr ""
+
+msgctxt "#32702"
+msgid "Shows a notification at startup about authorisation and sync."
+msgstr ""
+
+msgctxt "#32703"
+msgid "Shows notifications about Trakt, MDBList and Simkl sync progress, and when Cross-Service Sync copies items between them."
+msgstr ""
+
+msgctxt "#32704"
+msgid "Shows a notification when a connection to a service fails."
+msgstr ""
+
+msgctxt "#32705"
+msgid "Length in seconds of the dummy video used to hand playback to another plugin."
+msgstr ""
+
+msgctxt "#32706"
+msgid "How many seconds to wait after resolving before the dummy video stops."
+msgstr ""
+
+msgctxt "#32707"
+msgid "Waits for the dummy video to stop before the real playback is attempted."
+msgstr ""
+
+msgctxt "#32708"
+msgid "Only resolves playback for items that are library .strm files."
+msgstr ""
+
+msgctxt "#32709"
+msgid "Plays through xbmc.Player() instead of PlayMedia, which some add-ons need."
+msgstr ""
+
+msgctxt "#32710"
+msgid "Refreshes the saved Kodi library details before building the player list, so newly added items are found."
+msgstr ""
+
+msgctxt "#32711"
+msgid "Uses api.tmdb.org instead of api.themoviedb.org for TMDb requests, which can help if the usual address is blocked."
+msgstr ""
+
+msgctxt "#32712"
+msgid "The most requests TMDb Helper makes at the same time. 0 means no limit."
+msgstr ""
+
+msgctxt "#32713"
+msgid "Folder where the cache databases are stored. Empty uses the add-on's data folder."
+msgstr ""
+
+msgctxt "#32714"
+msgid "Folder where generated images are stored. Empty uses the add-on's data folder."
+msgstr ""
+
+msgctxt "#32715"
+msgid "Clears the cached TMDb, Trakt, fanart.tv and other saved data."
+msgstr ""
+
+msgctxt "#32716"
+msgid "Writes how long each part of building a list took to the Kodi log."
+msgstr ""
+
+msgctxt "#32717"
+msgid "Writes extra debug information to the Kodi log."
+msgstr ""
+
+msgctxt "#32718"
+msgid "Logs the raw output of a TMDb request, useful when reporting a problem."
+msgstr ""
+
+msgctxt "#32719"
+msgid "Logs the raw output of a Trakt request, useful when reporting a problem."
+msgstr ""
+
+msgctxt "#32720"
+msgid "Nothing here yet"
+msgstr ""
+
+msgctxt "#32721"
+msgid "Rebuild widgets in the background"
+msgstr ""
+
+msgctxt "#32722"
+msgid "Rebuild the widgets you opened in the last 24 hours in the background (not while a video plays) so they open instantly, and fetch the next page of the list you are reading. Right after a restart a widget may briefly show its previous contents."
 msgstr ""

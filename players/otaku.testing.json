@@ -1,0 +1,8 @@
+{
+    "name" : "[COLOR FF9932CC]Otaku Testing[/COLOR]",
+    "plugin" : "plugin.video.otaku.testing",
+    "priority" : 200,
+    "is_resolvable" : "false",
+    "play_movie" : "plugin://plugin.video.otaku.testing/tmdb_helper?actionArgs=%7B%22item_type%22%3A%20%22movie%22%2C%20%22tmdb_id%22%3A%20%22{tmdb}%22%2C%20%22imdb_id%22%3A%20%22{imdb}%22%2C%20%22trakt_id%22%3A%20%22{trakt}%22%2C%20%22tvdb_id%22%3A%20%22{tvdb}%22%7D",
+    "play_episode" : "plugin://plugin.video.otaku.testing/tmdb_helper?actionArgs=%7B%22item_type%22%3A%20%22episode%22%2C%20%22tmdb_id%22%3A%20%22{tmdb}%22%2C%20%22imdb_id%22%3A%20%22{imdb}%22%2C%20%22trakt_id%22%3A%20%22{trakt}%22%2C%20%22tvdb_id%22%3A%20%22{tvdb}%22%2C%20%22season%22%3A%20{season}%2C%20%22episode%22%3A%20{episode}%7D"
+}

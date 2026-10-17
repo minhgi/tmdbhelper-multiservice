@@ -27,7 +27,13 @@ class DialogProgressSyncBG:
     @cached_property
     def dialog_progress_bg_enabled(self):
         from tmdbhelper.lib.addon.plugin import get_setting
-        return get_setting('sync_notifications')
+        if not get_setting('sync_notifications'):
+            return False
+        try:
+            from xbmc import Player
+            return not Player().isPlayingVideo()  # no sync pop-ups in the middle of a video
+        except Exception:
+            return True
 
     @cached_property
     def dialog_progress_bg(self):

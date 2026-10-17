@@ -109,6 +109,8 @@ class Script(object):
             lambda **kwargs: importmodule('tmdbhelper.lib.api.trakt.api', 'TraktAPI')(force=True),
         'revoke_trakt':
             lambda **kwargs: importmodule('tmdbhelper.lib.api.trakt.api', 'TraktAPI')().logout(),
+        'account_info_trakt':
+            lambda **kwargs: importmodule('tmdbhelper.lib.script.method.account_info', 'trakt_account_info')(**kwargs),
 
         # MDBList Utils
         'sync_mdblist':
@@ -117,6 +119,8 @@ class Script(object):
             lambda **kwargs: importmodule('tmdbhelper.lib.api.mdblist.api', 'MDbList')().login(),
         'revoke_mdblist':
             lambda **kwargs: importmodule('tmdbhelper.lib.api.mdblist.api', 'MDbList')().logout(),
+        'account_info_mdblist':
+            lambda **kwargs: importmodule('tmdbhelper.lib.script.method.account_info', 'mdblist_account_info')(**kwargs),
 
         # Simkl Utils
         'sync_simkl':
@@ -125,6 +129,8 @@ class Script(object):
             lambda **kwargs: importmodule('tmdbhelper.lib.api.simkl.api', 'SimklAPI')().login(),
         'revoke_simkl':
             lambda **kwargs: importmodule('tmdbhelper.lib.api.simkl.api', 'SimklAPI')().logout(),
+        'account_info_simkl':
+            lambda **kwargs: importmodule('tmdbhelper.lib.script.method.account_info', 'simkl_account_info')(**kwargs),
 
         # Image Functions
         'blur_image':

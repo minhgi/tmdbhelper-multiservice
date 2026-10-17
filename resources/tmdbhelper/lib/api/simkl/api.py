@@ -87,7 +87,10 @@ class SimklAPI(RequestAPI):
         if not Dialog().yesno('Simkl', 'Logout of Simkl account?'):
             return
         self.user_token.value = ''
+        self.simkl_syncdata.clear_all()  # Nothing of this account may survive into the next login
         kodi_log('Simkl logged out', 1)
+        from tmdbhelper.lib.script.method.kodi_utils import container_refresh
+        container_refresh()
         Dialog().ok('Simkl', 'Simkl account logged out.')
 
     @property

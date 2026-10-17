@@ -1,0 +1,8 @@
+{
+    "name": "[COLOR FFB388FF]Prism[/COLOR] (Source Select)",
+    "plugin": "plugin.video.prism",
+    "priority": 107,
+    "is_resolvable": "false",
+    "play_movie": "plugin://plugin.video.prism/?action=tmdbHelper&source_select=true&forceresumecheck=true&action_args=%7B%22tmdb_type%22%3A%20%22movie%22%2C%20%22tmdb_id%22%3A%20%22{tmdb}%22%7D",
+    "play_episode": "plugin://plugin.video.prism/?action=tmdbHelper&source_select=true&forceresumecheck=true&action_args=%7B%22tmdb_type%22%3A%20%22tv%22%2C%20%22season%22%3A%20{season}%2C%20%22episode%22%3A%20{episode}%2C%20%22tmdb_id%22%3A%20%22{tmdb}%22%7D"
+}

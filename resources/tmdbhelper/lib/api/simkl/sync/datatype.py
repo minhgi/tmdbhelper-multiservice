@@ -70,6 +70,22 @@ class SimklDataType:
         except (ValueError, AttributeError):
             return None
 
+    def post_response_sync_ok(self, url):
+        """Like post_response_sync but tells a failed request from an empty bucket.
+
+        Returns (ok, data). ok is False when there was no response or an HTTP error.
+        ok is True with data None for an empty bucket: Simkl answers HTTP 200 with a
+        literal null (or empty) body when a bucket has nothing in it.
+        """
+        response = self.simkl_api.get_api_request(
+            url, method='post', headers=self.simkl_api.auth_headers)
+        if response is None:
+            return False, None
+        try:
+            return True, response.json()
+        except (ValueError, AttributeError):
+            return (not (getattr(response, 'text', None) or '').strip()), None
+
     @cached_property
     def last_activities(self):
         return SimklLastActivities(self._class_instance_syncdata)
@@ -197,9 +213,25 @@ class SimklSyncWatched(SimklDataType):
     API calls when both movie and show indicators are requested together.
     """
 
-    keys = ('plays', 'last_watched_at', 'watched_episodes',)
+    keys = ('plays', 'last_watched_at', 'watched_episodes', 'rating', 'rated_at',
+            'plantowatch_at', 'hold_at', 'dropped_at', 'watching_at',)
     last_activities_key = 'all'
     method = 'watched'
+    # Marks a sync that also read the account's list statuses (plan-to-watch / hold / dropped / watching).
+    # Syncs stamped before that existed are stale for the status flags, so without the marker the first
+    # sync after an upgrade would wait for the next change on the account. v2: 6.0.115 reads anime rows and
+    # the watched_episodes_count of completed shows, again stale until a re-sync.
+    status_marker = 'watched.status_v2'
+
+    @property
+    def is_expired(self):
+        if not self.cache.get_activity(self.item_type, self.status_marker):
+            return True
+        return super().is_expired
+
+    def store_last_activity(self):
+        super().store_last_activity()
+        self.cache.set_activity(self.item_type, self.status_marker, '1')
 
     def __init__(self, class_instance_syncdata, item_type):
         super().__init__(class_instance_syncdata, 'all')
@@ -212,15 +244,69 @@ class SimklSyncWatched(SimklDataType):
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import TimerFunc, kodi_log
         with TimerFunc('Simkl Sync: watched', inline=True, log_threshold=0.001):
-            movies_data = self.post_response_sync(
-                f'{BASE_URL}/sync/all-items/movies/completed?client_id={self.simkl_api.client_id}')
-            shows_data = self.post_response_sync(
+            # Every status, not just 'completed': the list status of each movie (plan-to-watch, hold, dropped)
+            # is read from the same rows; only 'completed' ones count as watched below.
+            movies_ok, movies_data = self.post_response_sync_ok(
+                f'{BASE_URL}/sync/all-items/movies/?client_id={self.simkl_api.client_id}')
+            shows_ok, shows_data = self.post_response_sync_ok(
                 f'{BASE_URL}/sync/all-items/shows/?extended=full&client_id={self.simkl_api.client_id}')
+            # Simkl buckets anime separately from movies/shows entirely (confirmed
+            # via API docs — no mixed lists), so the two calls above never see
+            # anime titles. The exact per-entry shape under the top-level "anime"
+            # key is NOT directly confirmed for this endpoint: Simkl's detail-doc
+            # prose implies anime nests under a "movie"/"show" key like regular
+            # entries, but the concrete examples elsewhere in the docs (history
+            # writes, search results) show anime objects flat (ids/anime_type
+            # directly on the entry). Handle both shapes rather than assume one.
+            anime_completed_ok, anime_completed_data = self.post_response_sync_ok(
+                f'{BASE_URL}/sync/all-items/anime/completed?client_id={self.simkl_api.client_id}')
+            anime_all_ok, anime_all_data = self.post_response_sync_ok(
+                f'{BASE_URL}/sync/all-items/anime/?extended=full&client_id={self.simkl_api.client_id}')
 
-        movies = (movies_data or {}).get('movies') or []
-        shows = (shows_data or {}).get('shows') or []
-        kodi_log(f'Simkl Sync: {len(movies)} movies, {len(shows)} shows', 1)
-
-        if not movies and not shows:
+        # sync_data() clears every watched flag and rewrites only what was fetched, so
+        # a request that failed outright (an empty bucket is not a failure) would wipe
+        # that part of the library with nothing to restore it. Skip the whole sync.
+        if not (movies_ok and shows_ok and anime_completed_ok and anime_all_ok):
+            kodi_log('Simkl Sync: watched - a request failed, keeping local data', 1)
             return None
-        return {'movies': movies, 'shows': shows}
+
+        movie_rows = (movies_data or {}).get('movies') or []
+        movies = [row for row in movie_rows if row.get('status') in (None, 'completed')]
+        shows = (shows_data or {}).get('shows') or []
+        # Read before the anime entries are appended to `shows` below (it is the same list object)
+        from tmdbhelper.lib.api.simkl.sync.itemdata import SimklSyncItem
+        statuses = SimklSyncItem.collect_statuses(
+            [row for row in movie_rows if row.get('status') not in (None, 'completed')],
+            shows, (anime_all_data or {}).get('anime') or [])
+
+        # Anime entries keep anime_type at the top level and the ids under 'show' (live shape, 2026-10-14);
+        # a flat entry (ids and anime_type together) is still accepted.
+        # Movie-type anime → completed-only, matching the movies treatment above.
+        for entry in (anime_completed_data or {}).get('anime') or []:
+            movie_obj = entry.get('movie') or entry.get('show') or entry
+            if (entry.get('anime_type') or movie_obj.get('anime_type')) == 'movie':
+                movies.append({
+                    'movie': movie_obj, 'last_watched_at': entry.get('last_watched_at'),
+                    'user_rating': entry.get('user_rating'), 'user_rated_at': entry.get('user_rated_at')})
+        # Everything else (tv/ova/ona/special/music video) → all-statuses,
+        # matching the shows treatment above (watched_episodes needs full
+        # status coverage, not just completed).
+        for entry in (anime_all_data or {}).get('anime') or []:
+            show_obj = entry.get('show') or entry
+            anime_type = entry.get('anime_type') or show_obj.get('anime_type')
+            if anime_type and anime_type != 'movie':
+                shows.append({
+                    'show': show_obj,
+                    'anime_type': anime_type,
+                    'seasons': entry.get('seasons') or [],
+                    'watched_episodes_count': entry.get('watched_episodes_count'),
+                    'last_watched_at': entry.get('last_watched_at'),
+                    'user_rating': entry.get('user_rating'),
+                    'user_rated_at': entry.get('user_rated_at'),
+                })
+
+        kodi_log(f'Simkl Sync: {len(movies)} movies, {len(shows)} shows, {len(statuses)} on a status list', 1)
+
+        if not movies and not shows and not statuses:
+            return None
+        return {'movies': movies, 'shows': shows, 'statuses': statuses}

@@ -44,18 +44,33 @@ class SimklSyncDataBase(DataBase):
             'data': 'INTEGER',
             'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
         },
-        # Phase C write-through status columns
+        # Phase C write-through status columns; since 6.0.113 the watched sync also fills them from the account
         'plantowatch_at': {
             'data': 'TEXT',
-            'sync': None
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
         },
         'hold_at': {
             'data': 'TEXT',
-            'sync': None
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
         },
         'dropped_at': {
             'data': 'TEXT',
-            'sync': None
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
+        },
+        'watching_at': {
+            'data': 'TEXT',
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
+        },
+        # The user's own Simkl rating (1-10) and when it was set. Both come with the
+        # watched sync (user_rating / user_rated_at of every library entry) and are
+        # also written through after a rating made here.
+        'rating': {
+            'data': 'INTEGER',
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
+        },
+        'rated_at': {
+            'data': 'TEXT',
+            'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
         },
         # Phase D: resume progress synced from GET /sync/playback (movies only;
         # episode rows deferred — Simkl returns TVDB episode numbers which

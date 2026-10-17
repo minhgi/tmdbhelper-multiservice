@@ -68,6 +68,35 @@ class MDbListDataType:
         except (ValueError, AttributeError):
             return
 
+    def get_response_sync_paginated(self, *path_args, max_pages=50, **kwargs):
+        """Walk a shared-cursor MDBList sync endpoint (single offset/limit window
+        spanning movies+shows+seasons+episodes combined — confirmed via MDBList's
+        API spec) to completion via has_more, merging each page's arrays.
+
+        Called unparameterised, these endpoints default to limit=1000 with no
+        offset — on an episode-heavy account, movies/shows can sort outside that
+        first page and be silently missed. Bounded to max_pages (50 * 1000 =
+        50,000 items) as a safety cap against a malformed has_more loop.
+
+        Returns None when any page fails (no response, HTTP error, rejected token,
+        unparseable body) or the page budget runs out, so sync_data() skips the
+        clear-and-rewrite and a failed read is never mistaken for an empty account.
+        A successful read of an empty account is still a real {}.
+        """
+        combined = {}
+        offset = 0
+        for _ in range(max_pages):
+            page = self.get_response_sync(*path_args, offset=offset, limit=1000, **kwargs)
+            if not isinstance(page, dict):
+                return None
+            for key in ('movies', 'shows', 'seasons', 'episodes'):
+                if page.get(key):
+                    combined.setdefault(key, []).extend(page[key])
+            if not (page.get('pagination') or {}).get('has_more'):
+                return combined
+            offset += 1000
+        return None
+
     @cached_property
     def last_activities(self):
         return MDbListLastActivities(self._class_instance_syncdata)
@@ -162,7 +191,7 @@ class MDbListSyncWatched(MDbListDataType):
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import TimerFunc
         with TimerFunc('MDbList Sync: watched', inline=True, log_threshold=0.001):
-            return self.get_response_sync('sync', 'watched', extended='full')
+            return self.get_response_sync_paginated('sync', 'watched', extended='full')
 
 
 class MDbListSyncPaused(MDbListDataType):
@@ -200,7 +229,7 @@ class MDbListSyncWatchlist(MDbListDataType):
         from tmdbhelper.lib.addon.logger import TimerFunc
         with TimerFunc(f'MDbList Sync: watchlist {self.item_type}', inline=True, log_threshold=0.001):
             # MDBList watchlist read is /watchlist/items — GET /sync/watchlist returns 405
-            return self.get_response_sync('watchlist', 'items')
+            return self.get_response_sync_paginated('watchlist', 'items')
 
 
 class MDbListSyncCollection(MDbListDataType):
@@ -216,4 +245,4 @@ class MDbListSyncCollection(MDbListDataType):
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import TimerFunc
         with TimerFunc(f'MDbList Sync: collection {self.item_type}', inline=True, log_threshold=0.001):
-            return self.get_response_sync('sync', 'collection')
+            return self.get_response_sync_paginated('sync', 'collection')

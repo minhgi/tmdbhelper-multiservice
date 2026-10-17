@@ -1,0 +1,8 @@
+{
+    "name": "[COLOR red]Red Light[/COLOR] (Source Select)",
+    "plugin": "plugin.video.redlight",
+    "priority": 111,
+    "is_resolvable": "false",
+    "play_movie": "plugin://plugin.video.redlight/?mode=playback.media&media_type=movie&query={name}&year={year}&title={title}&tmdb_id={tmdb}&autoplay=false",
+    "play_episode": "plugin://plugin.video.redlight/?mode=playback.media&media_type=episode&query={showname}&year={year}&season={season}&episode={episode}&ep_name={title}&tmdb_id={tmdb}&premiered={firstaired}&autoplay=false"
+}

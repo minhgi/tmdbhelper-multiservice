@@ -77,12 +77,22 @@ class SimklLastActivities:
         return data
 
     def get_max_watched_timestamp(self):
-        """Return the newest watched-related activity timestamp across movies, shows, and anime."""
+        """Return the newest watched-related activity timestamp across movies, shows, and anime.
+
+        rated_at is included because re-rating an already completed movie moves only that stamp
+        (live-checked 2026-10-14), and the watched sync also stores the user's rating.
+        movies.all is included because a movie that only changes list status (plan-to-watch, hold, dropped)
+        moves none of the other movie stamps, and the watched sync also stores the list status.
+        """
         d = self.json
         candidates = [
             (d.get('movies') or {}).get('completed'),
+            (d.get('movies') or {}).get('all'),
+            (d.get('movies') or {}).get('rated_at'),
             (d.get('tv_shows') or {}).get('all'),
+            (d.get('tv_shows') or {}).get('rated_at'),
             (d.get('anime') or {}).get('all'),
+            (d.get('anime') or {}).get('rated_at'),
         ]
         return max((v for v in candidates if v), default=None)
 

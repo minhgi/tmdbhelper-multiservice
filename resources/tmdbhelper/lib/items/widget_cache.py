@@ -74,6 +74,153 @@ def get_last_invalidated():
 
 
 STARTUP_CACHE_MAX_AGE_HOURS = 6
+SWR_MAX_AGE = 6 * 3600  # a cache invalidated only by a background sync is still served (and rebuilt) for this long
+INDEX_MAX_AGE = 24 * 3600  # widgets not opened for this long are no longer rebuilt in the background
+INDEX_TOUCH_EVERY = 600
+
+
+def prewarm_enabled():
+    try:
+        from tmdbhelper.lib.addon.plugin import get_setting
+        return bool(get_setting('widget_prewarm'))
+    except Exception:
+        return False
+
+
+def get_hard_invalidated():
+    """Timestamp of the last invalidation that must NOT be served stale (the user changed something)."""
+    val = xbmcgui.Window(10000).getProperty('TMDbHelper.Widgets.HardInvalidated')
+    try:
+        return float(val) if val else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _index_path():
+    return os.path.join(_get_cache_dir(), '_index.dat')  # not .json: the cleanups only touch *.json
+
+
+def read_index():
+    """{cache_key: {'ps': paramstring, 'used': timestamp}} of the widgets that were opened lately.
+    {} if there is no index yet; None if it could not be read right now (another process is replacing it)."""
+    from json import loads as json_loads
+    path = _index_path()
+    if not os.path.exists(path):
+        return {}
+    for attempt in range(4):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json_loads(f.read())
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            import time
+            time.sleep(0.03 * (attempt + 1))
+    return None
+
+
+def _write_atomic(path, text):
+    """Whole file or nothing. Each writer has its own temp name (plugin calls run in parallel) and retries the
+    replace: on Windows it fails while another process has the destination open."""
+    import threading
+    import time
+    tmp = f'{path}.{os.getpid()}.{threading.get_ident()}.tmp'
+    try:
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write(text)
+        for attempt in range(6):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 5:
+                    raise
+                time.sleep(0.03 * (attempt + 1))
+    finally:
+        try:
+            os.remove(tmp)  # only still there if the replace failed
+        except OSError:
+            pass
+
+
+def cleanup_tmp(max_age=3600):
+    """Remove temp files left by a writer that was killed in the middle of a write."""
+    import time
+    try:
+        cache_dir = _get_cache_dir()
+        for fname in os.listdir(cache_dir):
+            fpath = os.path.join(cache_dir, fname)
+            if fname.endswith('.tmp') and time.time() - os.path.getmtime(fpath) > max_age:
+                os.remove(fpath)
+    except OSError:
+        pass
+
+
+def forget(key):
+    """Drop a widget whose rebuild came back empty: the next open is a normal miss instead of serving old items."""
+    from json import dumps as json_dumps
+    try:
+        os.remove(_get_cache_path(key))
+    except OSError:
+        pass
+    index = read_index()
+    if index and key in index:
+        del index[key]
+        try:
+            _write_atomic(_index_path(), json_dumps(index))
+        except Exception as exc:
+            kodi_log(f'WidgetCache: index update failed: {exc}', 1)
+
+
+def note_used(paramstring):
+    """Remember that this widget was opened (the service only rebuilds widgets used in the last 24 h)."""
+    if not prewarm_enabled():
+        return
+    import time
+    from json import dumps as json_dumps
+    try:
+        key = _get_cache_key(paramstring)
+        now = time.time()
+        index = read_index()
+        if index is None:  # being replaced by another process right now: skip, the next hit records it
+            return
+        entry = index.get(key)
+        if entry and entry.get('ps') == paramstring and now - entry.get('used', 0) < INDEX_TOUCH_EVERY:
+            return
+        index[key] = {'ps': paramstring, 'used': now}
+        index = {k: v for k, v in index.items() if now - v.get('used', 0) < INDEX_MAX_AGE}
+        _write_atomic(_index_path(), json_dumps(index))
+    except Exception as exc:
+        kodi_log(f'WidgetCache: index update failed: {exc}', 1)
+
+
+def needs_warm(key, entry):
+    """True if a request for this widget now would not be a cache hit (no side effects, unlike is_cache_valid)."""
+    import time
+    path = _get_cache_path(key)
+    if not os.path.exists(path):
+        return True
+    mtime = os.path.getmtime(path)
+    last_invalidated = get_last_invalidated()
+    if last_invalidated == 0.0:
+        return time.time() - mtime >= STARTUP_CACHE_MAX_AGE_HOURS * 3600
+    return mtime <= last_invalidated
+
+
+def cache_state(paramstring):
+    """'fresh' (serve), 'stale' (serve now; the service rebuilds it) or 'miss' (run the full pipeline).
+    Stale only applies after a background sync (soft invalidation); a change the user made is always a miss."""
+    if is_cache_valid(paramstring):
+        return 'fresh'
+    if not prewarm_enabled():
+        return 'miss'
+    import time
+    cache_path = _get_cache_path(_get_cache_key(paramstring))
+    if not os.path.exists(cache_path):
+        return 'miss'
+    cache_mtime = os.path.getmtime(cache_path)
+    if time.time() - cache_mtime < SWR_MAX_AGE and cache_mtime > get_hard_invalidated():
+        return 'stale'
+    return 'miss'
 
 
 def is_cache_valid(paramstring):
@@ -173,8 +320,9 @@ def load_cache(paramstring, handle):
     return True
 
 
-def save_cache(paramstring, items, plugin_category='', container_content=''):
-    """Save built widget items to cache after the full pipeline has run."""
+def save_cache(paramstring, items, plugin_category='', container_content='', touch=True):
+    """Save built widget items to cache after the full pipeline has run.
+    touch=False: rebuilt by the service, so it does not count as the user opening the widget."""
     from json import dumps as json_dumps
 
     if not items:
@@ -216,8 +364,9 @@ def save_cache(paramstring, items, plugin_category='', container_content=''):
     }
 
     try:
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            f.write(json_dumps(data))
+        _write_atomic(cache_path, json_dumps(data))  # whole file or nothing: a reader never sees a half-written cache
+        if touch:
+            note_used(paramstring)
         kodi_log(f'WidgetCache: SAVED {cache_key} ({len(cached_items)} items)', 2)
     except Exception as exc:
         kodi_log(f'WidgetCache: Failed to save: {exc}', 1)

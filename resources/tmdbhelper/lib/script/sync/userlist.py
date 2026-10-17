@@ -1,93 +1,191 @@
+from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.script.sync.item import ItemSync
-from tmdbhelper.lib.addon.plugin import get_infolabel, get_localized, get_setting
+from tmdbhelper.lib.script.sync.mdblist_sync import ItemMDbListSyncBase
+from tmdbhelper.lib.addon.plugin import get_infolabel, get_localized, executebuiltin
 from tmdbhelper.lib.addon.dialog import BusyDialog
 from xbmcgui import Dialog
 
 
-class ItemMDbListAttributes:
-    """
-    lists
-    """
-    @property
-    def lists(self):
-        try:
-            return self._lists
-        except AttributeError:
-            self._lists = self.get_lists()
-            return self._lists
+class ItemMDbList(ItemMDbListSyncBase):
+    """ Add an item to / remove it from one of the user's static MDBList lists.
 
-    @lists.setter
-    def lists(self, value):
-        self._lists = value
-
-    def get_lists(self):
-        from tmdbhelper.lib.api.mdblist.api import MDbList
-        if not get_setting('mdblist_apikey', 'str'):
-            return
-        response = MDbList().get_request('lists', 'user')
-        return [i for i in response if i and not i.get('dynamic')]
-
-    """
-    list_id
-    """
-    @property
-    def list_id(self):
-        try:
-            return self._list_id
-        except AttributeError:
-            self._list_id = self.get_list_id()
-            return self._list_id
-
-    @list_id.setter
-    def list_id(self, value):
-        self._list_id = value
-
-    def get_list_id(self):
-        if self.remove:
-            return get_infolabel("ListItem.Property(param.list_id)")
-        if self.lists is None:  # No API credentials
-            Dialog().ok('MDbList', f'{get_localized(32516)}\n{get_localized(32517)}')
-            return
-        if not self.lists:  # No static lists
-            Dialog().ok('MDbList', get_localized(32518))
-            return
-        names = [i.get('name', '') for i in self.lists]
-        x = Dialog().select(get_localized(32133), names)
-        if x == -1:
-            return
-        return self.lists[x]['id']
-
-
-class ItemMDbList(ItemSync, ItemMDbListAttributes):
+    Built on the MDBList sync base (own authorisation gate, no Trakt lookups). Reads the list id from the container
+    properties when opened inside an own static list ('Remove'), otherwise asks - with a 'new list' entry so the
+    picker is useful before any static list exists. """
     preconfigured = True
 
-    """
-    overrides
-    """
+    @cached_property
+    def remove(self):
+        return self.get_remove()
 
     def get_remove(self):
         if get_infolabel("ListItem.Property(param.info)") != 'mdblist_userlist':
             return False
         if get_infolabel("ListItem.Property(param.dynamic)"):
             return False
+        if get_infolabel("ListItem.Property(param.mdblist_owner)") != 'true':  # Only the user's own lists ('Your lists') can be edited
+            return False
         return True
 
     def get_name(self):
         return get_localized(32519) if self.remove else get_localized(32514)
 
+    @cached_property
+    def list_id(self):
+        return self.get_list_id()
+
+    def get_list_id(self):
+        if self.remove:
+            return get_infolabel("ListItem.Property(param.list_id)")
+        with BusyDialog():
+            lists = self.mdblist_api.get_static_lists()
+        if lists is None:  # No API credentials
+            Dialog().ok('MDbList', f'{get_localized(32516)}\n{get_localized(32517)}')
+            return
+        names = [i.get('name', '') for i in lists] + [get_localized(32299)]
+        x = Dialog().select(get_localized(32133), names)
+        if x == -1:
+            return
+        if x == len(lists):
+            return create_mdblist_list(self.mdblist_api)
+        return lists[x].get('id')
+
     def get_sync_response(self):
-        from tmdbhelper.lib.api.mdblist.api import MDbList
         if not self.list_id:
             return
+        return self.call_api('lists', self.list_id, 'items', 'remove' if self.remove else 'add')
+
+    @cached_property
+    def is_successful_sync(self):
+        """ A 2xx answer that found nothing to change ('not_found' only) is not a success. """
+        if self.sync_response is None:
+            return False
+        try:
+            data = self.sync_response.json()
+        except ValueError:
+            return True
+        if not isinstance(data, dict):
+            return True
+        changed = ('removed',) if self.remove else ('added', 'existing')
+        if not any(k in data for k in changed):
+            return True
+        return any(_count(data.get(k)) for k in changed)
+
+    def sync(self):
+        if not self.list_id:
+            return
+        self.display_dialog()
+        self.refresh_containers()
+
+
+class ItemMDbListManage(ItemMDbListSyncBase):
+    """ Edit (name + privacy) or delete one of the user's static MDBList lists. Shown whenever MDBList is usable -
+    no request at menu-build time; an empty list of lists is reported when the item is chosen. """
+    preconfigured = True
+
+    def get_name(self):
+        return get_localized(32594)
+
+    def sync(self):
+        api = self.mdblist_api
         with BusyDialog():
-            data = MDbList().modify_static_list(
-                self.list_id,
-                media_type=self.base_trakt_type,
-                media_id=self.tmdb_id,
-                media_provider='tmdb',
-                action='remove' if self.remove else 'add'
-            )
-        return data
+            lists = api.get_static_lists()
+        if lists is None:  # No API credentials
+            Dialog().ok('MDbList', f'{get_localized(32516)}\n{get_localized(32517)}')
+            return
+        if not lists:  # No static lists
+            Dialog().ok('MDbList', get_localized(32518))
+            return
+        x = Dialog().select(get_localized(32594), [i.get('name', '') for i in lists])
+        if x == -1:
+            return
+        mdblist = lists[x]
+        y = Dialog().select(mdblist.get('name', ''), [get_localized(32595), get_localized(32596)])
+        if y == 0:
+            return edit_mdblist_list(api, mdblist)
+        if y == 1:
+            return delete_mdblist_list(api, mdblist)
+
+
+def _count(value):
+    """ MDBList answers with per-type counts ({'movies': 1, 'shows': 0}). """
+    if isinstance(value, dict):
+        return sum(i for i in value.values() if isinstance(i, int))
+    return value if isinstance(value, int) else 0
+
+
+def _ok(response):
+    return response is not None and response.status_code in (200, 201, 204)
+
+
+def _response_id(response):
+    try:
+        return response.json().get('id')
+    except (ValueError, AttributeError):
+        return
+
+
+def _ask_private(default=True):
+    """ True = private, False = public, None = cancelled. """
+    x = Dialog().select(get_localized(32592), [get_localized(32590), get_localized(32591)], preselect=0 if default else 1)
+    return None if x == -1 else x == 0
+
+
+def create_mdblist_list(api):
+    """ Ask for a name and privacy, create the list, return its id (None if cancelled or refused). """
+    name = Dialog().input(get_localized(32356))
+    if not name:
+        return
+    private = _ask_private()
+    if private is None:
+        return
+    with BusyDialog():
+        response = api.create_list(name, private)
+    list_id = _response_id(response) if _ok(response) else None
+    if list_id:
+        return list_id
+    # 403 = the account's list limit; anything else is a plain failure
+    Dialog().ok('MDbList', get_localized(32593 if response is not None and response.status_code == 403 else 32597))
+
+
+def edit_mdblist_list(api, mdblist):
+    """ Rename and/or change privacy in one request, sending only what changed. """
+    old_name = mdblist.get('name', '')
+    name = Dialog().input(get_localized(32356), defaultt=old_name)
+    if not name:
+        return
+    fields = {'name': name} if name != old_name else {}
+    old_private = mdblist.get('private')
+    private = _ask_private(default=True if old_private is None else bool(old_private))
+    if private is None:
+        return
+    if old_private is None or private != bool(old_private):
+        fields['private'] = private
+    if not fields:
+        return
+    with BusyDialog():
+        response = api.update_list(mdblist.get('id'), **fields)
+    if _ok(response):
+        return _done(get_localized(32598).format(name))
+    Dialog().ok('MDbList', get_localized(32597))
+
+
+def delete_mdblist_list(api, mdblist):
+    name = mdblist.get('name', '')
+    if not Dialog().yesno('MDbList', get_localized(32599).format(name)):
+        return
+    with BusyDialog():
+        response = api.delete_list(mdblist.get('id'))
+    if _ok(response):
+        return _done(get_localized(32600).format(name))
+    Dialog().ok('MDbList', get_localized(32597))
+
+
+def _done(message):
+    from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
+    Dialog().notification('MDbList', message)
+    executebuiltin('Container.Refresh')
+    reload_widgets()
 
 
 class ItemUserList(ItemSync):

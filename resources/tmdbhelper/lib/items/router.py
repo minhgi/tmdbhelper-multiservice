@@ -29,6 +29,10 @@ class Router():
         self.params['container_update'] = True
         related_lists(include_play=True, **self.params)
 
+    def run_action(self):
+        from tmdbhelper.lib.script.sync.dropped import ACTIONS
+        ACTIONS[self.params['info']]()
+
     def get_directory(self, items_only=False, build_items=True):
         from tmdbhelper.lib.items.routes import get_container
         container = get_container(self.params.get('info'))(self.handle, self.paramstring, **self.params)
@@ -40,4 +44,6 @@ class Router():
             return self.play_external()
         if self.params.get('info') == 'related':
             return self.context_related()
+        if self.params.get('info') in ('trakt_dropped_restore', 'trakt_watchlist_drop', 'mdblist_dropped_restore'):
+            return self.run_action()
         self.get_directory()

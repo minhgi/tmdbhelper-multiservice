@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window type="dialog">
+    <!-- Your TV Calendar: one scrollable page, a header row per followed show with its episodes under it.
+         Laid out like the skin menus of TMDb Helper: poster and description on the left, flat rows on the right, one teal selection bar.
+         Uses only font12/font13/font37 (present in Estuary and Titan) and the media calendar_bg.png / white.png.
+         Properties set by resources/tmdbhelper/lib/window/showcalendar.py:
+           window: window_title, center_label, view_unwatched, empty_text
+           rows:   row_type (show / episode), show_summary, air_state (watched / aired / today / unaired), air_status, row_date -->
+    <coordinates>
+        <left>0</left>
+        <top>0</top>
+        <width>1920</width>
+        <height>1080</height>
+    </coordinates>
+    <defaultcontrol always="true">1000</defaultcontrol>
+    <controls>
+
+        <!-- Background -->
+        <control type="image">
+            <left>0</left>
+            <top>0</top>
+            <width>1920</width>
+            <height>1080</height>
+            <aspectratio>stretch</aspectratio>
+            <texture>calendar_bg.png</texture>
+        </control>
+
+        <!-- Title and what the page shows (date span, or the show whose unwatched episodes are listed) -->
+        <control type="label">
+            <left>40</left>
+            <top>22</top>
+            <width>1100</width>
+            <height>44</height>
+            <font>font37</font>
+            <textcolor>FFFFFFFF</textcolor>
+            <aligny>center</aligny>
+            <label>$INFO[Window.Property(window_title)]</label>
+        </control>
+        <control type="label">
+            <left>360</left>
+            <top>68</top>
+            <width>1200</width>
+            <height>48</height>
+            <font>font37</font>
+            <textcolor>FFFFFFFF</textcolor>
+            <align>center</align>
+            <aligny>center</aligny>
+            <label>[B]$INFO[Window.Property(center_label)][/B]</label>
+        </control>
+
+        <!-- Back (unwatched view only) and Close -->
+        <control type="group">
+            <left>1410</left>
+            <top>26</top>
+            <control type="button" id="3001">
+                <left>160</left>
+                <top>0</top>
+                <width>70</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>&lt;</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onright>3002</onright>
+                <ondown>1000</ondown>
+                <visible>String.IsEqual(Window.Property(day_mode),True) + String.IsEmpty(Window.Property(view_unwatched))</visible>
+            </control>
+            <control type="button" id="3002">
+                <left>240</left>
+                <top>0</top>
+                <width>70</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>&gt;</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onleft>3001</onleft>
+                <onright>2999</onright>
+                <ondown>1000</ondown>
+                <visible>String.IsEqual(Window.Property(day_mode),True) + String.IsEmpty(Window.Property(view_unwatched))</visible>
+            </control>
+            <control type="button" id="3003">
+                <left>160</left>
+                <top>0</top>
+                <width>150</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>Back</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onright>2999</onright>
+                <ondown>1000</ondown>
+                <visible>!String.IsEmpty(Window.Property(view_unwatched))</visible>
+            </control>
+            <control type="button" id="2999">
+                <left>320</left>
+                <top>0</top>
+                <width>150</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>Close</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onleft>3002</onleft>
+                <ondown>1000</ondown>
+            </control>
+        </control>
+
+        <!-- Left panel: poster of the selected row and its description -->
+        <control type="image">
+            <left>40</left>
+            <top>130</top>
+            <width>440</width>
+            <height>560</height>
+            <aspectratio>keep</aspectratio>
+            <texture background="true">$INFO[Container(1000).ListItem.Art(poster)]</texture>
+        </control>
+        <control type="textbox">
+            <left>40</left>
+            <top>710</top>
+            <width>440</width>
+            <height>300</height>
+            <font>font12</font>
+            <textcolor>E6FFFFFF</textcolor>
+            <label>$INFO[Container(1000).ListItem.Plot]</label>
+            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show)</visible>
+        </control>
+        <control type="textbox">
+            <left>40</left>
+            <top>710</top>
+            <width>440</width>
+            <height>300</height>
+            <font>font12</font>
+            <textcolor>E6FFFFFF</textcolor>
+            <label>$INFO[Container(1000).ListItem.Property(show_summary)]</label>
+            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show)</visible>
+        </control>
+
+        <!-- Empty page / empty unwatched list -->
+        <control type="label">
+            <left>0</left>
+            <top>510</top>
+            <width>1920</width>
+            <height>60</height>
+            <font>font37</font>
+            <textcolor>99FFFFFF</textcolor>
+            <align>center</align>
+            <aligny>center</aligny>
+            <label>$INFO[Window.Property(empty_text)]</label>
+            <visible>!String.IsEmpty(Window.Property(empty_text))</visible>
+        </control>
+
+        <!-- Scrollbar -->
+        <control type="scrollbar" id="1111">
+            <left>1908</left>
+            <top>130</top>
+            <width>8</width>
+            <height>900</height>
+            <onleft>1000</onleft>
+            <showonepage>false</showonepage>
+            <orientation>vertical</orientation>
+            <texturesliderbackground colordiffuse="22FFFFFF">white.png</texturesliderbackground>
+            <texturesliderbar colordiffuse="66FFFFFF">white.png</texturesliderbar>
+            <texturesliderbarfocus colordiffuse="FF0F89AE">white.png</texturesliderbarfocus>
+        </control>
+
+        <!-- Shows and episodes -->
+        <control type="list" id="1000">
+            <left>540</left>
+            <top>130</top>
+            <width>1380</width>
+            <height>900</height>
+            <pagecontrol>1111</pagecontrol>
+            <scrolltime>200</scrolltime>
+            <orientation>vertical</orientation>
+            <onup>2999</onup>
+            <onleft>1000</onleft>
+            <onright>1000</onright>
+            <itemlayout height="72">
+                <control type="image">
+                    <left>18</left>
+                    <top>10</top>
+                    <width>52</width>
+                    <height>52</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(poster)]</texture>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>92</left>
+                    <top>0</top>
+                    <width>700</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>[B]$INFO[ListItem.Label][/B]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>800</left>
+                    <top>0</top>
+                    <width>550</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>B3FFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(show_summary)]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>130</left>
+                    <top>0</top>
+                    <width>860</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFE6E6E6</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                </control>
+                <control type="label">
+                    <left>130</left>
+                    <top>0</top>
+                    <width>860</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>66FFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                </control>
+                <control type="label">
+                    <left>900</left>
+                    <top>0</top>
+                    <width>250</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>B3FFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(row_date)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FF8FDDA6</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),aired)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFC857</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),today)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>B3FFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),unaired)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>66FFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                </control>
+            </itemlayout>
+            <focusedlayout height="72">
+                <control type="image">
+                    <left>0</left>
+                    <top>0</top>
+                    <width>1380</width>
+                    <height>72</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>FF0F89AE</colordiffuse>
+                    <visible>Control.HasFocus(1000)</visible>
+                </control>
+                <control type="image">
+                    <left>0</left>
+                    <top>0</top>
+                    <width>1380</width>
+                    <height>72</height>
+                    <texture>white.png</texture>
+                    <colordiffuse>330F89AE</colordiffuse>
+                    <visible>!Control.HasFocus(1000)</visible>
+                </control>
+                <control type="image">
+                    <left>18</left>
+                    <top>10</top>
+                    <width>52</width>
+                    <height>52</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(poster)]</texture>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>92</left>
+                    <top>0</top>
+                    <width>700</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>[B]$INFO[ListItem.Label][/B]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>800</left>
+                    <top>0</top>
+                    <width>550</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(show_summary)]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>130</left>
+                    <top>0</top>
+                    <width>860</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>900</left>
+                    <top>0</top>
+                    <width>250</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(row_date)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),aired)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),today)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),unaired)</visible>
+                </control>
+                <control type="label">
+                    <left>1170</left>
+                    <top>0</top>
+                    <width>190</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>CCFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_status)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                </control>
+            </focusedlayout>
+        </control>
+    </controls>
+</window>

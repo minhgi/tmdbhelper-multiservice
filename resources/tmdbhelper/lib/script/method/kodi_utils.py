@@ -25,7 +25,9 @@ def _reload_bingie_hub_widgets(timestamp):
             xbmc.executebuiltin(f'Skin.SetString({key},{new_url}&reload={timestamp})')
 
 
-def reload_widgets():
+def reload_widgets(soft=False, invalidate=True):
+    """soft=True: a background sync changed data (the widget cache may be served stale while the service rebuilds it).
+    invalidate=False: only nudge the skins to re-request (used by the widget warmer once its caches are fresh)."""
     """Set widget reload properties for both TMDbHelper and common skin property names.
     TMDbHelper uses TMDbHelper.Widgets.Reload (via jurialmunkey prefix).
     Many skins use their own property names (e.g. widgetreload-movies, widgetreload).
@@ -42,7 +44,10 @@ def reload_widgets():
     home.setProperty('widgetreload', timestamp)
     home.setProperty('widgetreload2', timestamp)
     # Invalidate widget directory cache so next request runs full pipeline
-    home.setProperty('TMDbHelper.Widgets.LastInvalidated', str(time.time()))
+    if invalidate:
+        home.setProperty('TMDbHelper.Widgets.LastInvalidated', str(time.time()))
+        if not soft:
+            home.setProperty('TMDbHelper.Widgets.HardInvalidated', str(time.time()))
     _reload_bingie_hub_widgets(timestamp)
 
 

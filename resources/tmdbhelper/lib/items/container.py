@@ -5,6 +5,14 @@ from tmdbhelper.lib.addon.plugin import get_setting, executebuiltin, get_localiz
 from tmdbhelper.lib.api.contains import CommonContainerAPIs
 from tmdbhelper.lib.addon.logger import TimerList
 
+# Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
+BLANK_MENUS = ('dir_mdblist_progress',)
+
+# Rows that ask for typing or act (an empty result there is a cancelled prompt or an action, not an empty list)
+EMPTY_NO_NOTICE = (
+    'dir_calendar_window', 'dir_calendar_shows_window', 'dir_custom_node', 'dir_discover', 'dir_multisearch', 'dir_search', 'dir_settings', 'dir_tools_action',
+    'mdblist_searchlists', 'mdblist_userlists', 'random_genres', 'random_keyword', 'trakt_searchlists', 'trakt_userlists')
+
 
 """ Lazyimports
 from tmdbhelper.lib.items.kodi import KodiDb
@@ -208,7 +216,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             simkl_playcount = self.simkl_playdata.get_playcount(li) or 0
             if _info in ('mdblist_watchlist', 'mdblist_history', 'mdblist_upnext'):
                 playcount = mdb_playcount
-            elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext'):
+            elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext', 'simkl_watching', 'simkl_hold', 'simkl_dropped'):
                 playcount = simkl_playcount
             else:
                 playcount = max(trakt_playcount, mdb_playcount, simkl_playcount)
@@ -341,13 +349,36 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         """
         return
 
+    def _warm_next_page(self, items):
+        """Hand the paramstring of the next page to the service so it is fetched while the user reads this page."""
+        try:
+            if self.handle == -1:
+                return
+            from tmdbhelper.lib.items.widget_cache import prewarm_enabled
+            if not prewarm_enabled():
+                return
+            nxt = next((i for i in items if i and getattr(i, 'next_page', False)), None)
+            url = nxt.get_url() if nxt else None
+            if url and '?' in url:
+                import xbmcgui
+                xbmcgui.Window(10000).setProperty('TMDbHelper.Widgets.WarmNext', url.split('?', 1)[1])
+        except Exception:
+            pass
+
+    def _notify_empty(self):
+        """True for an empty list the user opened by hand: not a widget, not a row that prompts or acts."""
+        if self.is_widget or self.container_update or self.container_refresh:
+            return False
+        return self.params.get('info') not in EMPTY_NO_NOTICE
+
     def get_directory(self, items_only=False, build_items=True):
         # Widget cache: serve cached items instantly for spurious re-requests
         # (e.g. after YouTube trailer causes skin to unload/reload widgets)
         if self.is_widget and not items_only and build_items:
-            from tmdbhelper.lib.items.widget_cache import is_cache_valid, load_cache
-            if is_cache_valid(self.paramstring):
+            from tmdbhelper.lib.items.widget_cache import cache_state, load_cache, note_used
+            if cache_state(self.paramstring) != 'miss':  # 'stale' is served too: the service rebuilds it in the background
                 if load_cache(self.paramstring, self.handle):
+                    note_used(self.paramstring)
                     return
 
         with TimerList(self.timer_lists, 'total', logging=self.log_timers):
@@ -357,6 +388,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             with TimerList(self.timer_lists, 'get_list', logging=self.log_timers):
                 items = self.get_items(**self.params)
             if not items:
+                if self.params.get('info') in BLANK_MENUS and build_items and not items_only:
+                    self.finish_container()
+                    return
+                # Kodi bounces back from a directory that is never finished: tell the user the list is empty instead
+                if build_items and not items_only and self._notify_empty():
+                    from xbmcgui import Dialog
+                    Dialog().notification('TMDb Helper', get_localized(32720))
                 return
             if not build_items:
                 return items
@@ -371,6 +409,8 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                     from tmdbhelper.lib.items.widget_cache import save_cache
                     save_cache(self.paramstring, items, self.plugin_category, self.container_content)
                 self.add_items(items)
+                if not self.is_widget:
+                    self._warm_next_page(items)
             self.finish_container()
         if self.log_timers:
             from tmdbhelper.lib.addon.logger import log_timer_report

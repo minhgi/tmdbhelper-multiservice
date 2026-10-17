@@ -12,7 +12,10 @@ Simkl scope:
   Watched/unwatched: movie, show, season (episode deferred — TVDB/TMDb mismatch)
   Watchlist: add-only mirror to Simkl plan-to-watch. Removes are NOT mirrored because
     Simkl's only removal endpoint (history/remove) clears all list status including watched.
-  Ratings: no Simkl rating endpoint — Trakt/MDBList only.
+  Ratings: a rating made on Simkl (ItemSimklRating) mirrors out to Trakt and MDBList. Nothing mirrors a
+    Trakt/MDBList rating INTO Simkl: POST /sync/ratings adds an unlisted item to the library (a movie
+    becomes 'completed', a show 'watching'), which would turn a rating into a watched mark. (This line
+    used to say Simkl has no rating endpoint; it has one - POST /sync/ratings, live-checked 2026-10-14.)
   Collection: no Simkl collection endpoint — Trakt/MDBList only.
 """
 
@@ -460,6 +463,8 @@ def _update_simkl_watched_db(simkl, tmdb_type, tmdb_id, season, value):
             item_id = f'tv.{int(tmdb_id)}'
             cache.execute_sql(
                 cache.statement_insert_or_ignore('simplecache', ('id',)), (item_id,))
+            # completed (watched) and removed (unwatched) both replace a 'watching' status
+            cache.execute_sql('UPDATE simplecache SET watching_at=NULL WHERE id=?', (item_id,))
             if value:
                 cache.execute_sql(
                     'UPDATE simplecache SET last_watched_at=?, watched_episodes=?,'
@@ -486,7 +491,12 @@ def _update_simkl_status_db(simkl, tmdb_type, tmdb_id, key, value):
         item_id = f'{db_type}.{tmdb_id_int}'
         item_type_str = 'movie' if tmdb_type == 'movie' else 'show'
         cache = simkl.simkl_syncdata.cache
+        cache.execute_sql('UPDATE simplecache SET watching_at=NULL WHERE id=?', (item_id,))
         if value:
+            # Simkl keeps one status per item: setting one clears the other two (as update_status_in_db does)
+            others = [k for k in ('plantowatch_at', 'hold_at', 'dropped_at') if k != key]
+            cache.execute_sql(
+                f'UPDATE simplecache SET {others[0]}=NULL, {others[1]}=NULL WHERE id=?', (item_id,))
             from datetime import datetime, timezone
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
             keys = (key, 'item_type', 'tmdb_type', 'tmdb_id', 'season_number', 'episode_number')
@@ -535,15 +545,45 @@ def mirror_watched_to_simkl(tmdb_type, tmdb_id, season, episode, remove):
         kodi_log(f'cross_sync mirror_watched_to_simkl error: {exc}', 2)
 
 
+def _simkl_movie_is_watched(simkl, tmdb_id):
+    """True when Simkl has this movie as watched: GET /sync/all-items/movies/ lists it with last_watched_at
+    set or status 'completed' (tmdb ids compared as strings). If that list cannot be read the local play
+    count decides. Simkl drops a movie's watched state when it goes to plan-to-watch, hold or dropped.
+    """
+    try:
+        url = f'https://api.simkl.com/sync/all-items/movies/?client_id={simkl.client_id}'
+        response = simkl.get_api_request(url, headers=simkl.auth_headers)
+        data = response.json() if response is not None else None
+        rows = data.get('movies') if isinstance(data, dict) else None
+        if isinstance(rows, list):
+            for row in rows:
+                ids = ((row or {}).get('movie') or {}).get('ids') or {}
+                if str(ids.get('tmdb')) == str(tmdb_id):
+                    return row.get('last_watched_at') is not None or row.get('status') == 'completed'
+            return False
+    except Exception as exc:
+        kodi_log(f'cross_sync: Simkl library read error: {exc}', 2)
+    try:
+        row = simkl.simkl_syncdata.cache.execute_sql(
+            'SELECT plays FROM simplecache WHERE id=?', (f'movie.{int(tmdb_id)}',), read_only=True).fetchone()
+        return bool(row and row[0])
+    except Exception:
+        return False
+
+
 def mirror_watchlist_to_simkl(tmdb_type, tmdb_id):
     """Mirror watchlist add to Simkl plan-to-watch. Add-only — removes are NOT mirrored:
     Simkl's history/remove endpoint clears ALL list status including watched/completed.
+    A movie Simkl has as watched is left alone (plan-to-watch would un-watch it).
     """
     if not _can_mirror_to_simkl():
         return
     try:
         simkl = _simkl_api()
         if not _simkl_is_authorized(simkl):
+            return
+        if tmdb_type == 'movie' and _simkl_movie_is_watched(simkl, tmdb_id):
+            kodi_log(f'cross_sync: movie {tmdb_id} is watched on Simkl - not moved to plan-to-watch', 1)
             return
         payload = _build_simkl_payload(tmdb_type, tmdb_id, None, to='plantowatch')
         if _simkl_post(simkl, payload, 'sync', 'add-to-list') is not None:

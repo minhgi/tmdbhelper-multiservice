@@ -1,6 +1,11 @@
 from tmdbhelper.lib.files.ftools import cached_property
 from collections import defaultdict
 
+# Show/season rows for a whole-show / whole-season mark carry no per-episode count, so they
+# get the same watched_episodes sentinel the context-menu writes use (script/sync/
+# mdblist_sync.py): get_playcount() takes min(sentinel, aired episodes) = fully watched.
+_BULK_WATCHED_EPISODES = 9999
+
 
 class MDbListSyncItem:
     """
@@ -117,7 +122,7 @@ class MDbListSyncItem:
                 sd['last_watched_at'] = last_watched_at
             sd['seasons'][season].append(episode)
 
-        # Write aggregated season and show rows
+        # Write aggregated season and show rows (individually-watched episodes)
         for tmdb_id, sd in show_data.items():
             total_watched = 0
             for season, episodes in sd['seasons'].items():
@@ -133,7 +138,46 @@ class MDbListSyncItem:
                 [None, sd['last_watched_at'], total_watched],
                 'show', 'tv', tmdb_id)
 
+        # Bulk marks. MDBList stores a whole-season / whole-show mark as one entry in the
+        # 'seasons' / 'shows' buckets with no per-episode rows. A mark only fills in a show
+        # or season that has NO individually-watched episodes: where individual rows exist
+        # they stay the truth, because the cross-service bridge pushes every started Trakt
+        # show to MDBList as a whole-show mark, so a mark alone does not mean the show is
+        # finished (5 of the 89 marked shows on the test account were still in progress).
+        # A season mark only credits its own season row - never the show total, or one
+        # marked season would make the whole show look watched. Episode rows under a bulk
+        # mark stay unwritten.
+        tracked_seasons = {}
+        for tmdb_id, sd in show_data.items():
+            tracked_seasons[tmdb_id] = {n for n in map(self._to_int, sd['seasons']) if n is not None}
+
+        for item in (meta.get('seasons') or []):
+            season = item.get('season') or {}
+            tmdb_id = self._to_int(((season.get('show') or {}).get('ids') or {}).get('tmdb'))
+            number = self._to_int(season.get('number'))
+            if tmdb_id is None or number is None:
+                continue
+            if number in tracked_seasons.get(tmdb_id, ()):
+                continue
+            data[f'tv.{tmdb_id}.{number}'] = self._row(
+                [None, None, _BULK_WATCHED_EPISODES], 'season', 'tv', tmdb_id, number)
+
+        for item in (meta.get('shows') or []):
+            tmdb_id = self._to_int(((item.get('show') or {}).get('ids') or {}).get('tmdb'))
+            if tmdb_id is None or tmdb_id in show_data:
+                continue
+            data[f'tv.{tmdb_id}'] = self._row(
+                [None, item.get('last_watched_at') or item.get('watched_at'), _BULK_WATCHED_EPISODES],
+                'show', 'tv', tmdb_id)
+
         return data
+
+    @staticmethod
+    def _to_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     # ------------------------------------------------------------------
     # /sync/playback parser

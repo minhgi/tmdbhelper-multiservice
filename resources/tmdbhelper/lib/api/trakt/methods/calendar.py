@@ -3,19 +3,46 @@ from tmdbhelper.lib.files.bcache import use_simple_cache
 
 
 @is_authorized
-def get_calendar(self, trakt_type, user=True, start_date=None, days=None, endpoint=None, **kwargs):
+def get_calendar(self, trakt_type, user=True, start_date=None, days=None, endpoint=None, countries=None, genres=None, **kwargs):
     user = 'my' if user else 'all'
-    return self.get_response_json('calendars', user, trakt_type, endpoint, start_date, days, extended='full')
+    return self.get_response_json('calendars', user, trakt_type, endpoint, start_date, days, extended='full', countries=countries, genres=genres)
+
+
+# Genres (Trakt slugs) a filtered calendar leaves out. Trakt has no exclude filter and its country filter is mostly anime for
+# Japan and donghua for China, so the Asian calendars drop these from the response (same exclusions as the Asian menus).
+CALENDAR_EXCLUDE_GENRES = {
+    'asian_tv': {'anime', 'donghua', 'animation', 'reality', 'talk-show', 'game-show'},
+    'asian_movie': {'anime', 'donghua', 'animation', 'documentary'}}
+
+
+def calendar_filter_item(i, key, calendar_filter):
+    exclude = CALENDAR_EXCLUDE_GENRES.get(calendar_filter)
+    if not exclude:
+        return True
+    return not exclude.intersection(((i.get(key) or {}).get('genres') or []))
+
+
+CALENDAR_SHOW_COLOR = 'FF4FC3F7'
+
+
+def get_calendar_episode_label(show_title, episode_code, title=None):
+    """ "1x02. Episode Title (Show Name)" with the show name coloured (or "1x02 (Show Name)" when the episode has no title): the calendar mixes many shows """
+    label = f'{episode_code}. {title}' if title else episode_code
+    return f'{label} [COLOR {CALENDAR_SHOW_COLOR}]({show_title})[/COLOR]' if show_title else label
 
 
 @use_simple_cache(cache_days=0.25)
-def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None):
+def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None, countries=None, genres=None):
     # Broaden date range in case utc conversion bumps into different day
     from jurialmunkey.parser import try_int
     from tmdbhelper.lib.addon.tmdate import get_datetime_today, get_timedelta
     mod_date = try_int(startdate) - 1
     mod_days = try_int(days) + 2
     date = get_datetime_today() + get_timedelta(days=mod_date)
+    if countries or genres:  # filtered "All" calendar: public endpoint, so a logged-out user is not sent to the Trakt login prompt
+        return get_calendar(
+            self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint,
+            countries=countries, genres=genres, authorize=bool(user))
     return get_calendar(self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint)
 
 
@@ -109,7 +136,8 @@ def get_stacked_item(next_item, last_item, stack_info='episodes'):
     ip['stacked_last'] = se
     ip['stacked_last_episode'] = next_item['infolabels']['episode']
     ip['stacked_last_season'] = next_item['infolabels']['season']
-    last_item['label'] = f'{ip["stacked_first"]}-{ip["stacked_last"]}. {ip["stacked_count"]} {get_localized(20360)}'
+    last_item['label'] = get_calendar_episode_label(
+        last_item['infolabels'].get('tvshowtitle'), f'{ip["stacked_first"]}-{ip["stacked_last"]}', f'{ip["stacked_count"]} {get_localized(20360)}')
     return last_item
 
 
@@ -153,11 +181,15 @@ def stack_calendar_tvshows(self, tvshow_list, flipped=False):
 
 
 @use_simple_cache(cache_days=0.25)
-def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes'):
-    # Get response
-    response = get_calendar_episodes(self, startdate=startdate, days=days, user=user, endpoint=endpoint)
+def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes', countries=None, calendar_filter=None, genres=None):
+    # Get response (countries / genres / calendar_filter are passed on only when set, so the unfiltered TV calendar keeps its cache keys)
+    response = get_calendar_episodes(
+        self, startdate=startdate, days=days, user=user, endpoint=endpoint,
+        **{k: v for k, v in (('countries', countries), ('genres', genres)) if v})
     if not response:
         return
+    if calendar_filter:
+        response = [i for i in response if calendar_filter_item(i, 'show', calendar_filter)]
     # Reverse items for date ranges in past
     traktitems = reversed(response) if startdate < -1 else response
     items = [get_calendar_episode_item(i) for i in traktitems if get_calendar_episode_item_bool(i, kodi_db, user, startdate, days)]
@@ -166,13 +198,98 @@ def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_d
     return stack_calendar_episodes(items, flipped=startdate < -1, stack_info=stack_info)
 
 
-def get_calendar_episodes_list(self, startdate=0, days=1, user=True, kodi_db=None, page=1, limit=None, endpoint=None):
+def get_calendar_episodes_list(self, startdate=0, days=1, user=True, kodi_db=None, page=1, limit=None, endpoint=None, countries=None, calendar_filter=None, genres=None, stack=None):
     from tmdbhelper.lib.addon.plugin import get_setting
     from tmdbhelper.lib.items.pages import PaginatedItems
     limit = limit or self.sync_item_limit
-    stack = get_setting('calendar_flatten')
+    if stack is None:  # the Your TV Calendar window asks for unstacked episodes (unstacked=true); every other calendar follows the setting
+        stack = get_setting('calendar_flatten')
     stack_info = 'details' if kodi_db and get_setting('nextaired_linklibrary') else 'episodes'  # Fix for stacked episodes linking to library
-    response_items = get_calendar_episodes_listitems(self, startdate, days, user, kodi_db, stack=stack, endpoint=endpoint, stack_info=stack_info)
+    extra = {k: v for k, v in (('countries', countries), ('calendar_filter', calendar_filter), ('genres', genres)) if v}
+    response_items = get_calendar_episodes_listitems(self, startdate, days, user, kodi_db, stack=stack, endpoint=endpoint, stack_info=stack_info, **extra)
+    response = PaginatedItems(response_items, page=page, limit=limit)
+    if response and response.items:
+        return response.items + response.next_page
+
+
+# Movies: Trakt calendars/{my|all}/movies (theatrical / digital releases) and calendars/{my|all}/dvd (physical releases).
+# Release dates are plain dates (no time), so the window is requested exactly and there is no UTC conversion.
+MOVIE_DATE_FMT = '%Y-%m-%d'
+MOVIE_DATE_LEN = 10
+
+
+@use_simple_cache(cache_days=0.25)
+def get_calendar_movies(self, startdate=0, days=1, user=True, endpoint=None, countries=None, genres=None):
+    from tmdbhelper.lib.addon.tmdate import get_datetime_today, get_timedelta
+    from jurialmunkey.parser import try_int
+    date = get_datetime_today() + get_timedelta(days=try_int(startdate))
+    # Public endpoints: a logged-out "All" calendar must not stop at the Trakt login prompt (authorize=False skips it)
+    return get_calendar(
+        self, 'dvd' if endpoint == 'dvd' else 'movies', user,
+        start_date=date.strftime('%Y-%m-%d'), days=try_int(days), countries=countries, genres=genres, authorize=bool(user))
+
+
+def get_calendar_movie_item(i):
+    from jurialmunkey.parser import try_int
+    from tmdbhelper.lib.addon.tmdate import convert_timestamp, get_region_date, get_days_to_air
+    from tmdbhelper.lib.api.mapping import get_empty_item
+
+    movie = i.get('movie') or {}
+    ids = movie.get('ids') or {}
+    if not ids.get('tmdb'):
+        return
+    release_date = convert_timestamp(i.get('released'), MOVIE_DATE_FMT, MOVIE_DATE_LEN)
+    if not release_date:
+        return
+    item = get_empty_item()
+    item['label'] = movie.get('title')
+    item['infolabels'] = {
+        'mediatype': 'movie',
+        'premiered': release_date.strftime('%Y-%m-%d'),
+        'year': movie.get('year') or release_date.strftime('%Y'),
+        'title': item['label'],
+        'duration': try_int(movie.get('runtime', 0)) * 60,
+        'plot': movie.get('overview'),
+        'mpaa': movie.get('certification')}
+    item['infoproperties'] = {
+        'air_date': get_region_date(release_date, 'datelong'),
+        'air_day': release_date.strftime('%A'),
+        'air_day_short': release_date.strftime('%a'),
+        'air_date_short': release_date.strftime('%d %b')}
+    days_to_air, is_aired = get_days_to_air(release_date)
+    item['infoproperties']['days_from_aired' if is_aired else 'days_until_aired'] = str(days_to_air)
+    item['unique_ids'] = {k: v for k, v in ids.items() if v}
+    item['params'] = {
+        'info': 'details',
+        'tmdb_type': 'movie',
+        'tmdb_id': ids.get('tmdb')}
+    return item
+
+
+def get_calendar_movie_item_bool(i, startdate, days):
+    from tmdbhelper.lib.addon.tmdate import date_in_range
+    return bool(date_in_range(i.get('released'), days, startdate, date_fmt=MOVIE_DATE_FMT, date_lim=MOVIE_DATE_LEN))
+
+
+@use_simple_cache(cache_days=0.25)
+def get_calendar_movies_listitems(self, startdate=0, days=1, user=True, endpoint=None, countries=None, calendar_filter=None, genres=None):
+    response = get_calendar_movies(
+        self, startdate=startdate, days=days, user=user, endpoint=endpoint, countries=countries, **({'genres': genres} if genres else {}))
+    if not response or not isinstance(response, list):
+        return
+    if calendar_filter:
+        response = [i for i in response if calendar_filter_item(i, 'movie', calendar_filter)]
+    # Reverse items for date ranges in past
+    traktitems = reversed(response) if startdate < -1 else response
+    items = [get_calendar_movie_item(i) for i in traktitems if get_calendar_movie_item_bool(i, startdate, days)]
+    return [i for i in items if i]
+
+
+def get_calendar_movies_list(self, startdate=0, days=1, user=True, page=1, limit=None, endpoint=None, countries=None, calendar_filter=None, genres=None):
+    from tmdbhelper.lib.items.pages import PaginatedItems
+    limit = limit or self.sync_item_limit
+    extra = {k: v for k, v in (('calendar_filter', calendar_filter), ('genres', genres)) if v}   # only when set: earlier movie calendars keep their cache keys
+    response_items = get_calendar_movies_listitems(self, startdate, days, user, endpoint=endpoint, countries=countries, **extra)
     response = PaginatedItems(response_items, page=page, limit=limit)
     if response and response.items:
         return response.items + response.next_page

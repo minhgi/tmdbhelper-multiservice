@@ -141,7 +141,8 @@ class _ListItem(object):
         self.cast = self.cast or details.get('cast', [])
         if not override:
             return
-        self.label = details.get('label') or self.label
+        if not self.infoproperties.get('no_label_formatting'):  # Calendar episodes carry their own "Show - 1x02. Title" label
+            self.label = details.get('label') or self.label
         self.infolabels['title'] = details.get('infolabels', {}).get('title') or self.infolabels.get('title')
         self.infolabels['tvshowtitle'] = details.get('infolabels', {}).get('tvshowtitle') or self.infolabels.get('tvshowtitle')
 
@@ -185,7 +186,7 @@ class _ListItem(object):
 
     def set_uids_to_info(self):
         for k, v in self.unique_ids.items():
-            if not v:
+            if not v or isinstance(v, (dict, list)):  # e.g. Trakt's plex id object (also in cached Trakt lists)
                 continue
             self.infoproperties[f'{k}_id'] = v
 
@@ -452,5 +453,10 @@ class _Episode(_Tvshow):
         season = try_int(self.infolabels.get('season', 0))
         episode = try_int(self.infolabels.get('episode', 0))
         if not episode:
+            return
+        show_title = self.infolabels.get('tvshowtitle')
+        if show_title and self.parent_params.get('info') == 'trakt_calendar':  # Calendars mix many shows so lead with the show name
+            from tmdbhelper.lib.api.trakt.methods.calendar import get_calendar_episode_label
+            self.label = get_calendar_episode_label(show_title, f'{season}x{episode:0>2}', self.infolabels.get('title'))
             return
         self.label = format_label.format(season=season, episode=episode, label=self.infolabels.get('title', ''))

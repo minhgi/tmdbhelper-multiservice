@@ -1,15 +1,30 @@
 from tmdbhelper.lib.files.ftools import cached_property
 
 
+# Simkl's status word -> the local SimklSync.db flag column. Simkl names the Dropped status per app token:
+# this addon's token reads back 'notinteresting', a Seren-app token 'dropped' - both are the dropped flag.
+STATUS_COLUMN = {
+    'plantowatch': 'plantowatch_at',
+    'hold': 'hold_at',
+    'notinteresting': 'dropped_at',
+    'dropped': 'dropped_at',
+    'watching': 'watching_at',
+}
+
+
 class SimklSyncItem:
     """
     Parses raw Simkl API responses into the {item_id: [values]} dict that
     SyncData.set_many_values() expects.  One instance per sync method.
 
-    Phase B covers watched only (plays + watched_episodes + last_watched_at).
+    Phase B covers watched only (plays + watched_episodes + last_watched_at), plus the user's
+    own rating (user_rating / user_rated_at on every library entry) and the account's list status
+    (plantowatch_at / hold_at / dropped_at / watching_at, see collect_statuses).
     Episode-level rows are omitted — Simkl uses TVDB episode numbers which
     may diverge from TMDb numbers. Phase D adds resolution via external_ids.
     """
+
+    _NO_STATUS = (None, None, None, None)
 
     _additional_keys = (
         'item_type', 'tmdb_type', 'tmdb_id', 'season_number', 'episode_number',
@@ -56,6 +71,64 @@ class SimklSyncItem:
              season_number=None, episode_number=None):
         return [*base_values, item_type, tmdb_type, tmdb_id, season_number, episode_number]
 
+    @staticmethod
+    def _rating(item):
+        """(rating, rated_at) of a library entry: user_rating is 1-10 or null when never rated."""
+        try:
+            rating = int(item.get('user_rating') or 0) or None
+        except (ValueError, TypeError):
+            rating = None
+        return rating, (item.get('user_rated_at') if rating else None)
+
+    @staticmethod
+    def _tmdb_id(obj):
+        try:
+            return int(((obj or {}).get('ids') or {}).get('tmdb'))
+        except (ValueError, TypeError):
+            return None
+
+    @classmethod
+    def collect_statuses(cls, movie_rows, show_rows, anime_rows):
+        """[(kind, tmdb_id, status, added_at)] for every library entry that sits on a plan-to-watch / hold /
+        dropped / watching list, from the raw all-items rows (every status) of movies, shows and anime.
+
+        kind is 'movie' or 'show'. 'completed' entries are not a list status and are left out, as are entries
+        without a TMDb id (nothing here could look them up). Anime movies are left out as well: the Remove
+        action looks a movie up in Simkl's 'movies' bucket only, so a flag taken from the 'anime' bucket would
+        offer Remove, find nothing to remove and clear itself - to return on the next sync.
+        Anime entries keep anime_type at the top level and the ids under 'show' (live shape, 2026-10-14).
+        """
+        found = []
+
+        def add(kind, obj, entry):
+            status = entry.get('status')
+            tmdb_id = cls._tmdb_id(obj)
+            if status in STATUS_COLUMN and tmdb_id:
+                found.append((kind, tmdb_id, status, entry.get('added_to_watchlist_at') or entry.get('last_watched_at')))
+
+        for entry in (movie_rows or []):
+            add('movie', entry.get('movie'), entry)
+        for entry in (show_rows or []):
+            add('show', entry.get('show'), entry)
+        for entry in (anime_rows or []):
+            if entry.get('anime_type') != 'movie':
+                add('show', entry.get('show') or entry, entry)
+        return found
+
+    def _apply_statuses(self, data, statuses):
+        """Set the status flag of each (kind, tmdb_id, status, added_at); a status-only item gets a row of its own."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        for kind, tmdb_id, status, added_at in statuses:
+            movie = kind == 'movie'
+            item_id = f'movie.{tmdb_id}' if movie else f'tv.{tmdb_id}'
+            row = data.get(item_id)
+            if row is None:
+                row = data[item_id] = self._row(
+                    [None] * len(self._base_keys),
+                    'movie' if movie else 'show', 'movie' if movie else 'tv', tmdb_id)
+            row[self._base_keys.index(STATUS_COLUMN[status])] = added_at or now
+
     def _parse_watched(self, meta):
         if not meta:
             return {}
@@ -75,9 +148,9 @@ class SimklSyncItem:
                 continue
             last_watched_at = item.get('last_watched_at')
             item_id = f'movie.{tmdb_id}'
-            # base_keys = ('plays', 'last_watched_at', 'watched_episodes')
+            # base_keys = ('plays', 'last_watched_at', 'watched_episodes', 'rating', 'rated_at', *status flags)
             data[item_id] = self._row(
-                [1, last_watched_at, None],
+                [1, last_watched_at, None, *self._rating(item), *self._NO_STATUS],
                 'movie', 'movie', tmdb_id)
 
         # --- Shows ---
@@ -87,8 +160,12 @@ class SimklSyncItem:
         #             "total_episodes_count": 195,
         #             "not_aired_episodes_count": 0,
         #             "seasons": [{"number": 1, "episodes": [{"number": 1}]}]}]}
-        # seasons[].episodes[] = WATCHED episodes (TVDB numbers).
-        # We write show-level and season-level watched counts only (no episode rows).
+        # seasons[].episodes[] = WATCHED episodes (TVDB numbers), sent only for entries still in progress
+        # (watching / hold). A completed or dropped entry carries just "watched_episodes_count", which then
+        # stands in for the show-level count (live check 2026-10-14).
+        # We write show-level and season-level watched counts only (no episode rows). Anime entries
+        # (anime_type set) are one cour each and always number it season 1, which says nothing about the TMDb
+        # season, so they get the show-level count only.
         for item in (meta.get('shows') or []):
             ids = (item.get('show') or {}).get('ids', {})
             tmdb_id = ids.get('tmdb')
@@ -106,17 +183,26 @@ class SimklSyncItem:
                     continue
                 season_watched = len(season.get('episodes') or [])
                 total_watched += season_watched
-                if season_watched == 0:
+                if season_watched == 0 or item.get('anime_type'):
                     continue
                 season_id = f'tv.{tmdb_id}.{season_num}'
                 data[season_id] = self._row(
-                    [None, None, season_watched],
+                    [None, None, season_watched, None, None, *self._NO_STATUS],
                     'season', 'tv', tmdb_id, season_num)
+
+            if not total_watched:
+                try:
+                    total_watched = max(int(item.get('watched_episodes_count') or 0), 0)
+                except (ValueError, TypeError):
+                    total_watched = 0
 
             show_id = f'tv.{tmdb_id}'
             data[show_id] = self._row(
-                [None, None, total_watched],
+                [None, None, total_watched, *self._rating(item), *self._NO_STATUS],
                 'show', 'tv', tmdb_id)
+
+        # --- List status (plantowatch / hold / dropped / watching), from collect_statuses ---
+        self._apply_statuses(data, meta.get('statuses') or [])
 
         return data
 

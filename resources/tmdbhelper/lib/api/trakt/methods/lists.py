@@ -301,7 +301,7 @@ def get_list_of_lists(self, path, page: int = 1, limit: int = 250, authorize=Fal
                     u'like_list={list_slug},user_slug={user_slug}'.format(**item['params'])))]
 
         # Like list context menu
-        elif path.startswith(('lists/', 'search/')):
+        elif path.startswith(('lists/', 'search/')) or (path.startswith('users/') and not path.startswith('users/me/')):
             item['context_menu'] += [(
                 get_localized(32315), u'Runscript(plugin.video.themoviedb.helper,{})'.format(
                     u'like_list={list_slug},user_slug={user_slug}'.format(**item['params'])))]

@@ -3,13 +3,15 @@ from tmdbhelper.lib.addon.dialog import BusyDialog
 from tmdbhelper.lib.script.sync.basic import ItemWatched, ItemUnwatched, ItemWatchlist, ItemCollection, ItemFavorites
 from tmdbhelper.lib.script.sync.rating import ItemRating
 from tmdbhelper.lib.script.sync.comments import ItemComments
-from tmdbhelper.lib.script.sync.userlist import ItemUserList
+from tmdbhelper.lib.script.sync.userlist import ItemUserList, ItemMDbList, ItemMDbListManage
 from tmdbhelper.lib.script.sync.progress import ItemProgress
+from tmdbhelper.lib.script.sync.dropped import ItemTraktDrop
 from tmdbhelper.lib.script.sync.mdblist_sync import (
     ItemMDbListWatched, ItemMDbListUnwatched, ItemMDbListWatchlist, ItemMDbListCollection,
-    ItemMDbListRating)
+    ItemMDbListRating, ItemMDbListClearProgress, ItemMDbListDrop)
 from tmdbhelper.lib.script.sync.simkl_sync import (
-    ItemSimklWatched, ItemSimklUnwatched, ItemSimklPlanToWatch, ItemSimklHold, ItemSimklDrop)
+    ItemSimklWatched, ItemSimklUnwatched, ItemSimklWatching, ItemSimklPlanToWatch, ItemSimklHold, ItemSimklDrop,
+    ItemSimklClearProgress, ItemSimklRating)
 from xbmcgui import Dialog
 
 
@@ -54,6 +56,7 @@ class Menu(MenuAttributes):
         'collection': ItemCollection,
         'favorites': ItemFavorites,
         'userlist': ItemUserList,
+        'dropped': ItemTraktDrop,
         'progress': ItemProgress,
         'comments': ItemComments,
         'rating': ItemRating,
@@ -92,6 +95,10 @@ class MDbListMenu(MenuAttributes):
         'mdblist_unwatched': ItemMDbListUnwatched,
         'mdblist_watchlist': ItemMDbListWatchlist,
         'mdblist_collection': ItemMDbListCollection,
+        'mdblist_list': ItemMDbList,
+        'mdblist_managelists': ItemMDbListManage,
+        'mdblist_drop': ItemMDbListDrop,
+        'mdblist_clearprogress': ItemMDbListClearProgress,
         'mdblist_rating': ItemMDbListRating,
     }
 
@@ -126,9 +133,12 @@ class SimklMenu(MenuAttributes):
     items = {
         'simkl_watched': ItemSimklWatched,
         'simkl_unwatched': ItemSimklUnwatched,
+        'simkl_watching': ItemSimklWatching,
         'simkl_plantowatch': ItemSimklPlanToWatch,
         'simkl_hold': ItemSimklHold,
         'simkl_drop': ItemSimklDrop,
+        'simkl_clearprogress': ItemSimklClearProgress,
+        'simkl_rating': ItemSimklRating,
     }
 
     def __init__(self, tmdb_type, tmdb_id, season=None, episode=None):

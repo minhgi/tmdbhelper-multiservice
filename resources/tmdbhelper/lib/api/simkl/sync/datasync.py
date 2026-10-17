@@ -1,6 +1,8 @@
 from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.api.simkl.sync.database import SimklSyncDataBase
 
+SYNC_RECHECK = 5  # seconds a data route is trusted as up to date after it was checked (see sync())
+
 
 class SimklSyncData:
 
@@ -16,6 +18,17 @@ class SimklSyncData:
     def reset_lastactivities(self):
         from tmdbhelper.lib.api.simkl.sync.activity import SIMKL_LASTACTIVITIES_DATA
         self.window.get_property(SIMKL_LASTACTIVITIES_DATA, clear_property=True)
+        self.__dict__.pop('_sync_checked', None)
+
+    def clear_all(self):
+        """ Forget the signed-in account's synced data (every row and every activity stamp) so a different account never
+        inherits it. The tables are emptied rather than the file deleted: the file's 'initialised' window flag would
+        stop a deleted file being recreated. Returns True if both tables were emptied. """
+        from tmdbhelper.lib.addon.logger import kodi_log
+        done = all(self.cache.execute_sql(f'DELETE FROM {table}') is not None for table in ('simplecache', 'lactivities'))
+        self.reset_lastactivities()
+        kodi_log(f'{self.cache_filename}: cleared on logout' if done else f'{self.cache_filename}: could not be cleared on logout', 1)
+        return done
 
     @cached_property
     def cache(self):
@@ -49,9 +62,18 @@ class SimklSyncData:
         return data[0] if data else None
 
     def sync(self, item_type, keys, forced=False):
+        """ Make sure the synced data is up to date for these keys. Every value read calls this, so a route that was checked
+        in the last SYNC_RECHECK seconds is not checked again (each check takes a cross-process lock and reads the stored
+        activity): a list of 20 items used to do ~100 checks. forced=True and reset_lastactivities() always bypass it. """
         from jurialmunkey.modimp import importmodule
+        from time import monotonic
+        checked = self.__dict__.setdefault('_sync_checked', {})
         for route in set([j for j in (self.routes.get(k) for k in (keys or ())) if j]):
+            stamp = (route, item_type)
+            if not forced and monotonic() - checked.get(stamp, -SYNC_RECHECK) < SYNC_RECHECK:
+                continue
             importmodule(*route)(self, item_type).sync(forced=forced)
+            checked[stamp] = monotonic()
 
     def get_movie_playcount(self, tmdb_id):
         return self.get_value('movie', tmdb_id, key='plays')
