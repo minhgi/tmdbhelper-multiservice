@@ -144,6 +144,14 @@ def _get_basedir_details():
                 'icon': f'{ADDONPATH}/resources/icons/themoviedb/recommended.png'},
             'types': ['movie', 'tv', 'episode']},
         {
+            'label': 'Anime Recommendations',   # shown only for anime (get_basedir_details)
+            'params': {'info': 'anime_recommendations'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/themoviedb/recommended.png'},
+            'types': ['movie', 'tv', 'episode']},
+        {
             'label': get_localized(32224),
             'params': {'info': 'similar'},
             'path': PLUGINPATH,
@@ -1874,7 +1882,11 @@ def _get_basedir_calendar(info=None, endpoint=None, user=None, tmdb_type=None, c
     return items
 
 
-def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_item=None, include_play=False):
+def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_item=None, include_play=False, anime=None):
+    """anime: whether the title is Japanese animation (the Anime Recommendations entry only shows then); when None it is read from the
+    detailed item's original language. Local data only: nothing is looked up to decide."""
+    if anime is None:
+        anime = ((detailed_item or {}).get('infoproperties') or {}).get('original_language') == 'ja'
     base_item = detailed_item or {}
     base_item.setdefault('params', {})
     base_item.setdefault('infolabels', {})
@@ -1908,6 +1920,8 @@ def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_
         basedir_items = _build_basedir('person', _get_basedir_details())
 
     items = [merge_two_items(base_item, i) for i in basedir_items if i]
+    if not anime:
+        items = [i for i in items if (i.get('params') or {}).get('info') != 'anime_recommendations']
 
     if detailed_item:
         return [base_item] + items

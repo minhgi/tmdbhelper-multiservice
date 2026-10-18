@@ -948,6 +948,9 @@ ROUTE_NOID = {
     'anime_top100': {'route': {
         'module_name': 'tmdbhelper.lib.api.anilist.lists',
         'import_attr': 'ListAnimeTop100'}},
+    'anime_recommendations': {'route': {
+        'module_name': 'tmdbhelper.lib.api.anilist.lists',
+        'import_attr': 'ListAnimeRecommendations'}},
     'anime_genres': {'route': {
         'module_name': 'tmdbhelper.lib.api.anilist.lists',
         'import_attr': 'ListAnimeGenres'}},

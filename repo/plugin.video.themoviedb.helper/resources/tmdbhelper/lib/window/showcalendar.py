@@ -145,7 +145,7 @@ def _episode_row(listitem, today):
     watched = bool(tag and tag.getPlayCount())
     days = _days_until(premiered, today)
     state, text = _status(days, watched)
-    code = f'{season}x{episode:0>2}'
+    code = listitem.getProperty('calendar_code') or f'{season}x{episode:0>2}'   # 'calendar_code': an anime episode not placed in TMDb's numbering, e.g. "E3"
     listitem.setLabel(f'{code}. {title}' if title else code)
     listitem.setProperty('row_type', 'episode')
     listitem.setProperty('air_state', state)

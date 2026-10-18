@@ -72,7 +72,8 @@ SETPROP_RATINGS = {
     'rottentomatoes_image', 'rottentomatoes_reviewtotal', 'rottentomatoes_reviewsfresh',
     'rottentomatoes_reviewsrotten', 'rottentomatoes_consensus', 'rottentomatoes_usermeter',
     'rottentomatoes_userreviews', 'trakt_rating', 'trakt_votes', 'letterboxd_rating',
-    'letterboxd_votes', 'mdblist_rating', 'mdblist_votes', 'goldenglobe_wins',
+    'letterboxd_votes', 'mdblist_rating', 'mdblist_votes', 'myanimelist_rating', 'myanimelist_votes', 'myanimelist_rank', 'myanimelist_popularity',
+    'anilist_rating', 'anilist_rank', 'anilist_popularity', 'goldenglobe_wins',
     'goldenglobe_nominations', 'oscar_wins', 'oscar_nominations', 'award_wins', 'award_nominations',
     'emmy_wins', 'emmy_nominations', 'tmdb_rating', 'tmdb_votes', 'top250',
     'total_awards_won', 'awards_won', 'awards_won_cr', 'academy_awards_won', 'goldenglobe_awards_won',
@@ -209,6 +210,14 @@ class CommonMonitorDetails(CommonContainerAPIs):
         item['infoproperties'].update(ratings)
         return item
 
+    def get_anime_ratings(self, item, tmdb_type, tmdb_id, season=None):
+        # Japanese / Chinese titles only: nothing else is sent to the id service. The MAL score and votes come with MDBList's ratings above.
+        if (item.get('infoproperties') or {}).get('original_language') not in ('ja', 'zh'):
+            return item
+        from tmdbhelper.lib.api.anilist.scores import lookup
+        item['infoproperties'].update(lookup(tmdb_type, tmdb_id, season))
+        return item
+
     def get_tvdb_awards(self, item, tmdb_type, tmdb_id):
         try:
             awards = self.all_awards[tmdb_type][str(tmdb_id)]
@@ -247,6 +256,7 @@ class CommonMonitorDetails(CommonContainerAPIs):
             SafeThread(target=self.get_trakt_ratings, args=(item, trakt_type), kwargs={'season': season, 'episode': episode}),
             SafeThread(target=self.get_tvdb_awards, args=(item, tmdb_type, tmdb_id)),
             SafeThread(target=self.get_mdblist_ratings, args=(item, trakt_type, tmdb_id)),
+            SafeThread(target=self.get_anime_ratings, args=(item, tmdb_type, tmdb_id), kwargs={'season': season}),
             SafeThread(target=self.get_nextaired, args=(item, tmdb_type, tmdb_id)),
         ]
         for t in threads:

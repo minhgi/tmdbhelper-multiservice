@@ -191,7 +191,7 @@ def _asian_calendar(params):
     code = str(params.get('countries') or '').upper()
     w = _COUNTRIES.get(code, 'Asian') if len(code) == 2 else 'Asian'
     if params.get('tmdb_type') == 'movie':
-        return f'{w} movies released this week, from the Trakt calendar (anime, animation and documentaries left out)'
+        return f'{w} movies released this week, from TMDb release dates (anime, animation and documentaries left out)'
     return f'{w} dramas airing this week, from the Trakt calendar (anime, animation, reality and talk shows left out)'
 
 

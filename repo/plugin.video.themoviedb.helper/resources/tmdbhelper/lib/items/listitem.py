@@ -450,6 +450,11 @@ class _Episode(_Tvshow):
     def set_episode_label(self, format_label=u'{season}x{episode:0>2}. {label}'):
         if self.infoproperties.pop('no_label_formatting', None):
             return
+        code = self.infoproperties.get('calendar_code')
+        if code and self.infolabels.get('tvshowtitle'):  # an anime episode not placed in TMDb's numbering ("E6"): lead with the show name like the placed rows
+            from tmdbhelper.lib.api.trakt.methods.calendar import get_calendar_episode_label
+            self.label = get_calendar_episode_label(self.infolabels['tvshowtitle'], code, self.infolabels.get('title'))
+            return
         season = try_int(self.infolabels.get('season', 0))
         episode = try_int(self.infolabels.get('episode', 0))
         if not episode:

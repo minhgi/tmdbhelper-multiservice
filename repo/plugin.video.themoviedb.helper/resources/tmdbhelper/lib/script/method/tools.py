@@ -12,7 +12,7 @@ from tmdbhelper.lib.addon.plugin import ADDON, ADDONDATA, get_setting
 TITLE = 'TMDb Helper'
 SERVICES = (('Trakt', 'trakt_token'), ('MDBList', 'mdblist_token'), ('Simkl', 'simkl_token'))
 BRIDGE_RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'   # window property monitor/bridge_sync.py sets while a cycle runs
-LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json', 'anime_idmap_cache.json')   # the Asian / Anime list caches + saved AniList->TMDb ids (addon_data)
+LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json', 'anime_idmap_cache.json', 'simkl_calendar_tv.json', 'simkl_calendar_anime.json', 'anime_scores_cache.json')   # the Asian / Anime list caches + saved AniList->TMDb ids (addon_data)
 # Same data types as script/method/trakt.py refresh_trakt_sync offers: (sync keys, item types)
 TRAKT_FORCE = (
     (('hidden_at',), ('movie', 'show')),

@@ -346,7 +346,7 @@ def _is_anime(details):
 def _in_scope(details, scope, tmdb_type):
     """Whether a TMDb details dict belongs to the Anime or Asian Progress menu (scope 'anime' / 'asian'), or to the Movies and TV Shows
     menu (scope 'other': neither anime nor Asian). Asian follows the Asian Cinema & TV hub: Chinese / Cantonese / Korean / Japanese / Thai
-    language, movies without Animation or Documentary, TV shows with Drama and without Animation, Reality or Talk."""
+    language, movies without Animation or Documentary, TV shows without Animation, Reality or Talk."""
     if scope == 'anime':
         return _is_anime(details)
     if scope == 'other':
@@ -357,7 +357,7 @@ def _in_scope(details, scope, tmdb_type):
     genres = {g.get('id') for g in details.get('genres') or []}
     if tmdb_type == 'movie':
         return not genres & SEARCH_NOT_ASIAN_MOVIE
-    return 18 in genres and not genres & SEARCH_NOT_ASIAN
+    return not genres & SEARCH_NOT_ASIAN   # Drama is not required: Japanese mystery / comedy series carry no Drama genre
 
 
 def _get_scope(anime_only=None, asian_only=None, other_only=None):

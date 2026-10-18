@@ -26,6 +26,9 @@ ANILIST_QUERY = (
     ' Page(page: $page, perPage: $perpage) { pageInfo { hasNextPage }'
     ' media(type: $type, format: $format, genre_in: $genres, tag_in: $tags, season: $season, startDate_like: $year, sort: $sort,'
     ' isAdult: $isAdult) { id format title { romaji english native } startDate { year } } } }')
+ANILIST_RECOMMENDATIONS = (
+    'query ($id: Int) { Media(id: $id, type: ANIME) { recommendations(sort: RATING_DESC, perPage: 25) { nodes { rating'
+    ' mediaRecommendation { id format title { romaji english native } startDate { year } } } } } }')
 ANILIST_COLLECTIONS = 'query { genres: GenreCollection tags: MediaTagCollection { name isAdult } }'
 SEASON_NAMES = ('WINTER', 'SPRING', 'SUMMER', 'FALL')
 SEASON_LABELS = {'last': 'Airing Last Season', 'this': 'Airing This Season', 'next': 'Airing Next Season'}
@@ -170,6 +173,20 @@ def _fetch_media(variables):
     return media
 
 
+def _fetch_recommendations(anilist_id):
+    """The titles AniList users recommend for an AniList id, most voted first (a title nobody voted for is left out), or None
+    when AniList cannot be reached."""
+    import requests
+    try:
+        data = _post(requests, ANILIST_RECOMMENDATIONS, {'id': anilist_id}) or {}
+    except Exception as exc:
+        kodi_log(f'Anime AniList: request failed: {type(exc).__name__}', 1)
+        return None
+    nodes = (((data.get('Media') or {}).get('recommendations') or {}).get('nodes')) or []
+    return [n['mediaRecommendation'] for n in nodes
+            if n.get('mediaRecommendation') and (n.get('rating') or 0) > 0 and n['mediaRecommendation'].get('format') not in SKIP_FORMATS]
+
+
 def _cache_path():
     try:
         import xbmcvfs
@@ -208,12 +225,15 @@ def anilist_rows(tmdb_api, variables):
     entry = cache.get(key) or {}
     if entry.get('rows') and time.time() - _num(entry.get('fetched')) < CACHE_SECONDS:
         return entry['rows']
-    media = _fetch_media(variables)
+    if variables.get('recommendations'):
+        media = _fetch_recommendations(variables['recommendations'])
+    else:
+        media = _fetch_media(variables)
     if not media:
         return entry.get('rows') or []   # stale beats nothing
     from tmdbhelper.lib.api.anilist.idmap import resolve
     matches = resolve(tmdb_api, media, lambda m: _match_tmdb(tmdb_api, m))
-    seen, rows = set(), []
+    seen, rows = {tuple(variables['exclude'])} if variables.get('exclude') else set(), []   # a recommendations list never offers its own title
     for m, match in zip(media, matches):
         if not match or match in seen:
             continue
@@ -340,6 +360,20 @@ class ListAnimeGenrePick(ListAnimeGenre):
             for params in (self.params, self.parent_params):
                 params.update({'picked': 'true', 'genres': genres, 'tags': tags})
         return super().get_items(page=page, genres=genres, tags=tags, **kwargs)
+
+
+class ListAnimeRecommendations(_ListAnilist):
+    """What AniList users recommend for an anime page (tmdb_type / tmdb_id / season of the page they came from)."""
+
+    def _label(self, **kwargs):
+        return 'Anime Recommendations'
+
+    def _variables(self, tmdb_type=None, tmdb_id=None, season=None, **kwargs):
+        from tmdbhelper.lib.api.anilist.scores import source_ids
+        ids = source_ids(tmdb_type, tmdb_id, season)
+        if not ids or not ids[1]:
+            return None
+        return {'recommendations': ids[1], 'exclude': ['movie' if tmdb_type == 'movie' else 'show', int(tmdb_id)]}
 
 
 class ListAnimeGenres(ContainerDirectory):

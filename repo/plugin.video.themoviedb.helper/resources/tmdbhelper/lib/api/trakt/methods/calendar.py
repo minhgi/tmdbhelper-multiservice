@@ -90,6 +90,9 @@ def get_calendar_episode_item(i):
         'air_day_short': air_date.strftime('%a'),
         'air_date_short': air_date.strftime('%d %b')}
 
+    if epsd.get('code'):  # an anime episode that could not be placed in TMDb's numbering: the window shows this ("E3") instead of "0x00"
+        item['infoproperties']['calendar_code'] = epsd['code']
+
     if epsd.get('episode_type'):  # Trakt's own value (series_premiere, season_premiere, season_finale, ...); the window shows it as a badge
         item['infoproperties']['calendar_episode_type'] = epsd['episode_type']
 
@@ -102,6 +105,9 @@ def get_calendar_episode_item(i):
         'tmdb_id': sids.get('tmdb'),
         'episode': epsd.get('number'),
         'season': epsd.get('season')}
+    if epsd.get('code'):  # not placed: open the show, not a made-up episode
+        item['params'].pop('episode')
+        item['params'].pop('season')
     return item
 
 
@@ -201,11 +207,19 @@ def stack_calendar_tvshows(self, tvshow_list, flipped=False):
 
 
 @use_simple_cache(cache_days=0.25)
-def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes', countries=None, calendar_filter=None, genres=None):
+def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes', countries=None, calendar_filter=None, genres=None, source=None):
     # Get response (countries / genres / calendar_filter are passed on only when set, so the unfiltered TV calendar keeps its cache keys)
-    response = get_calendar_episodes(
-        self, startdate=startdate, days=days, user=user, endpoint=endpoint,
-        **{k: v for k, v in (('countries', countries), ('genres', genres)) if v})
+    if source == 'simkl':   # Asian Drama calendars: Simkl's CDN file (api/simkl/calendar_cdn.py), already filtered to Asian dramas
+        from tmdbhelper.lib.api.simkl.calendar_cdn import episodes as simkl_episodes
+        response = simkl_episodes(startdate, days, countries)
+    elif source == 'simkl_anime':   # Anime TV calendar: Simkl's anime file, each episode placed in TMDb's season / episode numbering
+        from tmdbhelper.lib.api.simkl.calendar_anime import episodes as simkl_anime_episodes
+        from tmdbhelper.lib.api.tmdb.api import TMDb
+        response = simkl_anime_episodes(TMDb(), startdate, days)
+    else:
+        response = get_calendar_episodes(
+            self, startdate=startdate, days=days, user=user, endpoint=endpoint,
+            **{k: v for k, v in (('countries', countries), ('genres', genres)) if v})
     if not response:
         return
     if calendar_filter:
@@ -226,6 +240,14 @@ def get_calendar_episodes_list(self, startdate=0, days=1, user=True, kodi_db=Non
         stack = get_setting('calendar_flatten')
     stack_info = 'details' if kodi_db and get_setting('nextaired_linklibrary') else 'episodes'  # Fix for stacked episodes linking to library
     extra = {k: v for k, v in (('countries', countries), ('calendar_filter', calendar_filter), ('genres', genres)) if v}
+    if calendar_filter == 'asian_tv':   # Simkl's CDN file lists far more Asian dramas than Trakt; days it does not cover stay on Trakt (and the key changes, so Trakt rows cached before 6.0.209 are not served)
+        from tmdbhelper.lib.api.simkl.calendar_cdn import covers as simkl_covers
+        if simkl_covers(startdate, days):
+            extra['source'] = 'simkl'
+    elif genres == 'anime' and not calendar_filter and not user:   # Anime TV Calendar (the episodes path only: the Anime Movies calendar has its own functions)
+        from tmdbhelper.lib.api.simkl.calendar_cdn import covers as simkl_covers
+        if simkl_covers(startdate, days, catalog='anime'):
+            extra['source'] = 'simkl_anime'
     response_items = get_calendar_episodes_listitems(self, startdate, days, user, kodi_db, stack=stack, endpoint=endpoint, stack_info=stack_info, **extra)
     response = PaginatedItems(response_items, page=page, limit=limit)
     if response and response.items:
@@ -291,10 +313,53 @@ def get_calendar_movie_item_bool(i, startdate, days):
     return bool(date_in_range(i.get('released'), days, startdate, date_fmt=MOVIE_DATE_FMT, date_lim=MOVIE_DATE_LEN))
 
 
+ASIAN_MOVIE_PAGES = 3      # TMDb Discover pages (20 films each) per country, most popular first
+ASIAN_MOVIE_LIMIT = 100    # films kept for a window: every tile is built with TMDb details, so a month of 200+ is slow to open
+ASIAN_MOVIE_NOT_GENRES = '16,99'   # TMDb movie genre ids: Animation, Documentary (the Asian movie menus leave them out)
+ASIAN_MOVIE_CONCERT = [10402]      # a film whose only genre is Music is a concert film
+
+
+def get_calendar_movies_tmdb(startdate=0, days=1, countries=None):
+    """ Asian movie calendar from TMDb Discover (primary release date in the window, per country, most popular first) in the shape of a
+    Trakt calendar row. Trakt's calendar only lists a handful of Asian films a month (0-2 in a 30 day probe against 99-233 on TMDb). """
+    from jurialmunkey.parser import try_int
+    from tmdbhelper.lib.addon.tmdate import get_datetime_today, get_timedelta
+    from tmdbhelper.lib.api.tmdb.api import TMDb
+    first = get_datetime_today() + get_timedelta(days=try_int(startdate))
+    last = first + get_timedelta(days=max(try_int(days), 1) - 1)
+    tmdb_api, found, seen = TMDb(), [], set()
+    for country in [c.strip().upper() for c in (countries or '').split(',') if c.strip()]:
+        for page in range(1, ASIAN_MOVIE_PAGES + 1):
+            response = tmdb_api.get_request_sc(
+                'discover/movie', with_origin_country=country, without_genres=ASIAN_MOVIE_NOT_GENRES, sort_by='popularity.desc', page=page,
+                **{'primary_release_date.gte': first.strftime('%Y-%m-%d'), 'primary_release_date.lte': last.strftime('%Y-%m-%d')})
+            if not isinstance(response, dict):
+                break
+            for movie in response.get('results') or []:
+                if not movie.get('id') or movie['id'] in seen or not movie.get('release_date'):
+                    continue
+                if list(movie.get('genre_ids') or []) == ASIAN_MOVIE_CONCERT:
+                    continue
+                seen.add(movie['id'])
+                found.append(movie)
+            if page >= (response.get('total_pages') or 0):
+                break
+    found = sorted(found, key=lambda m: -(m.get('popularity') or 0))[:ASIAN_MOVIE_LIMIT]
+    found.sort(key=lambda m: m['release_date'])
+    return [
+        {'released': m['release_date'], 'movie': {
+            'title': m.get('title') or m.get('original_title'), 'year': try_int(m['release_date'][:4]) or None,
+            'overview': m.get('overview'), 'ids': {'tmdb': m['id']}, 'genres': []}}
+        for m in found]
+
+
 @use_simple_cache(cache_days=0.25)
-def get_calendar_movies_listitems(self, startdate=0, days=1, user=True, endpoint=None, countries=None, calendar_filter=None, genres=None):
-    response = get_calendar_movies(
-        self, startdate=startdate, days=days, user=user, endpoint=endpoint, countries=countries, **({'genres': genres} if genres else {}))
+def get_calendar_movies_listitems(self, startdate=0, days=1, user=True, endpoint=None, countries=None, calendar_filter=None, genres=None, source=None):
+    if source == 'tmdb':
+        response = get_calendar_movies_tmdb(startdate, days, countries)
+    else:
+        response = get_calendar_movies(
+            self, startdate=startdate, days=days, user=user, endpoint=endpoint, countries=countries, **({'genres': genres} if genres else {}))
     if not response or not isinstance(response, list):
         return
     if calendar_filter:
@@ -309,6 +374,8 @@ def get_calendar_movies_list(self, startdate=0, days=1, user=True, page=1, limit
     from tmdbhelper.lib.items.pages import PaginatedItems
     limit = limit or self.sync_item_limit
     extra = {k: v for k, v in (('calendar_filter', calendar_filter), ('genres', genres)) if v}   # only when set: earlier movie calendars keep their cache keys
+    if calendar_filter == 'asian_movie':
+        extra['source'] = 'tmdb'   # also a new cache key, so rows cached from Trakt before 6.0.207 are not served
     response_items = get_calendar_movies_listitems(self, startdate, days, user, endpoint=endpoint, countries=countries, **extra)
     response = PaginatedItems(response_items, page=page, limit=limit)
     if response and response.items:

@@ -18,7 +18,9 @@ that belong to the hub are kept - Anime: Japanese-language animation; Asian: Chi
 language without animation, reality or talk (the same split the menus use).
 
 Asian Movies reuse all of this with media='movie': TMDb Discover movies (Animation and Documentary left out) released in
-the last 90 days, MDBList's movie endpoint, and Trakt's movies/watched lists. Movie cache keys carry a "movie|" prefix.
+the last 90 days, MDBList's movie endpoint, and Trakt's movies/watched lists. Movie cache keys carry a "movie2|" prefix.
+Movies differ from dramas in three ways: concert films (Music as the only genre) are left out, a rating source needs
+MOVIE_MIN_VOTES votes (films with a handful of votes topped the list at 5), and Most Watched reads MOVIE_TRAKT_PAGES pages.
 """
 import json
 import time
@@ -47,7 +49,11 @@ TRAKT_SKIP_GENRES = {'animation', 'anime', 'donghua', 'reality', 'talk-show', 'g
 MOST_WATCHED_LABELS = {'weekly': 'This Week', 'monthly': 'This Month'}
 NOT_MOVIE = '16,99'          # TMDb movie genre ids: Animation, Documentary
 MOVIE_SKIP_GENRES = {'animation', 'anime', 'documentary'}
-MOVIE_PREFIX = 'movie|'      # cache key prefix of the movie lists (drama keys stay as they were)
+MOVIE_PREFIX = 'movie2|'     # cache key prefix of the movie lists (drama keys stay as they were); 'movie|' rows predate the vote floor
+MOVIE_MIN_VOTES = 50         # movies: a source with fewer votes than this is ignored (1-20 vote films topped the list at 5)
+MOVIE_TRAKT_PAGES = 4        # movies: Trakt pages scanned for Most Watched (later pages are films with a handful of watchers)
+MUSIC_GENRE = 10402          # TMDb genre id; a film whose only genre is Music is a concert film
+TRAKT_MUSIC = ['music']
 SEARCH_PAGES = 5             # search/multi pages scanned (20 results each) for matches
 SEARCH_LANGUAGES = {'anime': ('ja',), 'asian': ('zh', 'cn', 'ko', 'ja', 'th')}   # TMDb files Hong Kong films as 'cn'
 SEARCH_LABELS = {'anime': 'Anime', 'asian': 'Asian Cinema & TV'}
@@ -120,7 +126,9 @@ def candidates(tmdb_api, country, today=None, media='tv'):
                 sort_by='popularity.desc', page=page, **{'first_air_date.gte': start, 'first_air_date.lte': end})
         if not isinstance(response, dict):
             break
-        found += [r for r in response.get('results') or [] if r.get('id')]
+        found += [
+            r for r in response.get('results') or []
+            if r.get('id') and not (media == 'movie' and list(r.get('genre_ids') or []) == [MUSIC_GENRE])]
         if page >= (response.get('total_pages') or 0):
             break
     return found
@@ -137,11 +145,11 @@ def all_candidates(tmdb_api, today=None, media='tv'):
     return sorted(found, key=lambda show: -_num(show.get('popularity')))
 
 
-def combined_score(item):
+def combined_score(item, min_votes=MIN_VOTES):
     """Mean of the usable 0-100 ratings (IMDb / TMDb / Trakt, each with enough votes) of an MDBList item, else None."""
     values = [
         r['score'] for r in item.get('ratings') or []
-        if r.get('source') in RATING_SOURCES and r.get('score') is not None and _num(r.get('votes')) >= MIN_VOTES]
+        if r.get('source') in RATING_SOURCES and r.get('score') is not None and _num(r.get('votes')) >= min_votes]
     return sum(values) / len(values) if values else None
 
 
@@ -171,7 +179,7 @@ def fetch_scores(tmdb_ids, post=None, media='tv'):
         for item in data if isinstance(data, list) else []:
             tmdb_id = (item.get('ids') or {}).get('tmdb')
             if tmdb_id:
-                scores[int(tmdb_id)] = combined_score(item)
+                scores[int(tmdb_id)] = combined_score(item, MOVIE_MIN_VOTES if media == 'movie' else MIN_VOTES)
     return scores
 
 
@@ -236,7 +244,7 @@ def trakt_watched(country, period, post=None, media='tv'):
         post = requests.get
     headers = {'trakt-api-version': '2', 'trakt-api-key': CLIENT_ID, 'User-Agent': 'TMDbHelper'}
     rows, seen = [], set()
-    for page in range(1, TRAKT_PAGES + 1):
+    for page in range(1, (MOVIE_TRAKT_PAGES if movie else TRAKT_PAGES) + 1):
         try:
             response = post(
                 url.format(period=period), headers=headers, timeout=30,
@@ -255,6 +263,8 @@ def trakt_watched(country, period, post=None, media='tv'):
             tmdb_id = (show.get('ids') or {}).get('tmdb')
             if not tmdb_id or tmdb_id in seen or skip_genres & set(show.get('genres') or []):
                 continue
+            if movie and list(show.get('genres') or []) == TRAKT_MUSIC:
+                continue   # concert film
             seen.add(tmdb_id)
             rows.append({
                 'id': tmdb_id, 'mediatype': 'movie' if movie else 'show', 'title': show.get('title'),

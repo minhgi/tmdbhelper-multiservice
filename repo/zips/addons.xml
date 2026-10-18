@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="6.0.205" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="6.0.212" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,27 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.212
+- Added: Anime Recommendations. For a Japanese title, the details menu (and the Related Lists context menu) gets an "Anime Recommendations" entry right after Recommended, for TV shows, episodes and movies. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (up to 20 per page with a Next Page): the show page uses the first season's AniList entry and a movie its own, and the title itself is never listed. Compared with TMDb's own Recommended list for the same anime, AniList's is mostly a different, better-ranked set (Blue Lock gets Aoashi, Kuroko's Basketball and Haikyu!! instead of an unrelated mix). It needs the title's AniList id from the ARM service; anything ARM does not know opens an empty list. Answers are saved for 12 hours with the other Anime lists, and Tools &gt; Clear Anime and Asian Lists Cache clears them. The entry shows for every Japanese-language title, including live action, which then opens an empty list.
+
+v6.0.211
+- Added: Anime scores for skins. Japanese and Chinese titles now also pass on myanimelist_rank and myanimelist_popularity (MyAnimeList, through Tenrai) and anilist_rating, anilist_rank and anilist_popularity (AniList) as rating properties, next to the existing ones. The MyAnimeList score and votes that MDBList already sends (myanimelist_rating, myanimelist_votes) are now passed on to skins as well. The MyAnimeList and AniList ids come from the ARM service; the answers are saved for 12 hours (ids for 90 days), a slow first lookup is finished in the background so a page never waits more than a moment, and Tools &gt; Clear Anime and Asian Lists Cache also clears the saved scores. Titles that are not anime send nothing but their TMDb id to ARM once, then are remembered for 14 days.
+
+v6.0.210
+- Changed: The Anime TV Calendar now comes from Simkl's public anime calendar file instead of Trakt: about four times as many anime episodes for the same week. Each episode is placed in TMDb's season and episode numbering by its air date, so the watched tick and the episode it opens are right; an episode that cannot be placed is listed as "E3" and opens the show. Chinese animation (donghua) is listed too, placed the same way. Days the file does not cover (older days, and days more than about five weeks ahead) still use Trakt. Tools &gt; Clear Anime and Asian Lists Cache also clears the saved Simkl anime calendar.
+
+v6.0.209
+- Changed: The Asian Drama calendars (Asian Drama &gt; Calendar and each country's Drama Calendar) now come from Simkl's public calendar file instead of Trakt: about ten times as many Asian dramas for the same week (Chinese, Thai and Japanese dramas Trakt does not list), with the same air times. Only titles with the Drama genre are listed, as in the Asian Drama menus. Yesterday and earlier days, and days more than five weeks ahead, still use Trakt. Tools &gt; Clear Anime and Asian Lists Cache also clears the saved Simkl calendar. The Anime TV Calendar is unchanged.
+
+v6.0.208
+- Fixed: Asian Progress (Trakt, MDBList, Simkl) and the Movies and TV Shows Progress menus no longer need a TV show to carry the Drama genre to count as Asian. A Japanese mystery or comedy series in your progress was listed under Movies and TV Shows instead of Asian Progress. Animation, reality and talk shows are still left out.
+
+v6.0.207
+- Changed: The Asian Movies calendars (Asian Movies &gt; Calendar and each country's Movies Calendar, month grid and day pages) now list films by TMDb release date, most popular first (up to 100 a window), instead of Trakt's calendar, which held only 0-2 Asian films a month. Concert films, animation and documentaries are left out. Other movie calendars still use Trakt.
+
+v6.0.206
+- Changed: Asian Movies &gt; Trending (all countries and each country) now leaves out concert films and ranks films by ratings that have at least 50 votes (it was 5, so films with a handful of votes topped the list). Asian Movies &gt; Most Watched reads four Trakt pages instead of eight, so it opens faster. Asian Drama is unchanged.
+
 v6.0.205
 - Added: Settings &gt; Navigation &gt; Main menu has on/off switches for Movies, TV Shows, Anime and Asian Cinema &amp; TV. Switch one off and its row leaves the main menu of the add-on (all four are on by default).
 
