@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.0.212"
+version="6.0.213"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,11 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.213
+- Fixed: Anime Recommendations opened an empty list for anime that the ARM service lists without a TMDb season (Hunter x Hunter 2011 is one): those now work.
+- Changed: The Anime Recommendations entry now shows only for Japanese-language animation (the Animation genre as well as the language), so live-action Japanese shows no longer get an entry that opens an empty list.
+- Changed: The calendar menu descriptions for the Asian Drama and Anime TV calendars now say they come from Simkl, with Trakt for days Simkl does not cover.
+
 v6.0.212
 - Added: Anime Recommendations. For a Japanese title, the details menu (and the Related Lists context menu) gets an "Anime Recommendations" entry right after Recommended, for TV shows, episodes and movies. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (up to 20 per page with a Next Page): the show page uses the first season's AniList entry and a movie its own, and the title itself is never listed. Compared with TMDb's own Recommended list for the same anime, AniList's is mostly a different, better-ranked set (Blue Lock gets Aoashi, Kuroko's Basketball and Haikyu!! instead of an unrelated mix). It needs the title's AniList id from the ARM service; anything ARM does not know opens an empty list. Answers are saved for 12 hours with the other Anime lists, and Tools > Clear Anime and Asian Lists Cache clears them. The entry shows for every Japanese-language title, including live action, which then opens an empty list.
 

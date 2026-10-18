@@ -6,7 +6,7 @@ MDBList already sends the MyAnimeList score and vote count (myanimelist_rating /
 
 Per item: the TMDb id is turned into a MyAnimeList and an AniList id with the ARM service (GET /api/v2/themoviedb?id=), which
 answers with one record per season / cour / movie, so a choice has to be made (pick()): a movie takes its MOVIE record, a show page
-takes the first season's entry (the lowest MyAnimeList id of the lowest season), a season or episode page takes the entry filed under
+takes the first season's entry (the lowest MyAnimeList id of the lowest season; of all records when ARM has no season), a season or episode page takes the entry filed under
 that season, else the first season's. Only Japanese and Chinese language titles are looked up (callers gate on original_language).
 
 Everything is saved on disk (ids 90 days, "not anime" 14 days, scores 12 hours) and merged on save, since the monitor service and
@@ -108,11 +108,12 @@ def pick(records, tmdb_type, season=None):
     if tmdb_type == 'movie':
         group = [r for r in records if r.get('f') == 'MOVIE']
     else:
-        shows = [r for r in records if r.get('f') in SHOW_FORMATS and (r.get('s') or 0) > 0]
+        shows = [r for r in records if r.get('f') in SHOW_FORMATS]
         group = [r for r in shows if r.get('s') == _int(season)] if _int(season) else []
         if not group and shows:
-            first = min(r['s'] for r in shows)
-            group = [r for r in shows if r['s'] == first]
+            seasons = [r['s'] for r in shows if r.get('s')]   # ARM has no TMDb season for some shows (Hunter x Hunter): then every record counts
+            first = min(seasons) if seasons else None
+            group = [r for r in shows if r.get('s') == first] if seasons else shows
     if not group:
         return None
     best = min(group, key=lambda r: (r.get('m') or 10 ** 9, r.get('a') or 10 ** 9))

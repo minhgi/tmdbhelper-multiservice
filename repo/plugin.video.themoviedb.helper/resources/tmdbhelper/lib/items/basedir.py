@@ -1882,6 +1882,18 @@ def _get_basedir_calendar(info=None, endpoint=None, user=None, tmdb_type=None, c
     return items
 
 
+def is_anime_item(language, genre_names, animation_name):
+    """Japanese-language animation, from data the caller already has. genre_names: the item's (localised) genre names, a list or an
+    ' / ' string; animation_name: TMDb's localised name for genre 16. Where either is not known the language alone decides."""
+    if language != 'ja':
+        return False
+    if isinstance(genre_names, str):
+        genre_names = [g.strip() for g in genre_names.split('/')]
+    if not animation_name or not genre_names:
+        return True
+    return animation_name in genre_names
+
+
 def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_item=None, include_play=False, anime=None):
     """anime: whether the title is Japanese animation (the Anime Recommendations entry only shows then); when None it is read from the
     detailed item's original language. Local data only: nothing is looked up to decide."""
@@ -2043,7 +2055,9 @@ class ListDetails(ContainerDirectory):
         base_item = ItemBuilder(tmdb_api=self.tmdb_api).get_item(tmdb_type, tmdb_id, season, episode)
         base_item = base_item['listitem'] if base_item else {}
         base_item = self.omdb_api.get_item_ratings(base_item) if self.omdb_api else base_item
-        items = get_basedir_details(tmdb_type, tmdb_id, season, episode, base_item)
+        animation = {v: k for k, v in (self.tmdb_api.genres or {}).items()}.get(16)   # TMDb's name for the Animation genre in your language
+        anime = is_anime_item((base_item.get('infoproperties') or {}).get('original_language'), (base_item.get('infolabels') or {}).get('genre'), animation)
+        items = get_basedir_details(tmdb_type, tmdb_id, season, episode, base_item, anime=anime)
         self.container_content = _get_container_content()
         self.kodi_db = self.get_kodi_database(tmdb_type)
         return items

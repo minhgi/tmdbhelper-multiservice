@@ -11,7 +11,10 @@ def related_lists(tmdb_id=None, tmdb_type=None, season=None, episode=None, conta
     from xbmc import getInfoLabel
     from tmdbhelper.lib.items.basedir import get_basedir_details
     from tmdbhelper.lib.addon.plugin import format_folderpath, encode_url, executebuiltin
-    anime = getInfoLabel('ListItem.Property(original_language)') == 'ja'   # the focused item's own property: no lookup
+    from tmdbhelper.lib.items.basedir import is_anime_item
+    from tmdbhelper.lib.api.tmdb.api import TMDb
+    animation = {v: k for k, v in (TMDb().genres or {}).items()}.get(16)   # TMDb's name for the Animation genre in your language (saved locally)
+    anime = is_anime_item(getInfoLabel('ListItem.Property(original_language)'), getInfoLabel('ListItem.Genre'), animation)   # the focused item's own data: no lookup
     items = get_basedir_details(tmdb_type=tmdb_type, tmdb_id=tmdb_id, season=season, episode=episode, include_play=include_play, anime=anime)
     if not items or len(items) <= 1:
         return

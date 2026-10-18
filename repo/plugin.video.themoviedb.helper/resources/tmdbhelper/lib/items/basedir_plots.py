@@ -192,7 +192,7 @@ def _asian_calendar(params):
     w = _COUNTRIES.get(code, 'Asian') if len(code) == 2 else 'Asian'
     if params.get('tmdb_type') == 'movie':
         return f'{w} movies released this week, from TMDb release dates (anime, animation and documentaries left out)'
-    return f'{w} dramas airing this week, from the Trakt calendar (anime, animation, reality and talk shows left out)'
+    return f'{w} dramas airing this week, from the Simkl calendar, Trakt for days it does not cover (anime, animation, reality and talk shows left out)'
 
 
 def describe(item):
@@ -228,10 +228,10 @@ def _describe(item):
     if info == 'dir_calendar_window' and params.get('genres') == 'anime':
         return 'A month poster grid of the anime movies released, from the Trakt calendar (Japanese titles Trakt tags as anime)'
     if info == 'dir_calendar_shows_window' and params.get('calendar_filter'):
-        return 'One page with the {} dramas airing on a day, grouped by show, from the Trakt calendar (anime, animation, reality and talk shows left out). Left and Right change the day'.format(
+        return 'One page with the {} dramas airing on a day, grouped by show, from the Simkl calendar, Trakt for days it does not cover (anime, animation, reality and talk shows left out). Left and Right change the day'.format(
             _COUNTRIES.get(str(params.get('countries') or '').upper(), 'Asian') if len(str(params.get('countries') or '')) == 2 else 'Asian')
     if info == 'dir_calendar_shows_window' and params.get('genres') == 'anime':
-        return 'One page with the anime episodes airing on a day, grouped by show, from the Trakt calendar (shows Trakt tags as anime). Left and Right change the day'
+        return 'One page with the anime episodes airing on a day, grouped by show, from the Simkl anime calendar, Trakt for days it does not cover. Left and Right change the day'
     if info == 'dir_calendar_shows_window' and params.get('user') == 'false' and params.get('endpoint') == 'premieres':
         return 'One page with the season and series premieres of every show airing on a day, from the Trakt calendar. Left and Right change the day'
     if info == 'dir_calendar_shows_window' and params.get('user') == 'false' and params.get('endpoint') == 'new':
@@ -253,7 +253,7 @@ def _describe(item):
     if info == 'dir_calendar_trakt' and params.get('genres') == 'anime':
         if params.get('tmdb_type') == 'movie':
             return 'Anime movies released this week, from the Trakt calendar (Japanese titles Trakt tags as anime)'
-        return 'Anime episodes airing this week, from the Trakt calendar (shows Trakt tags as anime)'
+        return 'Anime episodes airing this week, from the Simkl anime calendar, Trakt for days it does not cover'
     if info == 'dir_calendar_trakt':
         calendar = _CALENDAR_MOVIES if params.get('tmdb_type') == 'movie' else _CALENDAR
         return calendar.get((params.get('endpoint'), params.get('user', 'true')))
