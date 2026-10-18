@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="6.0.201" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="6.0.202" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.202
+- Added: TV calendar pages (Your TV Calendar and the one-day All / Premieres / New / Asian Drama / Anime pages) show a small badge beside an episode that is a New show, Premiere, Mid premiere, Mid finale, Finale or Series finale (Trakt's own episode type), and a green tick on episodes you have already watched (when that service's watched indicators are switched on).
+- Fixed: An episode with no air date in a show's Unwatched list no longer shows "01 Jan 1601" or a green "Aired"; it reads "No air date".
+- Fixed: The All TV calendar without a country or genre filter no longer asks a logged-out user to sign in to Trakt (the Library calendar neither); it is a public Trakt list.
+- Changed: Simkl Next Up for anime asks TMDb for a franchise's seasons side by side, so the first open after the cache is cleared waits for one request instead of one per season.
+
 v6.0.201
 - Fixed: The saved AniList to TMDb table no longer leaves a stray temporary file behind when Windows refuses to replace the table because another process has it open (the save is simply skipped and done again on the next list build).
 

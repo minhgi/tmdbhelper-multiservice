@@ -64,10 +64,20 @@ def start_date(media):
 
 def tmdb_episodes(tmdb_api, details):
     """[(season, episode, air date or None)] of TMDb seasons 1, 2, ... in order (specials left out)."""
-    episodes = []
     seasons = sorted(s.get('season_number') for s in details.get('seasons') or [] if (s.get('season_number') or 0) > 0)
-    for number in seasons:
-        season = tmdb_api.get_request_sc('tv', details.get('id'), 'season', number) or {}
+
+    def get_season(number):
+        return tmdb_api.get_request_sc('tv', details.get('id'), 'season', number) or {}
+
+    if len(seasons) > 1:  # every season is needed to count the anchor's position, so ask for them side by side: a cold open waits for one request, not one per season
+        from tmdbhelper.lib.addon.thread import ParallelThread
+        with ParallelThread(seasons, get_season) as pt:
+            fetched = pt.queue
+        data = [s or {} for s in fetched]
+    else:
+        data = [get_season(number) for number in seasons]
+    episodes = []
+    for number, season in zip(seasons, data):
         episodes += [(number, e.get('episode_number'), _date(e.get('air_date'))) for e in season.get('episodes') or []]
     return episodes
 

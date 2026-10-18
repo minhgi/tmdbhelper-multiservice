@@ -29,6 +29,17 @@ MAX_PAGES = 10  # stop a runaway paging loop
 VIEW_SHOWS = 'shows'
 VIEW_UNWATCHED = 'unwatched'
 
+# Trakt's episode_type values that get a badge on the row (anything else, "standard" included, gets none). Short, so the badge fits beside the title.
+EPISODE_BADGES = {
+    'series_premiere': 'New show',
+    'season_premiere': 'Premiere',
+    'mid_season_premiere': 'Mid premiere',
+    'mid_season_finale': 'Mid finale',
+    'season_finale': 'Finale',
+    'series_finale': 'Series finale',
+}
+MIN_YEAR = 1900  # Kodi writes an unknown date as 1601-01-01 (its zero date); nothing real airs before this
+
 
 def _today():
     from tmdbhelper.lib.addon.tmdate import get_datetime_today
@@ -93,14 +104,16 @@ def _premiered(listitem):
     if not text:
         return None
     try:
-        return datetime.date.fromisoformat(text)
+        date = datetime.date.fromisoformat(text)
     except ValueError:
-        pass
-    try:
-        import xbmc
-        return datetime.datetime.strptime(text, xbmc.getRegion('dateshort')).date()
-    except (ValueError, TypeError):
-        return None
+        date = None
+    if date is None:
+        try:
+            import xbmc
+            date = datetime.datetime.strptime(text, xbmc.getRegion('dateshort')).date()
+        except (ValueError, TypeError):
+            return None
+    return date if date.year >= MIN_YEAR else None
 
 
 def _days_until(premiered, today):
@@ -111,7 +124,9 @@ def _status(days, watched):
     """ (state, text) for the right-hand badge of an episode row """
     if watched:
         return 'watched', 'Watched'
-    if days is None or days < 0:
+    if days is None:  # no air date known: not "Aired", and not a date to count down to
+        return 'unaired', 'No air date'
+    if days < 0:
         return 'aired', 'Aired'
     if days == 0:
         return 'today', 'Today'
@@ -136,6 +151,9 @@ def _episode_row(listitem, today):
     listitem.setProperty('air_state', state)
     listitem.setProperty('air_status', text)
     listitem.setProperty('row_date', premiered.strftime('%d %b %Y') if premiered else '')
+    badge = EPISODE_BADGES.get(listitem.getProperty('calendar_episode_type'))  # only calendar rows carry it; the Unwatched list has no badges
+    if badge:
+        listitem.setProperty('row_badge', badge)
     return listitem
 
 

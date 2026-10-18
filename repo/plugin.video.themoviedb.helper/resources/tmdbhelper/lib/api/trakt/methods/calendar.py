@@ -43,7 +43,7 @@ def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None, c
         return get_calendar(
             self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint,
             countries=countries, genres=genres, authorize=bool(user))
-    return get_calendar(self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint)
+    return get_calendar(self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint, authorize=bool(user))
 
 
 def get_local_air_datetime(first_aired):
@@ -89,6 +89,9 @@ def get_calendar_episode_item(i):
         'air_day': air_date.strftime('%A'),
         'air_day_short': air_date.strftime('%a'),
         'air_date_short': air_date.strftime('%d %b')}
+
+    if epsd.get('episode_type'):  # Trakt's own value (series_premiere, season_premiere, season_finale, ...); the window shows it as a badge
+        item['infoproperties']['calendar_episode_type'] = epsd['episode_type']
 
     days_to_air, is_aired = get_days_to_air(air_date)
     item['infoproperties']['days_from_aired' if is_aired else 'days_until_aired'] = str(days_to_air)

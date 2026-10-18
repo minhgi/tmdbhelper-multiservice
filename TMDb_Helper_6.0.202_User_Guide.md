@@ -1,6 +1,6 @@
-# TMDb Helper 6.0.201 — Complete Features & Functions Guide
+# TMDb Helper 6.0.202 — Complete Features & Functions Guide
 
-**Version:** 6.0.201 (Enhanced Fork — Personal Build)
+**Version:** 6.0.202 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_6.0.201_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_6.0.202_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.201. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.202. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -91,12 +91,13 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.2
 - Cross-Service Sync shows a progress notification; progress bars are suppressed during playback.
 - **Trakt User Lists:** browse any Trakt username's public lists.
 
-### Calendars (6.0.160–6.0.182, 6.0.196–6.0.198)
+### Calendars (6.0.160–6.0.182, 6.0.196–6.0.198, 6.0.202)
 
 - Movie, Asian and Anime calendars; the movie calendar became a Seren-style month poster grid, the TV calendars a scrollable one-day show page. Left / Right now change the day or month even when it is empty. See section 6.
 - **The All movie calendars no longer hide films made outside your country** (6.0.197). Trakt's country filter is the country a film was made in, not where it is released, so UK, Canadian or Japanese films releasing in your country were missing. The Asian and Anime calendars keep their own country filters.
 - **Selecting a show you do not follow** in a TV calendar now lists the season that is airing there, not always season 1 (6.0.197).
 - **Air time and a Today button** (6.0.198): every episode on the TV calendar pages shows its local air time, and the one-day pages have a **Today** button whenever another day is open. Episode times after the next daylight-saving change were one hour off and are now correct.
+- **Badges and a watched tick on the TV calendar pages** (6.0.202): an episode that starts a show, opens a season or ends one carries a small badge (**New show**, **Premiere**, **Finale**; also **Mid premiere**, **Mid finale** and **Series finale** where Trakt marks them), and an episode you have already watched gets a green tick and a dimmed row (when watched indicators are switched on for at least one service, see section 3). An episode with no air date shows **No air date** in a show's Unwatched list (it used to show a 1601 date). The calendar pages are kept for 6 hours, so after installing the update the badges appear on pages you have not opened in the last 6 hours. The All TV calendar without a country or genre filter also no longer asks a logged-out user to sign in to Trakt.
 
 ### Progress menus (6.0.183–6.0.195)
 
@@ -106,7 +107,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.2
 
 - **A saved AniList-to-TMDb table** (6.0.199). The Anime lists remember which TMDb show or movie each AniList entry is. New matches come from the ARM id service (arm.haglund.dev) and are checked against TMDb before they are used; what ARM cannot settle is found by title search as before, so the lists work as before if ARM cannot be reached. A repeat list build no longer searches again for what is already saved, and a new show is no longer matched to an older series with a similar name (for example the 2026 KERORO instead of the 2014 one). See section 5.
 - **Simkl Next Up lists far more anime** (6.0.200). Simkl numbers every anime cour from episode 1 and often has no TMDb id, or a wrong one. The TMDb show now also comes from the saved table, and the episode is placed by the length of the TMDb season or by matching the cour's AniList start date to TMDb's air dates. On the author's account 15 of 16 anime rows were placed (7 before). See section 7.
-- **Tools → Clear Cache Tool → Clear Anime and Asian Lists Cache** also clears the saved matches (6.0.199). 6.0.201 makes sure no stray temporary file is left behind when the table cannot be saved.
+- **Tools → Clear Cache Tool → Clear Anime and Asian Lists Cache** also clears the saved matches (6.0.199). 6.0.201 makes sure no stray temporary file is left behind when the table cannot be saved. 6.0.202 asks TMDb for a franchise's seasons side by side, so the first Next Up open after the cache is cleared is quicker.
 
 ---
 
@@ -259,6 +260,8 @@ These open a scrollable window instead of a list: a header row per show with its
 - Select a **show** for its unwatched episodes (Back returns to the page; for a show you do not follow, the season that is airing is listed); select an **episode** for its information, with Play and the other buttons.
 - Each episode shows its **air time** in your local time, in your region's time format.
 - On the **one-day pages** (All Calendar, All Premieres / New, the Asian Drama calendars and the Anime TV Calendar) a **Today** button appears at the left whenever a day other than today is open and jumps back to today.
+- A small **badge** beside an episode marks a **New show** (series premiere), **Premiere** (season premiere), **Finale** (season finale), and where Trakt gives them **Mid premiere**, **Mid finale** and **Series finale**. Normal episodes have none. Badges come from Trakt's calendar, so they appear on every calendar page but not in a show's Unwatched list.
+- A green **tick** and a dimmed row mark an episode you have already watched (on Trakt, MDBList or Simkl). This needs **Get watched indicators and episode counts** switched on for that service. An episode with no air date reads **No air date**.
 - Episode labels read `1x02. Title (Show)`; stacked episodes read `1x01-1x03. 3 Episodes (Show)`.
 - The Kodi library **Next Aired** calendar (under TheMovieDb) is unchanged.
 
@@ -590,4 +593,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.201 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time and Today button; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.202 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The rest is source-verified only and was not each exercised on a live account.*
