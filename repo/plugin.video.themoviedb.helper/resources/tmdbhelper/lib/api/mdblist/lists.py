@@ -270,7 +270,13 @@ class ListWatchlist(ContainerDirectory):
             elif tmdb_type == 'tv':
                 raw = [i for i in raw if i.get('mediatype') in ('show', 'tv')]
             raw = {'items': raw}
-        elif not isinstance(raw, dict):
+        elif isinstance(raw, dict):
+            # MDBList now answers {"movies": [...], "shows": [...], "pagination": {...}}: keep only the asked-for kind
+            keep = {'movie': ('movies',), 'tv': ('shows',)}.get(tmdb_type)
+            if keep:
+                wanted = ('movie',) if tmdb_type == 'movie' else ('show', 'tv')
+                raw = {k: ([i for i in v if i.get('mediatype') in wanted] if k == 'items' else v) for k, v in raw.items() if k in keep + ('items',)}
+        else:
             return
         response = self.mdblist_api.get_paginated(raw, page=page or 1)
         self.tmdb_cache_only = False

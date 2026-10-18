@@ -1,6 +1,6 @@
 # TMDb Helper — Enhanced Fork
 
-**Current version:** v6.0.202 &nbsp;|&nbsp; **Base addon:** [plugin.video.themoviedb.helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper) &nbsp;|&nbsp; **Skin:** Titan Bingie Mod v2.2.3.1 &nbsp;|&nbsp; **Kodi:** 22 (Piers), portable
+**Current version:** v6.0.203 &nbsp;|&nbsp; **Base addon:** [plugin.video.themoviedb.helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper) &nbsp;|&nbsp; **Skin:** Titan Bingie Mod v2.2.3.1 &nbsp;|&nbsp; **Kodi:** 22 (Piers), portable
 
 > A heavily extended fork of TMDb Helper focused on reliable widget refresh, MDBList and Simkl integration, three-way cross-service sync (Trakt ↔ MDBList ↔ Simkl), native Anime and Asian Cinema & TV menus, and Seren-style calendars.
 
@@ -139,7 +139,7 @@ Highlights by version range (the complete list is in [`changelog.txt`](repo/plug
 
 | Versions | Change |
 |----------|--------|
-| 6.0.197–6.0.202 | All movie calendars no longer limited by your region; Unwatched for a show you do not follow lists the airing season; TV calendar air time, a Today button, premiere / finale / new-show badges, a watched tick and a daylight-saving fix; a saved AniList-to-TMDb table (ARM id service checked against TMDb); Simkl Next Up places far more anime |
+| 6.0.197–6.0.203 | All movie calendars no longer limited by your region; Unwatched for a show you do not follow lists the airing season; TV calendar air time, a Today button, premiere / finale / new-show badges, a watched tick and a daylight-saving fix; a saved AniList-to-TMDb table (ARM id service checked against TMDb); Simkl Next Up places far more anime; MDBList Watchlist TV shows / Movies list only their own kind again |
 | 6.0.190–6.0.196 | Movies and TV Shows Progress, Anime Progress, Asian Progress rows for Trakt, MDBList and Simkl, with "All …" names for the unfiltered rows; Left / Right page the day and month on empty calendar days and months |
 | 6.0.160–6.0.189 | Movie, Asian and Anime calendars; Seren-style month grid; TV show page windows; background widget rebuild and list speed-ups; "Nothing here yet" notice; Cross-Service Sync notification |
 | 6.0.144–6.0.159 | Tools menu; descriptions for every setting and menu row; changelog stored in `addon.xml` `<news>` |
