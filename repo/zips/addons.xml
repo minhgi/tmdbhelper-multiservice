@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="6.0.203" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="6.0.205" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.205
+- Added: Settings &gt; Navigation &gt; Main menu has on/off switches for Movies, TV Shows, Anime and Asian Cinema &amp; TV. Switch one off and its row leaves the main menu of the add-on (all four are on by default).
+
+v6.0.204
+- Changed: A watch service (Trakt, MDBList, Simkl) that is switched off in Settings &gt; Accounts now disappears from view: its row leaves the main menu (and the Trakt rows leave the Movies, TV Shows and People menus), its Sync Tools entry is hidden, and its settings (the context-menu switch, Trakt page multiplier, next-episode sort, genre icons and request log) fold away. Its context-menu entry was already hidden. Everything returns when the service is switched on again.
+
 v6.0.203
 - Fixed: MDBList &gt; Watchlist TV shows (and Watchlist Movies) listed both movies and shows: MDBList now returns the watchlist as separate movie and show groups, and the list no longer filtered them by the kind you opened.
 

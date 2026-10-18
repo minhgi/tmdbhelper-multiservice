@@ -189,6 +189,28 @@
                     <control type="toggle"/>
                 </setting>
             </group>
+            <group id="3" label="32723">
+                <setting id="menu_movies" type="boolean" label="32724" help="32728">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="menu_tv" type="boolean" label="32725" help="32729">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="menu_anime" type="boolean" label="32726" help="32730">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="menu_asian" type="boolean" label="32727" help="32731">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
         </category>
         <category id="widgets" label="32092" help="32603">
             <group id="1" label="32092">
@@ -242,6 +264,11 @@
                             <option label="lastweek">lastweek</option>
                         </options>
                     </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="spinner" format="string"/>
                 </setting>
                 <setting id="nextepisodes_usecalendar" type="boolean" label="32413" help="32626">
@@ -1079,6 +1106,11 @@
                         <step>1</step>
                         <maximum>3</maximum>
                     </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="slider" format="integer">
                         <popup>false</popup>
                     </control>
@@ -1105,16 +1137,31 @@
                 <setting id="contextmenu_sync_trakt" type="boolean" label="32295" help="32691">
                     <level>0</level>
                     <default>true</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="toggle"/>
                 </setting>
                 <setting id="contextmenu_sync_mdblist" type="boolean" label="32546" help="32692">
                     <level>0</level>
                     <default>true</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_mdblist">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="toggle"/>
                 </setting>
                 <setting id="contextmenu_sync_simkl" type="boolean" label="32557" help="32693">
                     <level>0</level>
                     <default>true</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_simkl">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="toggle"/>
                 </setting>
                 <setting id="contextmenu_sync_tmdb" type="boolean" label="32522" help="32694">
@@ -1166,6 +1213,11 @@
                         </sources>
                         <allowempty>true</allowempty>
                     </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="button" format="path">
                         <heading>32507</heading>
                     </control>
@@ -1362,6 +1414,11 @@
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="button" format="action"/>
                 </setting>
             </group>

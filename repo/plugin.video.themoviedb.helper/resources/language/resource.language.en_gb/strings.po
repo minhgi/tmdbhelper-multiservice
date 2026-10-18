@@ -3755,3 +3755,39 @@ msgstr ""
 msgctxt "#32722"
 msgid "Rebuild the widgets you opened in the last 24 hours in the background (not while a video plays) so they open instantly, and fetch the next page of the list you are reading. Right after a restart a widget may briefly show its previous contents."
 msgstr ""
+
+msgctxt "#32723"
+msgid "Main menu"
+msgstr ""
+
+msgctxt "#32724"
+msgid "Show Movies"
+msgstr ""
+
+msgctxt "#32725"
+msgid "Show TV Shows"
+msgstr ""
+
+msgctxt "#32726"
+msgid "Show Anime"
+msgstr ""
+
+msgctxt "#32727"
+msgid "Show Asian Cinema & TV"
+msgstr ""
+
+msgctxt "#32728"
+msgid "Show the Movies row in the main menu of the add-on."
+msgstr ""
+
+msgctxt "#32729"
+msgid "Show the TV Shows row in the main menu of the add-on."
+msgstr ""
+
+msgctxt "#32730"
+msgid "Show the Anime row (anime movies and TV shows) in the main menu of the add-on."
+msgstr ""
+
+msgctxt "#32731"
+msgid "Show the Asian Cinema & TV row (Asian movies and drama) in the main menu of the add-on."
+msgstr ""

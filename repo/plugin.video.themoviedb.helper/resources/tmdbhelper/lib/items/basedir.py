@@ -60,8 +60,14 @@ def _get_basedir_simkl_progress(progress_filter=None):
     return _get_basedir_progress(_get_basedir_simkl(all_labels=False), ('simkl_upnext', 'simkl_nextup'), progress_filter)
 
 
+# A main-menu row shows only while its switch is on: a watch service in Settings > Accounts, Movies / TV Shows / Anime / Asian in Settings > Navigation > Main menu
+SERVICE_MENUS = {'dir_trakt': 'service_trakt', 'dir_mdblist': 'service_mdblist', 'dir_simkl': 'service_simkl',
+                 'dir_movie': 'menu_movies', 'dir_tv': 'menu_tv', 'dir_anime_hub': 'menu_anime', 'dir_asian_hub': 'menu_asian'}   # main-menu rows and the switch (Settings) that shows each
+
+
 def _get_basedir_list(item_type=None, trakt=False, tmdb=False, mdblist=False, tvdb=False, simkl=False):
     basedir = []
+    trakt, mdblist, simkl = (trakt and get_setting('service_trakt')), (mdblist and get_setting('service_mdblist')), (simkl and get_setting('service_simkl'))
     if tmdb:
         tmdb_items = _get_basedir_tmdb()
         if item_type in ('movie', 'tv'):
@@ -1204,6 +1210,10 @@ def _get_basedir_tmdb():
 
 
 def _get_basedir_main():
+    return [i for i in _get_basedir_main_rows() if not (SERVICE_MENUS.get(i['params'].get('info')) and not get_setting(SERVICE_MENUS[i['params']['info']]))]
+
+
+def _get_basedir_main_rows():
     return [
         {
             'label': get_localized(342),
@@ -1691,7 +1701,7 @@ def _tools_action(label, plot, icon, action):
 
 def _get_basedir_tools():
     rows = []
-    if any(get_setting(k, 'str') for k in ('trakt_token', 'mdblist_token', 'simkl_token')):   # local settings only, as Seren gates it
+    if any(get_setting(f'service_{n}') and get_setting(f'{n}_token', 'str') for n in ('trakt', 'mdblist', 'simkl')):   # local settings only, as Seren gates it; a service that is switched off does not count
         rows.append(_tools_row('Sync Tools', 'Tools for the Trakt, MDBList and Simkl sync data', 'refresh.png', 'dir_tools_sync'))
     rows += [
         _tools_row('Clear Cache Tool', 'Clear cached data and search history', 'default.png', 'dir_tools_cache'),
