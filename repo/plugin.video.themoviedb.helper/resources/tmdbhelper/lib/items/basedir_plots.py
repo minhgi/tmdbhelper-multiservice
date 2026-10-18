@@ -223,7 +223,7 @@ def _describe(item):
         return None
     if info == 'dir_calendar_window' and params.get('calendar_filter'):
         code = str(params.get('countries') or '').upper()
-        return 'A month poster grid of the {} movies released, from the Trakt calendar (anime, animation and documentaries left out)'.format(
+        return 'A month poster grid of the {} movies released, from TMDb release dates (anime, animation and documentaries left out)'.format(
             _COUNTRIES.get(code, 'Asian') if len(code) == 2 else 'Asian')
     if info == 'dir_calendar_window' and params.get('genres') == 'anime':
         return 'A month poster grid of the anime movies released, from the Trakt calendar (Japanese titles Trakt tags as anime)'

@@ -1,6 +1,6 @@
-# TMDb Helper 6.0.212 — Complete Features & Functions Guide
+# TMDb Helper 6.0.214 — Complete Features & Functions Guide
 
-**Version:** 6.0.212 (Enhanced Fork — Personal Build)
+**Version:** 6.0.214 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_6.0.212_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_6.0.214_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.212. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.214. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -109,12 +109,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.2
 - **Asian Movies calendars use TMDb release dates** (6.0.207). Trakt's calendar held only 0–2 Asian films a month, so **Asian Movies → Calendar** and each country's Movies Calendar now list films by their TMDb release date, most popular first (up to 100 per month), with concert films, animation and documentaries left out. A festival premiere counts as a release date. The other movie calendars still use Trakt.
 - **Asian Progress no longer needs the Drama genre** (6.0.208). In the Asian Progress and Movies and TV Shows Progress menus a TV show is Asian when it is Chinese, Korean, Japanese or Thai language and not animation, reality or talk; a Japanese mystery series with no Drama genre used to be listed under Movies and TV Shows. Documentary, news and kids series in those languages now count as Asian there too. The Asian Drama menus still ask for Drama.
 
-### Simkl calendars, anime scores and recommendations (6.0.209–6.0.212)
+### Simkl calendars, anime scores and recommendations (6.0.209–6.0.214)
 
 - **The Asian Drama calendars come from Simkl's public calendar file** (6.0.209). In a test week Trakt's calendar held about 10 Asian shows and 15 episodes where Simkl's file held over 100 shows and about 190 episodes, with identical air times wherever both listed the same episode. The Asian Drama calendars (the menu one and each country's) now read that file for any day it covers (from yesterday to about five weeks ahead); other days still use Trakt. The file is public and needs no Simkl login, so it works even with the Simkl service switched off. Dramas only: sport, reality, talk, game, documentary, news, children and animation are left out.
-- **The Anime TV Calendar comes from Simkl too** (6.0.210). In a test week Simkl's anime file listed 149 episodes where Trakt's anime tag listed 41. Simkl numbers every anime cour from episode 1, so each episode is placed in TMDb's season and episode by its air date in Japan, which makes the watched tick and the episode it opens right; an episode that cannot be placed (usually because TMDb has not filed the future episode yet) is listed as **E3** and opens the show. Chinese animation (donghua) is listed too. Days the file does not cover use Trakt. **Tools → Clear Cache Tool → Clear Anime and Asian Lists Cache** also clears the saved Simkl files.
+- **The Anime TV Calendar comes from Simkl too** (6.0.210). In a test week Simkl's anime file listed 149 episodes where Trakt's anime tag listed 41. Simkl numbers every anime cour from episode 1, so each episode is placed in TMDb's season and episode by its air date in Japan, which makes the watched tick and the episode it opens right; an episode that cannot be placed (usually because TMDb has not filed the future episode yet) is listed as **E3**, opens the show and carries the show's poster (6.0.214; before that its row in the calendar window had none). Chinese animation (donghua) is listed too. Days the file does not cover use Trakt. **Tools → Clear Cache Tool → Clear Anime and Asian Lists Cache** also clears the saved Simkl files.
 - **Anime scores for skins** (6.0.211). For Japanese and Chinese titles the monitor adds rating properties a skin can show: `myanimelist_rating` and `myanimelist_votes` (from MDBList, now passed on), `myanimelist_rank` and `myanimelist_popularity` (MyAnimeList through Tenrai), `anilist_rating` (0–10), `anilist_rank` and `anilist_popularity` (AniList). The ids come from the ARM service and the answers are saved for 12 hours. The author's copy of Titan Bingie Mod draws them in the home footer after the Letterboxd rating, as **MAL 7.0  #4725** and **AL 6.9**; that is a hand edit of the skin's `IncludesFooter.xml` and is not part of this add-on. See section 10.
-- **Anime Recommendations** (6.0.212). For a Japanese-language title the item details menu (and the Related Lists context menu) has an **Anime Recommendations** row right after Recommended. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (20 per page with a Next Page); the show page uses the first season's AniList entry, a movie its own, and the title itself is never listed. It is mostly a different and better-ranked set than TMDb's own Recommended (about one pick in seven appears in both). The row is offered for every Japanese-language title, so a live-action title opens an empty list. See section 4.
+- **Anime Recommendations** (6.0.212). For a Japanese-language animation title the item details menu (and the Related Lists context menu) has an **Anime Recommendations** row right after Recommended. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (20 per page with a Next Page); the show page uses the first season's AniList entry, a movie its own, and the title itself is never listed. It is mostly a different and better-ranked set than TMDb's own Recommended (about one pick in seven appears in both). The row is offered only for Japanese-language animation (the language and the Animation genre both have to match, 6.0.213; before that live-action Japanese titles got it too and opened an empty list). 6.0.213 also fixed an empty list for anime that the ARM id service files without a season number, such as Hunter x Hunter. See section 4.
 
 ### Main menu switches (6.0.205)
 
@@ -187,7 +187,7 @@ Opening a movie, show, season, episode or person shows a menu of related lists. 
 
 Play · Collection · Seasons / Episodes · Cast · Recommended · Anime Recommendations · Similar · Crew · Posters · Fanart · Keywords · Reviews · Cast in Movies / TV Shows · Crew in Movies / TV Shows · Images · Thumbs · Videos · Episode groups · In Trakt Lists
 
-**Anime Recommendations** appears only for Japanese-language titles and lists what AniList users recommend for that anime (section 5).
+**Anime Recommendations** appears only for Japanese-language animation and lists what AniList users recommend for that anime (section 5).
 
 ### Randomised
 
@@ -249,7 +249,7 @@ Both hubs have the same shape: **Movies**, **TV Shows** and **Search Movies & TV
 - **Trending:** Trending Last Year, This Year, Last Season, This Season, All Time Trending.
 - **Popular:** Popular Last Year, This Year, Last Season, This Season, All Time Popular.
 - **Calendar:** the Anime TV Calendar reads Simkl's public anime calendar file (each episode placed in TMDb's numbering by air date, section 6), falls back to Trakt's anime tag for days the file does not cover, and opens the one-day show page. The Anime Movies Calendar covers Japanese anime films and ignores your region setting.
-- **Anime Recommendations:** in the item details menu of a Japanese-language title, right after Recommended (section 4): what AniList users recommend for that anime, most voted first, matched to TMDb (6.0.212).
+- **Anime Recommendations:** in the item details menu of a Japanese-language animation title, right after Recommended (section 4): what AniList users recommend for that anime, most voted first, matched to TMDb (6.0.212).
 
 ### Asian Cinema & TV
 
@@ -586,7 +586,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Static hub widget paths** | Hub slot refresh needs a `reload=` token in the path; fully static paths update on the next navigation. |
 | **Anime / Asian scoping** | Decided client-side from TMDb language and genres; an unusually tagged title can land in the wrong menu. |
 | **Anime calendars** | The TV calendar reads Simkl's anime file, so it lists only anime Simkl has a TMDb id for and TMDb files as Japanese or Chinese animation; about a third of the future episodes show as E3 because TMDb has not listed them yet; days outside the file use Trakt's anime tag. The movie calendar is Japan only and ignores the region setting. |
-| **Anime Recommendations** | Offered for every Japanese-language title, so live action opens an empty list; a title the ARM id service does not know also gives an empty list. AniList allows about 30 requests a minute, shared with the Anime lists. |
+| **Anime Recommendations** | Offered only for Japanese-language animation; a title the ARM id service does not know gives an empty list. AniList allows about 30 requests a minute, shared with the Anime lists. |
 | **Players need their add-ons** | A listed player does nothing if its add-on is not installed. |
 
 ---
@@ -621,4 +621,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.212 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.214 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The rest is source-verified only and was not each exercised on a live account.*

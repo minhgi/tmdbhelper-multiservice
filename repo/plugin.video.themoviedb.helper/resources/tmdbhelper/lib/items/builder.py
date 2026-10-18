@@ -272,6 +272,12 @@ class ItemBuilder(_ArtworkSelector):
         tmdb_id = li.unique_ids.get('tvshow.tmdb') if mediatype in ['season', 'episode'] else li.unique_ids.get('tmdb')
         season = li.infolabels.get('season', 0) if mediatype in ['season', 'episode'] else None
         episode = li.infolabels.get('episode') if mediatype == 'episode' else None
+        if mediatype == 'episode' and not episode and tmdb_id and li.infoproperties.get('calendar_code'):  # a calendar episode not placed in TMDb's numbering (anime "E3"): there is no episode to look up, so it carries the show's artwork
+            show = self.get_item('tv', tmdb_id)
+            if show and 'artwork' in show:
+                art = self.get_item_artwork(show['artwork'])
+                li.art = {**art, **{f'tvshow.{k}': art[k] for k in ('poster', 'fanart') if art.get(k)}}
+            return li
         item = self.get_item(tmdb_type, tmdb_id, season, episode)
         if not item or 'listitem' not in item:
             return li

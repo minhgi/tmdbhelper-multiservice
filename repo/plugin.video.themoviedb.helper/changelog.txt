@@ -1,3 +1,7 @@
+v6.0.214
+- Fixed: In the Anime TV Calendar, an episode that cannot be placed in TMDb's numbering (shown as "E4") had no poster, so its show's header row in the calendar window was blank. These episodes now carry the show's poster and fanart.
+- Changed: The description of the Asian Movies calendar (month poster grid) now says the films come from TMDb release dates, not the Trakt calendar.
+
 v6.0.213
 - Fixed: Anime Recommendations opened an empty list for anime that the ARM service lists without a TMDb season (Hunter x Hunter 2011 is one): those now work.
 - Changed: The Anime Recommendations entry now shows only for Japanese-language animation (the Animation genre as well as the language), so live-action Japanese shows no longer get an entry that opens an empty list.
