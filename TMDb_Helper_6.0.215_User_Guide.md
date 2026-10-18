@@ -1,6 +1,6 @@
-# TMDb Helper 6.0.214 — Complete Features & Functions Guide
+# TMDb Helper 6.0.215 — Complete Features & Functions Guide
 
-**Version:** 6.0.214 (Enhanced Fork — Personal Build)
+**Version:** 6.0.215 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_6.0.214_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_6.0.215_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.214. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.215. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -120,9 +120,9 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.2
 
 - **Settings → Navigation → Main menu** has on/off switches for **Show Movies**, **Show TV Shows**, **Show Anime** and **Show Asian Cinema & TV**. Switch one off and its row leaves the add-on's main menu; all four are on by default. The other main-menu rows (People, Search, Discover, the service menus and so on) are not affected.
 
-### Watch services (6.0.203–6.0.204)
+### Watch services (6.0.203–6.0.204, 6.0.215)
 
-- **A watch service that is switched off disappears from view** (6.0.204). With *Enable Trakt*, *Enable MDBList* or *Enable Simkl* off in Settings → Accounts, that service's row leaves the main menu (and the Trakt rows leave the Movies, TV Shows and People menus, which includes the public Trakt lists such as Trending and Popular), its entry leaves Tools → Sync Tools, its settings fold away (the Details context-menu switch, and for Trakt the page multiplier, next-episode sort, genre icons and request log), and its context-menu entry was already hidden. Everything comes back when the service is switched on again.
+- **A watch service that is switched off disappears from view** (6.0.204). With *Enable Trakt*, *Enable MDBList* or *Enable Simkl* off in Settings → Accounts, that service's row leaves the main menu (and the Trakt rows leave the Movies, TV Shows and People menus, which includes the public Trakt lists such as Trending and Popular), its entry leaves Tools → Sync Tools, its settings fold away (the Details context-menu switch, and for Trakt the page multiplier, next-episode sort, genre icons and request log), and its context-menu entry was already hidden. Everything comes back when the service is switched on again. The In Trakt Lists row of the item details menu and of the Related Lists context menu follows the Trakt switch too (6.0.215; it was the one Trakt-list row that stayed visible).
 - **MDBList Watchlist TV shows / Movies** list only their own kind again (6.0.203). MDBList now returns the watchlist in separate movie and show groups, and the list showed both.
 
 ### Anime matching and Simkl anime Next Up (6.0.199–6.0.201)
@@ -187,7 +187,7 @@ Opening a movie, show, season, episode or person shows a menu of related lists. 
 
 Play · Collection · Seasons / Episodes · Cast · Recommended · Anime Recommendations · Similar · Crew · Posters · Fanart · Keywords · Reviews · Cast in Movies / TV Shows · Crew in Movies / TV Shows · Images · Thumbs · Videos · Episode groups · In Trakt Lists
 
-**Anime Recommendations** appears only for Japanese-language animation and lists what AniList users recommend for that anime (section 5).
+**Anime Recommendations** appears only for Japanese-language animation and lists what AniList users recommend for that anime (section 5). In Trakt Lists appears only while Enable Trakt is on in Settings → Accounts (6.0.215).
 
 ### Randomised
 
@@ -621,4 +621,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.214 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The rest is source-verified only and was not each exercised on a live account.*

@@ -1934,6 +1934,8 @@ def get_basedir_details(tmdb_type, tmdb_id, season=None, episode=None, detailed_
     items = [merge_two_items(base_item, i) for i in basedir_items if i]
     if not anime:
         items = [i for i in items if (i.get('params') or {}).get('info') != 'anime_recommendations']
+    if not get_setting('service_trakt'):   # Settings > Accounts > Trakt off: no Trakt rows (In Trakt Lists needs the Trakt service too)
+        items = [i for i in items if (i.get('params') or {}).get('info') != 'trakt_inlists']
 
     if detailed_item:
         return [base_item] + items

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="6.0.214" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="6.0.215" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.215
+- Changed: With Settings &gt; Accounts &gt; Trakt switched off, the In Trakt Lists row is no longer in the item details menu or the Related Lists context menu (it needs the Trakt service). The Trakt menus, the Trakt list rows and the Trakt context menu entries were already hidden by that switch.
+
 v6.0.214
 - Fixed: In the Anime TV Calendar, an episode that cannot be placed in TMDb's numbering (shown as "E4") had no poster, so its show's header row in the calendar window was blank. These episodes now carry the show's poster and fanart.
 - Changed: The description of the Asian Movies calendar (month poster grid) now says the films come from TMDb release dates, not the Trakt calendar.
