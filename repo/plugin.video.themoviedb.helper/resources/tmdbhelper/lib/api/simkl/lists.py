@@ -212,6 +212,13 @@ _NEXT_TO_WATCH = re.compile(r'^S(\d+)E(\d+)$')
 _ANIME_NEXT = re.compile(r'^E(\d+)$')
 
 
+def _int(value):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def _normalize_nextup(shows_raw, anime_raw=None):
     """GET /sync/all-items/shows/watching -> [{id, title, season, episode}] newest watched show first.
 
@@ -220,24 +227,22 @@ def _normalize_nextup(shows_raw, anime_raw=None):
 
     anime_raw (GET /sync/all-items/anime/watching) is merged in by last_watched_at. Simkl writes an anime's
     next episode as a bare "E12" counted inside that cour (a cour is always its season 1), so those rows come
-    back with season None and the cour's episode total; get_items maps them onto a TMDb season or drops them.
-    Anime films are left out.
+    back with season None, the cour's episode total and its AniList id; get_items maps them onto a TMDb id,
+    season and episode or drops them. A row needs a TMDb id or an AniList id on Simkl (id is None without the
+    former). Anime films are left out.
     """
     rows = []
     for item in anime_raw or []:
         if (item or {}).get('anime_type') == 'movie':
             continue
         show = item.get('show') or {}
+        ids = show.get('ids') or {}
         match = _ANIME_NEXT.match(str(item.get('next_to_watch') or ''))
-        try:
-            tmdb_id = int((show.get('ids') or {}).get('tmdb'))
-            total = int(item.get('total_episodes_count') or 0)
-        except (ValueError, TypeError):
-            continue
-        if not match or total <= 0:
+        tmdb_id, anilist_id, total = _int(ids.get('tmdb')), _int(ids.get('anilist')), _int(item.get('total_episodes_count')) or 0
+        if not match or total <= 0 or (tmdb_id is None and anilist_id is None):
             continue
         rows.append({
-            '_ts': item.get('last_watched_at') or '', 'id': tmdb_id, 'title': show.get('title'),
+            '_ts': item.get('last_watched_at') or '', 'id': tmdb_id, 'anilist': anilist_id, 'title': show.get('title'),
             'season': None, 'episode': int(match.group(1)), 'total': total})
     for item in shows_raw or []:
         show = item.get('show') or {}
@@ -266,6 +271,59 @@ def _anime_tmdb_season(details, total):
     seasons = [s.get('season_number') for s in details.get('seasons') or []
                if (s.get('season_number') or 0) > 0 and s.get('episode_count') == total]
     return seasons[0] if len(seasons) == 1 else None
+
+
+def _anime_next_targets(tmdb_api, rows, use_anilist=True):
+    """For each anime Next Up row (season None) the (tmdb id, season, episode, how) to show, or None to leave it out.
+
+    The TMDb id is Simkl's, or the one the AniList id table finds for the row's AniList id (api/anilist/idmap.py); when the
+    two disagree the one whose TMDb episode list has the cour starting on its AniList start date wins (a TMDb language or
+    genre check cannot tell, Simkl's wrong ids are Japanese animation too). The season is then the one season of the cour's
+    length (_anime_tmdb_season, first choice) or else the cour's first episode is found by its AniList start date against
+    TMDb's air dates (api/anilist/cours.py), which also covers cours inside a longer TMDb season. Without AniList data the
+    behaviour is as before: Simkl's id and the season rule only (use_anilist=False asks for exactly that)."""
+    from tmdbhelper.lib.api.anilist import cours
+    from tmdbhelper.lib.api.anilist.idmap import resolve
+    from tmdbhelper.lib.api.anilist.lists import _match_tmdb
+    from tmdbhelper.lib.addon.thread import ParallelThread
+
+    media = cours.fetch_media([r.get('anilist') for r in rows]) if use_anilist else {}
+    with_media = [r for r in rows if r.get('anilist') in media]
+    table = {}
+    if with_media:
+        found = resolve(tmdb_api, [media[r['anilist']] for r in with_media], lambda m: _match_tmdb(tmdb_api, m))
+        table = {r['anilist']: match[1] for r, match in zip(with_media, found) if match and match[0] == 'show'}
+
+    def _anchor(tmdb_id, details, start, n):
+        found = cours.anchor_episode(cours.tmdb_episodes(tmdb_api, details), start, n) if start else None
+        return (tmdb_id, found[0], found[1], 'air date') if found else None
+
+    def _one(row):
+        try:
+            start = cours.start_date(media.get(row.get('anilist')))
+            simkl_id, table_id, n = row.get('id'), table.get(row.get('anilist')), row['episode']
+            tried_anchor = False
+            if simkl_id and table_id and simkl_id != table_id and start:
+                for tmdb_id in (table_id, simkl_id):
+                    target = _anchor(tmdb_id, tmdb_api.get_request_sc('tv', tmdb_id) or {}, start, n)
+                    if target:
+                        return target
+                tmdb_id, tried_anchor = simkl_id, True   # neither id starts on the date: Simkl's id and the season rule, as before
+            else:
+                tmdb_id = simkl_id or table_id
+            if not tmdb_id:
+                return None
+            details = tmdb_api.get_request_sc('tv', tmdb_id) or {}
+            season = _anime_tmdb_season(details, row.get('total'))
+            if season is not None:
+                return tmdb_id, season, n, 'season length'
+            return None if tried_anchor else _anchor(tmdb_id, details, start, n)
+        except Exception as exc:
+            kodi_log(f'Simkl Next Up: anime row {row.get("title")!r} failed: {type(exc).__name__}: {exc}', 1)
+            return None
+
+    with ParallelThread(rows, _one) as pt:
+        return pt.queue
 
 
 def _exists_in_tmdb(details, season, episode):
@@ -474,17 +532,26 @@ class ListNextUp(ContainerDirectory):
         ra = _simkl_get(self.simkl_api, '/sync/all-items/anime/watching')
         rows = _normalize_nextup(
             r.get('shows') if isinstance(r, dict) else None, ra.get('anime') if isinstance(ra, dict) else None)
+        anime_rows = [row for row in rows if row['season'] is None]
+        if anime_rows:  # anime: Simkl's cour numbering -> a TMDb id, season and episode
+            # only the unfiltered and the Anime Next Up keep anime rows: no AniList / ARM work for the Movies and TV Shows / Asian menus
+            targets = _anime_next_targets(self.tmdb_api, anime_rows, use_anilist=scope in (None, 'anime'))
+            ways = {}
+            for row, target in zip(anime_rows, targets):
+                row.pop('total', None)
+                if target:
+                    row['id'], row['season'], row['episode'] = target[:3]
+                    ways[target[3]] = ways.get(target[3], 0) + 1
+            kodi_log(f'Simkl Next Up anime: {len(anime_rows)} rows, mapped {sum(ways.values())} ({ways})', 1)
         episodes = []
         dropped = 0
         for row in rows:
+            if row['season'] is None:  # an anime row that could not be mapped
+                dropped += 1
+                continue
             details = self.tmdb_api.get_request_sc('tv', row['id']) or {}
             if scope and not _in_scope(details, scope, 'tv'):
                 continue
-            if row['season'] is None:  # anime: Simkl's cour numbering -> the one TMDb season of that length
-                row['season'] = _anime_tmdb_season(details, row.pop('total', None))
-                if row['season'] is None:
-                    dropped += 1
-                    continue
             if not _exists_in_tmdb(details, row['season'], row['episode']):
                 dropped += 1
                 continue

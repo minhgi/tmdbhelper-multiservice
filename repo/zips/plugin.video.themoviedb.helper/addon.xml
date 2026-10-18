@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.0.196"
+version="6.0.201"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,28 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v6.0.201
+- Fixed: The saved AniList to TMDb table no longer leaves a stray temporary file behind when Windows refuses to replace the table because another process has it open (the save is simply skipped and done again on the next list build).
+
+v6.0.200
+- Added: Simkl Next Up lists many more of your anime. An anime's next episode used to be left out unless its Simkl record had a TMDb id and one TMDb season of exactly the cour's length; now the TMDb show can also come from the AniList id (the saved AniList to TMDb table), and a cour inside a longer TMDb season (or the later season of a franchise TMDb files under one id) is found by matching its AniList start date to TMDb's air dates.
+- Fixed: When Simkl's TMDb id for an anime and the AniList-based one disagree, the one whose TMDb episodes start on the cour's start date is used (Simkl has a few wrong ids). Rows that still cannot be placed safely (batch releases, irregular shows) stay left out as before; with AniList unreachable the list behaves as before.
+
+v6.0.199
+- Changed: The Anime lists now save which TMDb show or movie each AniList entry is, in a table on disk that is kept for months, so a title is no longer searched again every time a list is rebuilt.
+- Changed: New matches come from the ARM id service (arm.haglund.dev) first, and each id is checked against TMDb (it must exist there and be Japanese) before it is used; anything it cannot settle is still found by the title search, so the lists work as before if ARM is down.
+- Fixed: Anime whose title search found the wrong or an older show or nothing (e.g. a new KERORO, Devils' Crest, a Girls und Panzer film) now open the right TMDb entry.
+- Changed: Tools > Clear the Anime and Asian list cache also clears the saved AniList to TMDb matches.
+
+v6.0.198
+- Added: The TV calendar pages show the local air time of each episode (in your region's time format) next to its date.
+- Added: The All TV Calendar has a Today button, shown whenever another day than today is open, that jumps back to today.
+- Fixed: Episode air dates and times in the TV calendars were one hour off for episodes after the next daylight saving change; the time zone rules of the air date itself are now used.
+
+v6.0.197
+- Fixed: The All movie calendars no longer hide films made outside your country (UK, Canadian, Japanese ...) that release in it; Trakt's country filter is the country a film was made in, not where it is released, so the region filter is no longer applied. The Asian and Anime calendars keep their own country filters.
+- Fixed: In the TV calendar, selecting a show you do not follow now lists the season airing in the calendar instead of always season 1.
+
 v6.0.196
 - Fixed: In the movie calendar windows, Left and Right now change the month even when the month has no movies (before, only the arrow buttons worked on an empty month).
 

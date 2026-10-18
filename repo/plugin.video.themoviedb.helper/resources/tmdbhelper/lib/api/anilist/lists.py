@@ -1,10 +1,11 @@
 """Anime browse lists from AniList - the same source and the same queries as Otaku Testing's lists (its
 "browser.api" is AniList) - opened inside TMDb Helper.
 
-AniList has no TMDb ids. Each AniList title is searched on TMDb (English, then romaji, then Japanese title; Japanese
-animation only) with TMDb Helper's own cached search, and the matches are cached for 12 hours. A title TMDb does not
-list under any of those names is left out, and several AniList entries of one series collapse into one row (the
-series page), the same limits the Simkl anime views have.
+AniList has no TMDb ids. Each AniList entry is looked up in api/anilist/idmap.py (saved table, then the ARM id service
+checked against TMDb), and what that does not settle is searched on TMDb by title (English, then romaji, then Japanese
+title; Japanese animation only) with TMDb Helper's own cached search. A list's rows are cached for 12 hours. A title
+TMDb does not list under any of those names is left out, and several AniList entries of one series collapse into one
+row (the series page), the same limits the Simkl anime views have.
 
 Lists (Otaku's names and sorts): Airing Last / This / Next Season, Trending and Popular for Last Year / This Year /
 Last Season / This Season / All Time, Top 100 (score) and Genres & Tags (genre presets plus Multi Select).
@@ -210,9 +211,8 @@ def anilist_rows(tmdb_api, variables):
     media = _fetch_media(variables)
     if not media:
         return entry.get('rows') or []   # stale beats nothing
-    from tmdbhelper.lib.addon.thread import ParallelThread
-    with ParallelThread(media, lambda m: _match_tmdb(tmdb_api, m)) as pt:
-        matches = pt.queue
+    from tmdbhelper.lib.api.anilist.idmap import resolve
+    matches = resolve(tmdb_api, media, lambda m: _match_tmdb(tmdb_api, m))
     seen, rows = set(), []
     for m, match in zip(media, matches):
         if not match or match in seen:

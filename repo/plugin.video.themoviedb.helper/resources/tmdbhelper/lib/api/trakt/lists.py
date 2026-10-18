@@ -228,17 +228,16 @@ class ListBecauseYouWatched(ListSync):
 
 class ListCalendar(ContainerDirectory):
     def _get_calendar_movies(self, startdate, days, page=None, endpoint=None, user=True, countries=None, calendar_filter=None, genres=None):
-        # Movies: the "All" calendar follows the region of TMDb Helper's language setting (Trakt filters by a title's
-        # country of origin); nothing is filtered when the region release filter is ignored. "Your" is never filtered.
-        # A calendar that names its own countries or genres (the Asian and Anime calendars) uses those instead, whatever the region setting says.
-        iso_region = None if user or countries or genres else self.tmdb_api.iso_region
+        # Movies: only a calendar that names its own countries or genres (the Asian and Anime calendars) is filtered. The "All" calendar is
+        # not filtered by the region setting: Trakt's country filter is the title's country of origin, not where it is released, so it
+        # dropped UK/Canadian/Japanese films that do release in the user's country.
         items = self.trakt_api.get_calendar_movies_list(
             try_int(startdate),
             try_int(days),
             user=user,
             page=page,
             endpoint=endpoint,
-            countries=countries or (iso_region.lower() if iso_region else None),
+            countries=countries,
             **{k: v for k, v in (('calendar_filter', calendar_filter), ('genres', genres)) if v})
 
         self.kodi_db = self.get_kodi_database('movie')
@@ -360,7 +359,7 @@ class ListNextEpisodes(ListSync):
 
 
 class ListUpNext(ListSync):
-    def get_items(self, info, tmdb_type, tmdb_id, page=None, **kwargs):
+    def get_items(self, info, tmdb_type, tmdb_id, page=None, fallback_season=None, **kwargs):
         if tmdb_type != 'tv':
             return
         self.ib.cache_only = self.tmdb_cache_only = False
@@ -370,8 +369,8 @@ class ListUpNext(ListSync):
             item_type='episode',
             tmdb_id=tmdb_id,
             page=page)
-        if not items:
-            items = self.tmdb_api.get_episode_list(tmdb_id, 1, get_detailed=True)
+        if not items:  # nothing synced for the show (not followed): list the season the caller names (the show calendar passes the airing one), else season 1
+            items = self.tmdb_api.get_episode_list(tmdb_id, try_int(fallback_season) or 1, get_detailed=True)
             items = list(items) if items else []
         self.kodi_db = self.get_kodi_database(tmdb_type)
         self.library = 'video'

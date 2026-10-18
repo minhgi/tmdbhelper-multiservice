@@ -17,6 +17,7 @@ LIST_ID = 1000
 BACK_BUTTON_ID = 3003
 PREV_BUTTON_ID = 3001
 NEXT_BUTTON_ID = 3002
+TODAY_BUTTON_ID = 3004
 CLOSE_BUTTON_ID = 2999
 ACTION_MOVE_LEFT = 1
 ACTION_MOVE_RIGHT = 2
@@ -47,8 +48,10 @@ def day_path(day_offset, endpoint=None, page=1, extra=None):
     return f'{path}&endpoint={endpoint}&page={page}' if endpoint else f'{path}&page={page}'
 
 
-def unwatched_path(tmdb_id, page=1):
-    return f'info=trakt_upnext&tmdb_type=tv&tmdb_id={tmdb_id}&page={page}'
+def unwatched_path(tmdb_id, page=1, season=None):
+    """ season: the season to list when the show has no synced Up Next data (a show you do not follow); the list falls back to season 1 without it """
+    path = f'info=trakt_upnext&tmdb_type=tv&tmdb_id={tmdb_id}&page={page}'
+    return f'{path}&fallback_season={season}' if season else path
 
 
 def _load(path_for_page):
@@ -151,6 +154,8 @@ def _header_row(title, tmdb_id, episodes, today):
     header = xbmcgui.ListItem(label=title, offscreen=True)
     header.setProperty('row_type', 'show')
     header.setProperty('show_tmdb_id', tmdb_id or '')
+    seasons = [s for s in (_tag(e).getSeason() if _tag(e) else 0 for e in episodes) if s > 0]
+    header.setProperty('show_season', str(max(seasons)) if seasons else '')  # the latest season airing in the calendar: the Unwatched list's fallback
     parts = [f'{len(episodes)} episode{"s" if len(episodes) != 1 else ""}']
     if unaired:
         parts.append(f'{len(unaired)} not aired yet')
@@ -220,6 +225,10 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         today = _today()
         if self._day_mode:
             day = today + datetime.timedelta(days=self._day)
+            if self._day:  # the Today button shows only when another day is open
+                self.setProperty('not_today', 'True')
+            else:
+                self.clearProperty('not_today')
             self.setProperty('center_label', f'{day.strftime("%A %d %B %Y")}' + (' (today)' if not self._day else ''))
             path_for_page, empty_text = (lambda page: day_path(self._day, self._endpoint, page, self._extra)), 'No episodes on this day'
         else:
@@ -241,14 +250,14 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         self._day += delta
         self._show_overview()
 
-    def _show_unwatched(self, tmdb_id, title):
+    def _show_unwatched(self, tmdb_id, title, season=None):
         self._view = VIEW_UNWATCHED
         self.setProperty('view_unwatched', 'True')
         self.setProperty('center_label', f'{title} - unwatched')
         today = _today()
         with BusyDialog():
             try:
-                items = [i for i in _load(lambda page: unwatched_path(tmdb_id, page)) if not (_tag(i) and _tag(i).getPlayCount())]
+                items = [i for i in _load(lambda page: unwatched_path(tmdb_id, page, season)) if not (_tag(i) and _tag(i).getPlayCount())]
                 items = [_episode_row(i, today) for i in items]
             except Exception as exc:
                 kodi_log(f'Show calendar: could not load the unwatched episodes of {tmdb_id}: {exc}', 1)
@@ -260,6 +269,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             return self._navigate_day(-1)
         if control_id == NEXT_BUTTON_ID:
             return self._navigate_day(1)
+        if control_id == TODAY_BUTTON_ID:
+            return self._navigate_day(-self._day)
         if control_id == CLOSE_BUTTON_ID:
             return self.close()
         if control_id == BACK_BUTTON_ID:
@@ -294,7 +305,7 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             if not tmdb_id:
                 return
             self._saved_position = position
-            return self._show_unwatched(tmdb_id, item.getLabel())
+            return self._show_unwatched(tmdb_id, item.getLabel(), item.getProperty('show_season'))
         xbmcgui.Dialog().info(item)
 
 

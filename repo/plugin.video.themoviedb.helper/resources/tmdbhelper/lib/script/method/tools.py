@@ -12,7 +12,7 @@ from tmdbhelper.lib.addon.plugin import ADDON, ADDONDATA, get_setting
 TITLE = 'TMDb Helper'
 SERVICES = (('Trakt', 'trakt_token'), ('MDBList', 'mdblist_token'), ('Simkl', 'simkl_token'))
 BRIDGE_RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'   # window property monitor/bridge_sync.py sets while a cycle runs
-LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json')   # the Asian / Anime list caches (addon_data)
+LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json', 'anime_idmap_cache.json')   # the Asian / Anime list caches + saved AniList->TMDb ids (addon_data)
 # Same data types as script/method/trakt.py refresh_trakt_sync offers: (sync keys, item types)
 TRAKT_FORCE = (
     (('hidden_at',), ('movie', 'show')),
@@ -173,7 +173,7 @@ def clear_list_caches():
     import os
     import xbmcvfs
     from xbmcgui import Dialog
-    if not Dialog().yesno(TITLE, 'Clear the saved results of the Anime and Asian lists? They are rebuilt the next time a list is opened.'):
+    if not Dialog().yesno(TITLE, 'Clear the saved results of the Anime and Asian lists, including the saved AniList to TMDb matches? They are rebuilt the next time a list is opened.'):
         return
     base = xbmcvfs.translatePath(ADDONDATA)
     removed = 0

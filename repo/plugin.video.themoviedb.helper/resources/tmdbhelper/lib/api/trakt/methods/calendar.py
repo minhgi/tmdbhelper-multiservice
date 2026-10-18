@@ -46,12 +46,27 @@ def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None, c
     return get_calendar(self, 'shows', user, start_date=date.strftime('%Y-%m-%d'), days=mod_days, endpoint=endpoint)
 
 
+def get_local_air_datetime(first_aired):
+    """ Trakt's UTC first_aired as a naive local datetime, using the DST rule in force on the air date itself. convert_timestamp applies
+    today's DST state to every date, so an episode after the next DST change would show one hour off. Falls back to convert_timestamp
+    when the OS cannot convert the date. """
+    import datetime
+    if not first_aired:
+        return
+    try:
+        utc_time = datetime.datetime.strptime(first_aired[:19], '%Y-%m-%dT%H:%M:%S')
+        return utc_time.replace(tzinfo=datetime.timezone.utc).astimezone().replace(tzinfo=None)
+    except (TypeError, ValueError, OverflowError, OSError):
+        from tmdbhelper.lib.addon.tmdate import convert_timestamp
+        return convert_timestamp(first_aired, utc_convert=True)
+
+
 def get_calendar_episode_item(i):
     from jurialmunkey.parser import try_int
-    from tmdbhelper.lib.addon.tmdate import convert_timestamp, get_region_date, get_days_to_air
+    from tmdbhelper.lib.addon.tmdate import get_region_date, get_days_to_air
     from tmdbhelper.lib.api.mapping import get_empty_item
 
-    air_date = convert_timestamp(i.get('first_aired'), utc_convert=True)
+    air_date = get_local_air_datetime(i.get('first_aired'))
     epsd = i.get('episode', {})
     show = i.get('show', {})
     sids = show.get('ids', {})
@@ -88,7 +103,7 @@ def get_calendar_episode_item(i):
 
 
 def get_calendar_episode_item_bool(i, kodi_db, user, startdate, days):
-    from tmdbhelper.lib.addon.tmdate import date_in_range
+    import datetime
     if kodi_db and not user:
         try:
             sids = i['show']['ids']
@@ -96,10 +111,12 @@ def get_calendar_episode_item_bool(i, kodi_db, user, startdate, days):
             return False
         if not kodi_db.get_info(info='dbid', tmdb_id=sids.get('tmdb'), tvdb_id=sids.get('tvdb'), imdb_id=sids.get('imdb')):
             return False
-    # Do some timezone conversion so we check that we're in the date range for our timezone
-    if not date_in_range(i.get('first_aired'), utc_convert=True, start_date=startdate, days=days):
+    # Do some timezone conversion so we check that we're in the date range for our timezone (same conversion as the item's air date and time)
+    air_date = get_local_air_datetime(i.get('first_aired'))
+    if not air_date:
         return False
-    return True
+    date_a = datetime.date.today() + datetime.timedelta(days=startdate)
+    return date_a <= air_date.date() < date_a + datetime.timedelta(days=days)
 
 
 def get_stacked_item(next_item, last_item, stack_info='episodes'):

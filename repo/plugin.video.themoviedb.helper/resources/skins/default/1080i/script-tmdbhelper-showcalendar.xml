@@ -5,7 +5,9 @@
          Uses only font12/font13/font37 (present in Estuary and Titan) and the media calendar_bg.png / white.png.
          Properties set by resources/tmdbhelper/lib/window/showcalendar.py:
            window: window_title, center_label, view_unwatched, empty_text
-           rows:   row_type (show / episode), show_summary, air_state (watched / aired / today / unaired), air_status, row_date -->
+           window: also day_mode (the All calendar), not_today (set when another day than today is open: shows the Today button)
+           rows:   row_type (show / episode), show_summary, air_state (watched / aired / today / unaired), air_status, row_date,
+                   air_time (the local air time, from the calendar episode item; empty on Unwatched rows) -->
     <coordinates>
         <left>0</left>
         <top>0</top>
@@ -52,6 +54,23 @@
         <control type="group">
             <left>1410</left>
             <top>26</top>
+            <control type="button" id="3004">
+                <left>0</left>
+                <top>0</top>
+                <width>150</width>
+                <height>50</height>
+                <font>font12</font>
+                <label>Today</label>
+                <align>center</align>
+                <aligny>center</aligny>
+                <textcolor>FFFFFFFF</textcolor>
+                <focusedcolor>FFFFFFFF</focusedcolor>
+                <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
+                <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onright>3001</onright>
+                <ondown>1000</ondown>
+                <visible>String.IsEqual(Window.Property(day_mode),True) + String.IsEmpty(Window.Property(view_unwatched)) + !String.IsEmpty(Window.Property(not_today))</visible>
+            </control>
             <control type="button" id="3001">
                 <left>160</left>
                 <top>0</top>
@@ -65,6 +84,7 @@
                 <focusedcolor>FFFFFFFF</focusedcolor>
                 <texturefocus colordiffuse="FF0F89AE">white.png</texturefocus>
                 <texturenofocus colordiffuse="33FFFFFF">white.png</texturenofocus>
+                <onleft>3004</onleft>
                 <onright>3002</onright>
                 <ondown>1000</ondown>
                 <visible>String.IsEqual(Window.Property(day_mode),True) + String.IsEmpty(Window.Property(view_unwatched))</visible>
@@ -228,7 +248,7 @@
                 <control type="label">
                     <left>130</left>
                     <top>0</top>
-                    <width>860</width>
+                    <width>690</width>
                     <height>72</height>
                     <font>font13</font>
                     <textcolor>FFE6E6E6</textcolor>
@@ -239,13 +259,25 @@
                 <control type="label">
                     <left>130</left>
                     <top>0</top>
-                    <width>860</width>
+                    <width>690</width>
                     <height>72</height>
                     <font>font13</font>
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
                     <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                </control>
+                <control type="label">
+                    <left>820</left>
+                    <top>0</top>
+                    <width>170</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>B3FFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_time)]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
                 </control>
                 <control type="label">
                     <left>900</left>
@@ -362,12 +394,24 @@
                 <control type="label">
                     <left>130</left>
                     <top>0</top>
-                    <width>860</width>
+                    <width>690</width>
                     <height>72</height>
                     <font>font13</font>
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
+                </control>
+                <control type="label">
+                    <left>820</left>
+                    <top>0</top>
+                    <width>170</width>
+                    <height>72</height>
+                    <font>font12</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>right</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Property(air_time)]</label>
                     <visible>!String.IsEqual(ListItem.Property(row_type),show)</visible>
                 </control>
                 <control type="label">

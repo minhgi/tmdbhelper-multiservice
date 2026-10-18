@@ -143,14 +143,14 @@ _CALENDAR = {
 _CALENDAR_MOVIES = {
     (None, 'true'): 'Movie releases coming up for the movies you follow, from your Trakt calendar',
     ('dvd', 'true'): 'DVD and Blu-ray releases for the movies you follow, from your Trakt calendar',
-    (None, 'false'): 'Movies being released this week, from the Trakt calendar (by your region when the region filter is on)',
-    ('dvd', 'false'): 'DVD and Blu-ray releases this week, from the Trakt calendar (by your region when the region filter is on)'}
+    (None, 'false'): 'Movies being released this week, from the Trakt calendar',
+    ('dvd', 'false'): 'DVD and Blu-ray releases this week, from the Trakt calendar'}
 
 _CALENDAR_WINDOW = {   # the month poster-grid window behind the Movies calendar rows
     (None, 'true'): 'A month poster grid of the movie releases for the movies you follow, from your Trakt calendar',
     ('dvd', 'true'): 'A month poster grid of the DVD and Blu-ray releases for the movies you follow, from your Trakt calendar',
-    (None, 'false'): 'A month poster grid of the movies being released, from the Trakt calendar (by your region when the region filter is on)',
-    ('dvd', 'false'): 'A month poster grid of the DVD and Blu-ray releases, from the Trakt calendar (by your region when the region filter is on)'}
+    (None, 'false'): 'A month poster grid of the movies being released, from the Trakt calendar',
+    ('dvd', 'false'): 'A month poster grid of the DVD and Blu-ray releases, from the Trakt calendar'}
 
 _ASIAN_KIND = (   # label (or its start) -> text; {w} = "Asian" or the country, {x} = dramas / movies
     ('Airing Now', 'Currently airing {w} {x}, most popular first'),
