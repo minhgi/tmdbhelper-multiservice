@@ -6,7 +6,7 @@ from tmdbhelper.lib.api.contains import CommonContainerAPIs
 from tmdbhelper.lib.addon.logger import TimerList
 
 # Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
-BLANK_MENUS = ('dir_mdblist_progress',)
+BLANK_MENUS = ('dir_mdblist_progress', 'trakt_history_stats')
 
 # Rows that ask for typing or act (an empty result there is a cancelled prompt or an action, not an empty list)
 EMPTY_NO_NOTICE = (

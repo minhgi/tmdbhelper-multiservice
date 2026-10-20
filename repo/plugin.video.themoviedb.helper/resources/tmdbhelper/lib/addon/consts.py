@@ -846,6 +846,9 @@ ROUTE_NOID = {
     'trakt_inprogress': {'route': {
         'module_name': 'tmdbhelper.lib.api.trakt.lists',
         'import_attr': 'ListInProgress'}},
+    'trakt_history_stats': {'route': {
+        'module_name': 'tmdbhelper.lib.api.trakt.lists',
+        'import_attr': 'ListHistoryStats'}},
     'trakt_ondeck': {'route': {
         'module_name': 'tmdbhelper.lib.api.trakt.lists',
         'import_attr': 'ListOnDeck'}},

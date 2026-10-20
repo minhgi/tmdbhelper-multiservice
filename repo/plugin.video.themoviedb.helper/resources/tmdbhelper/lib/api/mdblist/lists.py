@@ -550,8 +550,13 @@ class ListNextUp(ContainerDirectory):
             seasons = [
                 (s.get('season_number'), s.get('episode_count'), s.get('air_date'))
                 for s in details.get('seasons') or [] if s.get('season_number') is not None]
+            # Every show listed here has individually watched episodes, so a whole-show mark does not mean it is
+            # finished (the cross-service bridge marks every started show as a whole): pass no show mark.
+            # A season mark only counts for a season with no individually watched episode (same rule as the watched badges).
+            watched_seasons = {s for s, _ in show['episodes']}
+            marked_seasons = {s for s in show['bulk_seasons'] if s not in watched_seasons}
             nxt = _pick_next_episode(
-                seasons, last_aired, show['episodes'], show['bulk_seasons'], show['bulk_show'],
+                seasons, last_aired, show['episodes'], marked_seasons, None,
                 self._get_air_dates_func(tmdb_id))
             if nxt:
                 episodes.append({

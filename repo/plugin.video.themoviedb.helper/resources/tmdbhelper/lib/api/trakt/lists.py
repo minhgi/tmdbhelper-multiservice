@@ -161,6 +161,14 @@ class ListToWatch(ListSync):
             page=page)
 
 
+class ListHistoryStats(ContainerDirectory):
+    """ Placeholder for the watch-history stats route that newer skins (Arctic Fuse 3) request.
+    This fork keeps no per-day watch history, so the list is empty: it opens blank instead of raising 'not valid route'.
+    """
+    def get_items(self, **kwargs):
+        return []
+
+
 class ListComments(ContainerDirectory):
     def get_items(self, info, tmdb_type, tmdb_id, sort=None, **kwargs):
         """ Get a mix of watchlisted and inprogress """

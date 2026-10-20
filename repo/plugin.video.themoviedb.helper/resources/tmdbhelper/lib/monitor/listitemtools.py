@@ -379,6 +379,12 @@ class ListItemMonitorFunctions(CommonMonitorFunctions, ListItemInfoGetter):
         uncached_func = self._clearfunc_lc if self._listcontainer else self._clearfunc_wp
         self._item.get_itemdetails(**uncached_func)
 
+        # Identify the focused item for skins (e.g. Arctic Fuse 3 builds its Cast/Crew rows from these)
+        self.set_property('monitor.tmdb_id', self._item._itemdetails.tmdb_id or None)
+        self.set_property('monitor.tmdb_type', self._item._itemdetails.tmdb_type or None)
+        self.set_property('monitor.season', self._item._season or None)
+        self.set_property('monitor.episode', self._item._episode or None)
+
         # Get library stats for person
         if get_condvisibility("!Skin.HasSetting(TMDbHelper.DisablePersonStats)"):
             self._item.get_person_stats()

@@ -1,3 +1,16 @@
+v7.0.2
+- Fixed: The MDBList Next Up lists for anime and Asian titles were still empty. MDBList also holds a whole-season watched mark for every season of a started show, and Next Up counted those seasons as finished. A season mark is now counted only for a season with no individually watched episode, so the next unwatched aired episode shows again.
+
+v7.0.1
+- Fixed: The MDBList Next Up lists (all, movies and TV, anime, Asian) were empty. MDBList holds a whole-show watched mark for every show you have started, and Next Up counted each such show as finished. A whole-show mark is now ignored for shows that have watched episodes, so Next Up shows the first unwatched aired episode again (season marks still count).
+
+v7.0.0
+- Changed: The version number now starts at 7.0.0 so that skins which require TMDb Helper 6.17.9 or newer (Arctic Fuse 3 does) accept this fork and Kodi stops replacing it with another build of the same add-on. Nothing else about the numbering changes the add-on's behaviour.
+- Fixed: A skin asking for the watch-history stats list (info=trakt_history_stats) logged "not valid route" errors. The route now exists and opens an empty list; this fork does not keep per-day watch history, so skin widgets that chart it stay blank.
+
+v6.0.216
+- Fixed: The Cast, Crew and similar rows of skins that read the focused item's ID from the TMDbHelper.ListItem.Monitor.* window properties (Arctic Fuse 3 does) stayed empty. The service now sets TMDb_ID, TMDb_Type, Season and Episode for the focused item.
+
 v6.0.215
 - Changed: With Settings > Accounts > Trakt switched off, the In Trakt Lists row is no longer in the item details menu or the Related Lists context menu (it needs the Trakt service). The Trakt menus, the Trakt list rows and the Trakt context menu entries were already hidden by that switch.
 
