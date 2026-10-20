@@ -1,6 +1,6 @@
-# TMDb Helper 6.0.215 — Complete Features & Functions Guide
+# TMDb Helper 7.0.2 — Complete Features & Functions Guide
 
-**Version:** 6.0.215 (Enhanced Fork — Personal Build)
+**Version:** 7.0.2 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_6.0.215_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.2_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.215. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -130,6 +130,13 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–6.0.2
 - **A saved AniList-to-TMDb table** (6.0.199). The Anime lists remember which TMDb show or movie each AniList entry is. New matches come from the ARM id service (arm.haglund.dev) and are checked against TMDb before they are used; what ARM cannot settle is found by title search as before, so the lists work as before if ARM cannot be reached. A repeat list build no longer searches again for what is already saved, and a new show is no longer matched to an older series with a similar name (for example the 2026 KERORO instead of the 2014 one). See section 5.
 - **Simkl Next Up lists far more anime** (6.0.200). Simkl numbers every anime cour from episode 1 and often has no TMDb id, or a wrong one. The TMDb show now also comes from the saved table, and the episode is placed by the length of the TMDb season or by matching the cour's AniList start date to TMDb's air dates. On the author's account 15 of 16 anime rows were placed (7 before). See section 7.
 - **Tools → Clear Cache Tool → Clear Anime and Asian Lists Cache** also clears the saved matches (6.0.199). 6.0.201 makes sure no stray temporary file is left behind when the table cannot be saved. 6.0.202 asks TMDb for a franchise's seasons side by side, so the first Next Up open after the cache is cleared is quicker.
+
+### Arctic Fuse 3 and version 7 (6.0.216–7.0.2)
+
+- **Version 7 numbering** (7.0.0). Arctic Fuse 3 3.4.0 asks for TMDb Helper 6.17.9 or newer, and the signde repository that skin points to carries 6.17.9. Both builds use the same add-on ID and Kodi installs the highest version it can see, so the signde build would have replaced this fork. The fork is therefore numbered 7.0.0 and up: it satisfies the skin's version check and Kodi keeps this build, so automatic updates can stay on.
+- **Cast and Crew rows in Arctic Fuse 3** (6.0.216). The skin builds those rows from `TMDbHelper.ListItem.Monitor.TMDb_ID`, `…TMDb_Type`, `…Season` and `…Episode`, which this fork's monitor did not set, so the Actors row was empty or wrong when a movie was selected. The monitor now sets all four for the focused item. Tested for movies; the TV-episode case is source-verified only.
+- **No more `trakt_history_stats` errors** (7.0.0). Newer skins request a watch-history stats route, `info=trakt_history_stats`, that this fork did not have, so every request logged a "not valid route" error even with Trakt switched off (the Trakt switch was never the cause). The route now exists as an empty placeholder: it returns nothing and raises no error, so a skin widget that depends on it stays blank.
+- **MDBList Next Up no longer treats every started show as finished** (7.0.1, 7.0.2). The cross-service bridge writes every started Trakt show to MDBList as a whole-show mark, plus whole-season marks. MDBList Next Up credited those marks, so a show you were halfway through counted as finished and the list (including Anime Progress → Next Up) came back empty. Next Up now ignores a whole-show mark for any show that has individually watched episodes, and credits a whole-season mark only for a season with no individually watched episode. See section 7.
 
 ---
 
@@ -335,6 +342,16 @@ Simkl writes an anime's next episode as a bare "E12" counted inside its cour (a 
 
 A row that cannot be placed safely, such as a batch release or an irregular show, is left out as before. If AniList cannot be reached, only steps 1 (Simkl's id) and 2 are used. **All Next Up** and **Anime Progress → Next Up** include anime; **Movies and TV Shows Progress → Next Up** leaves them out. An episode you already watched on Trakt or MDBList is hidden by the *Unwatched* view even if Simkl still lists it as next.
 
+### MDBList Next Up and whole-show marks
+
+MDBList Next Up (and Anime Progress → Next Up) picks each show's next episode from the episodes MDBList says you watched. MDBList can also hold a mark for a whole show or a whole season, and the cross-service bridge writes both for every show you have started. Since 7.0.1 and 7.0.2:
+
+- A **whole-show mark is ignored** for any show that has individually watched episodes, because a started show is marked as a whole without being finished.
+- A **whole-season mark counts only for a season in which no episode is individually marked watched.**
+- A show for which MDBList lists every watched episode one by one, with none left, still reads as finished and is left out of Next Up. That is MDBList's own data, not a filter.
+
+The watched badges apply the same rule to show and season marks.
+
 ---
 
 ## 8. Playing Things — Players
@@ -390,6 +407,8 @@ Any menu row can be used as a widget in a skin. TMDb Helper is built to work wit
 - **Next page / hide watched:** *Next page item* adds a Next Page row to long widget lists; *Hide watched items* hides watched titles.
 - **Hub widgets (Titan Bingie Mod):** hub widget paths that contain a `reload=` token are refreshed in place through `Skin.SetString()`, so watched badges update when you return from the context menu.
 - **Anime rating properties** (6.0.211): for Japanese and Chinese titles `myanimelist_rating`, `myanimelist_votes`, `myanimelist_rank`, `myanimelist_popularity`, `anilist_rating`, `anilist_rank` and `anilist_popularity` are set next to the other rating properties (as `ListItem.Property(...)` on the item and as `TMDbHelper.ListItem.<name>` window properties). A skin has to draw them: the stock Titan Bingie Mod does not.
+- **Hide watched needs `widget=true`.** *Hide watched items* only applies to a path that carries `widget=true`. Titan Bingie Mod's default widgets have it; a widget path built with the skin's own picker does not, so watched titles stay visible with a watched badge until `&widget=true` is added to the path (for example `…&tmdb_type=tv&anime_only=true&widget=true`).
+- **Arctic Fuse 3** (3.4.0 or newer): works with this fork from 7.0.0, which satisfies the skin's requirement of TMDb Helper 6.17.9 or newer. The Cast and Crew rows work from 6.0.216. The watch-history stats widgets stay blank because that route is an empty placeholder. See section 2.
 
 ---
 
@@ -588,6 +607,9 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Anime calendars** | The TV calendar reads Simkl's anime file, so it lists only anime Simkl has a TMDb id for and TMDb files as Japanese or Chinese animation; about a third of the future episodes show as E3 because TMDb has not listed them yet; days outside the file use Trakt's anime tag. The movie calendar is Japan only and ignores the region setting. |
 | **Anime Recommendations** | Offered only for Japanese-language animation; a title the ARM id service does not know gives an empty list. AniList allows about 30 requests a minute, shared with the Anime lists. |
 | **Players need their add-ons** | A listed player does nothing if its add-on is not installed. |
+| **Arctic Fuse 3** | The watch-history stats route (`trakt_history_stats`) is an empty placeholder, so skin widgets that read it stay blank. The Cast row fix was tested on the 6.0.216 build and the stats route on 7.0.0; 7.0.2 itself was not run under the skin, and the TV-episode Cast case is untested. |
+| **MDBList Next Up and marks** | A show whose watched episodes MDBList lists one by one, with none left, reads as finished and is not in Next Up. Whole-show marks are ignored and whole-season marks count only for seasons with no individually watched episode (section 7). |
+| **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
 
 ---
 
@@ -605,7 +627,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 
 ### Plugin routes (for widgets and skin shortcuts)
 
-Menu rows are plugin paths of the form `plugin://plugin.video.themoviedb.helper/?info=<route>&…`. Useful routes: `dir_movie`, `dir_tv`, `dir_anime_hub`, `dir_asian_hub`, `dir_trakt`, `dir_mdblist`, `dir_simkl`, `dir_mdblist_progress` / `dir_simkl_progress` / `dir_trakt_progress` (with `progress_filter=anime|asian|other`), `dir_calendar_window` (movie month grid), `dir_calendar_shows_window` (TV show page), `scoped_search` (with `search_scope=anime|asian`).
+Menu rows are plugin paths of the form `plugin://plugin.video.themoviedb.helper/?info=<route>&…`. Useful routes: `dir_movie`, `dir_tv`, `dir_anime_hub`, `dir_asian_hub`, `dir_trakt`, `dir_mdblist`, `dir_simkl`, `dir_mdblist_progress` / `dir_simkl_progress` / `dir_trakt_progress` (with `progress_filter=anime|asian|other`), `dir_calendar_window` (movie month grid), `dir_calendar_shows_window` (TV show page), `scoped_search` (with `search_scope=anime|asian`), `trakt_history_stats` (an empty placeholder that newer skins request; it returns no items and raises no error).
 
 Calendar windows are opened with `RunPlugin(...)`, not as a folder, because the plugin opens its own window. Parameters such as `countries=cn,kr,jp,th,tw` must be written with the commas encoded as `%2C` in a plugin URL, because Kodi splits the URL parameter string on literal commas:
 
@@ -621,4 +643,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The 6.0.216–7.0.2 changes (the monitor properties, the placeholder route and the MDBList Next Up rules) were checked against the add-on source (`listitemtools.py`, `consts.py`, `container.py`, `mdblist/lists.py`); the Cast row in Arctic Fuse 3 was live-tested on 6.0.216, the stats route on 7.0.0, a 229-list sweep of the MDBList, Simkl, Anime and Asian lists on 7.0.0, and MDBList Next Up on the author's account with 7.0.1 and 7.0.2. The rest is source-verified only and was not each exercised on a live account.*
