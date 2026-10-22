@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.2"
+version="7.0.6"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,19 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.6
+- Changed: Opening a list is faster on Android (Nvidia Shield). Each list now looks in Python's own library first instead of searching every add-on's library folder on slow storage, and cached rows no longer set properties that Bingie does not use.
+
+v7.0.5
+- Changed: Lists with no ID to look up (Trending, Popular, a Trakt list and so on) skip the TMDb ID lookup and no longer open its ID database. Faster to open, most of all while Kodi is starting up and many widgets load at once.
+
+v7.0.4
+- Added: The rows and banners of the skin (the Spotlight banner, the hub rows of the Movies, TV shows, New and My list pages) are kept on disk like widgets and refresh in the background after a sync, so they open instantly instead of being built every time. Only lists whose path is stored in the skin's settings and that are opened by the skin are cached: Show all, searches and details lists are built as before. Setting: Widgets > Cache the rows and banners of the skin.
+- Added: While Kodi is idle the add-on builds the rows and widgets of every page of the skin that has no cache yet, so the first visit to a page is instant. Setting: Widgets > Build every page of the skin in the background.
+
+v7.0.3
+- Added: Settings > Expert > Re-Use Language Invoker status and Toggle Re-Use Language Invoker. A switch for Kodi's reuse of the add-on's Python process between calls. Off by default (as before). When on, widgets and menus start faster but the add-on keeps using memory until Kodi restarts, and changes to other TMDb Helper settings only apply after a Kodi restart. After the add-on is updated the shipped value (off) is back until the service starts and sets addon.xml back to the saved choice, so the reuse returns after the next Kodi restart. A manual edit of addon.xml is set back to match the setting the same way.
+
 v7.0.2
 - Fixed: The MDBList Next Up lists for anime and Asian titles were still empty. MDBList also holds a whole-season watched mark for every season of a started show, and Next Up counted those seasons as finished. A season mark is now counted only for a season with no individually watched episode, so the next unwatched aired episode shows again.
 

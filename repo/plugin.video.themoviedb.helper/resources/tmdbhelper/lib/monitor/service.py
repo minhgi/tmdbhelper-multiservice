@@ -17,6 +17,9 @@ class ServiceMonitor(Poller):
         self.listitem = None
 
     def run(self):
+        from tmdbhelper.lib.script.method.maintenance import sync_reuselanguageinvoker
+        sync_reuselanguageinvoker()
+
         self.mutex_lock = Lock()
 
         self.update_monitor = UpdateMonitor()

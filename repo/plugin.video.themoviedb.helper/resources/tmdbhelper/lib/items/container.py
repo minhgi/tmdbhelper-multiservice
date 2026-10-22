@@ -48,6 +48,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         self.library = None  # TODO: FIX -- Currently broken -- SetInfo(library, info)
         self.sort_methods = []  # List of kwargs dictionaries [{'sortMethod': SORT_METHOD_UNSORTED}]
         self.sort_by_dbid = False
+        self.row_build = None  # True: built by the service for the skin-row cache (always a single page)
 
         # KodiDB
         self.kodi_db = None
@@ -60,6 +61,17 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
     @cached_property
     def is_widget(self):
         return boolean(self.params.get('widget', False))
+
+    @cached_property
+    def is_skin_row(self):
+        """A plain list the active skin shows as a row (a hub row, a banner), opened by the skin and not from the
+        library window: cached like a widget. Everything else (show all, details lists, searches) is built as before."""
+        if self.row_build is not None:
+            return self.row_build
+        if self.is_widget or get_condvisibility('Window.IsVisible(MyVideoNav.xml)'):
+            return False
+        from tmdbhelper.lib.items.widget_cache import is_skin_row
+        return is_skin_row(self.paramstring, self.params.get('info'))
 
     @cached_property
     def is_cacheonly(self):
@@ -133,7 +145,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
 
     @property
     def page_length(self):
-        if self.is_widget or not get_condvisibility('Window.IsVisible(MyVideoNav.xml)'):
+        if self.is_widget or self.row_build or not get_condvisibility('Window.IsVisible(MyVideoNav.xml)'):
             return 1
         return get_setting('pagemulti_library', 'int')
 
@@ -341,6 +353,11 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         if self.params.get('tmdb_id'):
             return
 
+        # Nothing to look up: the lookup would only return None, after building the TMDb API object and opening its database
+        if not (self.params.get('imdb_id') or self.params.get('tvdb_id') or self.params.get('query')):
+            self.params['tmdb_id'] = None
+            return
+
         self.params['tmdb_id'] = self.tmdb_api.get_tmdb_id(**self.params)
 
     def get_items(self, **kwargs):
@@ -374,11 +391,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
     def get_directory(self, items_only=False, build_items=True):
         # Widget cache: serve cached items instantly for spurious re-requests
         # (e.g. after YouTube trailer causes skin to unload/reload widgets)
-        if self.is_widget and not items_only and build_items:
+        # A plain list the skin shows as a row is cached the same way (separate cache key: is_skin_row)
+        if (self.is_widget or self.is_skin_row) and not items_only and build_items:
             from tmdbhelper.lib.items.widget_cache import cache_state, load_cache, note_used
-            if cache_state(self.paramstring) != 'miss':  # 'stale' is served too: the service rebuilds it in the background
-                if load_cache(self.paramstring, self.handle):
-                    note_used(self.paramstring)
+            row = not self.is_widget
+            if cache_state(self.paramstring, row) != 'miss':  # 'stale' is served too: the service rebuilds it in the background
+                if load_cache(self.paramstring, self.handle, row):
+                    note_used(self.paramstring, row)
                     return
 
         with TimerList(self.timer_lists, 'total', logging=self.log_timers):
@@ -408,6 +427,9 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                 if self.is_widget:
                     from tmdbhelper.lib.items.widget_cache import save_cache
                     save_cache(self.paramstring, items, self.plugin_category, self.container_content)
+                elif self.is_skin_row and not (self.container_update or self.container_refresh):
+                    from tmdbhelper.lib.items.widget_cache import save_cache
+                    save_cache(self.paramstring, items, self.plugin_category, self.container_content, row=True)
                 self.add_items(items)
                 if not self.is_widget:
                     self._warm_next_page(items)

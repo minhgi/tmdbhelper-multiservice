@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.2 — Complete Features & Functions Guide
+# TMDb Helper 7.0.6 — Complete Features & Functions Guide
 
-**Version:** 7.0.2 (Enhanced Fork — Personal Build)
+**Version:** 7.0.6 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.2_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.6_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -137,6 +137,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2
 - **Cast and Crew rows in Arctic Fuse 3** (6.0.216). The skin builds those rows from `TMDbHelper.ListItem.Monitor.TMDb_ID`, `…TMDb_Type`, `…Season` and `…Episode`, which this fork's monitor did not set, so the Actors row was empty or wrong when a movie was selected. The monitor now sets all four for the focused item. Tested for movies; the TV-episode case is source-verified only.
 - **No more `trakt_history_stats` errors** (7.0.0). Newer skins request a watch-history stats route, `info=trakt_history_stats`, that this fork did not have, so every request logged a "not valid route" error even with Trakt switched off (the Trakt switch was never the cause). The route now exists as an empty placeholder: it returns nothing and raises no error, so a skin widget that depends on it stays blank.
 - **MDBList Next Up no longer treats every started show as finished** (7.0.1, 7.0.2). The cross-service bridge writes every started Trakt show to MDBList as a whole-show mark, plus whole-season marks. MDBList Next Up credited those marks, so a show you were halfway through counted as finished and the list (including Anime Progress → Next Up) came back empty. Next Up now ignores a whole-show mark for any show that has individually watched episodes, and credits a whole-season mark only for a season with no individually watched episode. See section 7.
+
+### Speed on Bingie and on Android (7.0.3–7.0.6)
+
+- **Re-Use Language Invoker switch** (7.0.3). Kodi can keep TMDb Helper's Python process loaded between calls, which makes widgets and menus start faster. It is **off by default**. *Settings → Expert → Other* shows its status and a *Toggle Re-Use Language Invoker* button; Kodi must be restarted to apply a change, and an add-on update keeps your choice. In the author's tests Kodi 22 RC1 crashed in some runs with it on and in none with it off (see section 16), so leave it off unless you want to try it, and switch it off again if Kodi starts crashing.
+- **Skin row cache and background page build** (7.0.4). Titan Bingie Mod's hub rows and banners are cached on disk like widgets, so they open at once and refresh in the background after a sync; the same list opened with and without a `reload=` token shares one cache. While Kodi is idle (no video playing, no input for 30 seconds) the pages of your skin that have no cache yet are built in the background. Two switches in *Settings → Widgets*, both on by default: *Cache the rows and banners of the skin* and *Build every page of the skin in the background*. Lists you open yourself (Show all, searches, details) are never cached. On the author's PC the six rows of the Movies page all came from the cache in 0.4–0.5 s each, and after a restart all 31 start-up list requests did.
+- **Faster list opening** (7.0.5, 7.0.6). Lists with nothing to look up (Trending, Popular, a Trakt list) skip the TMDb ID lookup (7.0.5). Each list request now searches Python's own library first instead of every add-on's library folder, which matters most on Android where those folders sit on slow storage, and Titan Bingie Mod's cached rows no longer set row properties that the skin never reads (7.0.6). In Kodi's log on an Nvidia Shield a typical request went from about 1.65 s to about 1.3 s. Each widget still runs once every time you return to Home, and every add-on that starts with Kodi is its own Python process, so on a slow device the first minute after launch stays the slowest.
 
 ---
 
@@ -404,6 +410,7 @@ Any menu row can be used as a widget in a skin. TMDb Helper is built to work wit
 - **Instant refresh:** after any Trakt / MDBList / Simkl change (mark watched, rate, scrobble) TMDb Helper sets the reload properties skins already read (`TMDbHelper.Widgets.Reload`, `widgetreload`, `widgetreload2`, `widgetreload-movies`, `widgetreload-tvshows`).
 - **Disk widget cache:** a widget that is re-opened (for example after a trailer) is served from disk without refetching.
 - **Background rebuild** (Settings → Widgets → *Rebuild widgets in the background*, on by default): widgets you opened in the last 24 hours are rebuilt while idle, so opening one is a cache hit. Right after a restart a widget may briefly show its previous contents and then refresh. A widget that keeps failing is left alone for 30 minutes.
+- **Skin rows and banners** (7.0.4): *Settings → Widgets → Cache the rows and banners of the skin* (on) keeps the active skin's hub rows and banners on disk like widgets, and *Build every page of the skin in the background* (on) builds pages that have no cache yet once Kodi has been idle for 30 seconds. Turn either off if you prefer live lists or want less background work.
 - **Next page / hide watched:** *Next page item* adds a Next Page row to long widget lists; *Hide watched items* hides watched titles.
 - **Hub widgets (Titan Bingie Mod):** hub widget paths that contain a `reload=` token are refreshed in place through `Skin.SetString()`, so watched badges update when you return from the context menu.
 - **Anime rating properties** (6.0.211): for Japanese and Chinese titles `myanimelist_rating`, `myanimelist_votes`, `myanimelist_rank`, `myanimelist_popularity`, `anilist_rating`, `anilist_rank` and `anilist_popularity` are set next to the other rating properties (as `ListItem.Property(...)` on the item and as `TMDbHelper.ListItem.<name>` window properties). A skin has to draw them: the stock Titan Bingie Mod does not.
@@ -544,6 +551,8 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 | Next page item | off | Next Page row on long widget lists |
 | Hide watched items | off | Hide watched titles in widgets |
 | Rebuild widgets in the background | on | Background rebuild of widgets used in the last 24 hours |
+| Cache the rows and banners of the skin | on | Hub rows and banners of the active skin are cached on disk and refreshed in the background (7.0.4) |
+| Build every page of the skin in the background | on | While Kodi is idle, builds the pages of your skin that have no cache yet (7.0.4) |
 | Flatten tvshows with multiple episodes airing same day | on | Show them as one item |
 | Next aired library calendar links to local tvshow | on | Opens the show in your library |
 | Preferred artwork for thumbs | thumbs | Thumbs, fanart or landscape for calendar and Next Episodes thumbnails |
@@ -588,7 +597,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 |---|---|
 | **Dummy ResolvedURL** | Dummy video duration (1.0 s) · Delay after resolving (1.0 s) · Stop before attempting playback (on) · Restrict to library strm (off) |
 | **Player** | Reroute PlayMedia to xbmc.Player() (on) · Recache Kodi Library details when building players (off) |
-| **Other** | Use alternative TMDb API url (off; uses api.tmdb.org) · Max concurrent threads (0 = unlimited) · Cache database location · Cache image location · Delete cache · Backup Settings & Data · Restore Settings & Data |
+| **Other** | Re-Use Language Invoker status and toggle button (off; restart Kodi to apply) · Use alternative TMDb API url (off; uses api.tmdb.org) · Max concurrent threads (0 = unlimited) · Cache database location · Cache image location · Delete cache · Backup Settings & Data · Restore Settings & Data |
 | **Debug** | Log timer reports for directories (off) · Debug logging (off) · Log output of TMDb / Trakt request |
 
 ---
@@ -610,6 +619,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Arctic Fuse 3** | The watch-history stats route (`trakt_history_stats`) is an empty placeholder, so skin widgets that read it stay blank. The Cast row fix was tested on the 6.0.216 build and the stats route on 7.0.0; 7.0.2 itself was not run under the skin, and the TV-episode Cast case is untested. |
 | **MDBList Next Up and marks** | A show whose watched episodes MDBList lists one by one, with none left, reads as finished and is not in Next Up. Whole-show marks are ignored and whole-season marks count only for seasons with no individually watched episode (section 7). |
 | **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
+| **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). Switch it off again if Kodi starts crashing. |
 
 ---
 
@@ -643,4 +653,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The 6.0.216–7.0.2 changes (the monitor properties, the placeholder route and the MDBList Next Up rules) were checked against the add-on source (`listitemtools.py`, `consts.py`, `container.py`, `mdblist/lists.py`); the Cast row in Arctic Fuse 3 was live-tested on 6.0.216, the stats route on 7.0.0, a 229-list sweep of the MDBList, Simkl, Anime and Asian lists on 7.0.0, and MDBList Next Up on the author's account with 7.0.1 and 7.0.2. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The 6.0.216–7.0.2 changes (the monitor properties, the placeholder route and the MDBList Next Up rules) were checked against the add-on source (`listitemtools.py`, `consts.py`, `container.py`, `mdblist/lists.py`); the Cast row in Arctic Fuse 3 was live-tested on 6.0.216, the stats route on 7.0.0, a 229-list sweep of the MDBList, Simkl, Anime and Asian lists on 7.0.0, and MDBList Next Up on the author's account with 7.0.1 and 7.0.2. The 7.0.3–7.0.6 changes (the Re-Use Language Invoker switch, the row cache and the background page build) were live-tested on the author's PC Kodi 22 test install, and the speed figures were read from the kodi.log of an Nvidia Shield running 7.0.4 and timing builds of 7.0.5 and 7.0.6; the new switches were not exercised on the Shield's screen. The rest is source-verified only and was not each exercised on a live account.*

@@ -3791,3 +3791,43 @@ msgstr ""
 msgctxt "#32731"
 msgid "Show the Asian Cinema & TV row (Asian movies and drama) in the main menu of the add-on."
 msgstr ""
+
+msgctxt "#32732"
+msgid "Re-Use Language Invoker status"
+msgstr ""
+
+msgctxt "#32733"
+msgid "Shows whether Kodi's Re-Use Language Invoker option is currently on for TMDb Helper. Read-only - change it with the button below."
+msgstr ""
+
+msgctxt "#32734"
+msgid "Toggle Re-Use Language Invoker"
+msgstr ""
+
+msgctxt "#32735"
+msgid "Switches Kodi's Re-Use Language Invoker option for TMDb Helper on or off, then asks you to restart Kodi, which applies it. When on, TMDb Helper's Python process stays loaded between calls, so widgets and menus start faster, but it keeps using memory until Kodi restarts and changes to other TMDb Helper settings only apply after a Kodi restart. After an add-on update the choice is restored when the service starts and applies after the next Kodi restart. Not recommended on low-memory devices. Off by default."
+msgstr ""
+
+msgctxt "#32736"
+msgid "Re-Use Language Invoker is now {}. Restart Kodi to apply it."
+msgstr ""
+
+msgctxt "#32737"
+msgid "Could not change the Re-Use Language Invoker option: TMDb Helper's addon.xml was not found or could not be written."
+msgstr ""
+
+msgctxt "#32738"
+msgid "Cache the rows and banners of the skin"
+msgstr ""
+
+msgctxt "#32739"
+msgid "Keep the lists your skin shows as rows and banners (hub rows, the Spotlight banner) on disk like widgets, so they open instantly and refresh in the background after a sync. Lists you open yourself (Show all, searches, details) are not affected."
+msgstr ""
+
+msgctxt "#32740"
+msgid "Build every page of the skin in the background"
+msgstr ""
+
+msgctxt "#32741"
+msgid "While Kodi is idle (no video playing, no input for 30 seconds) build the widgets and rows of every page of your skin that has no cache yet, so the first visit to a page is instant. Uses some processor time while idle, turn it off on a slow device. Needs Rebuild widgets in the background."
+msgstr ""

@@ -229,6 +229,16 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="rowcache" type="boolean" label="32738" help="32739">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="widget_prewarm_skin" type="boolean" label="32740" help="32741">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
             <group id="2" label="32368">
                 <setting id="calendar_flatten" type="boolean" label="32404" help="32622">
@@ -1336,6 +1346,24 @@
                     </constraints>
                     <control type="slider" format="integer">
                         <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="reuselanguageinvoker_status" type="string" label="32732" help="32733">
+                    <level>0</level>
+                    <default>Disabled</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string">
+                        <heading>32732</heading>
+                    </control>
+                </setting>
+                <setting id="reuselanguageinvoker_toggle" type="action" label="32734" help="32735">
+                    <level>0</level>
+                    <data>RunScript(plugin.video.themoviedb.helper, toggle_reuselanguageinvoker)</data>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="button" format="action">
+                        <close>true</close>
                     </control>
                 </setting>
                 <setting id="cache_location" type="path" label="32409" help="32713">

@@ -7,6 +7,7 @@ WARMER_MAX_ATTEMPTS = 2  # per widget per cycle: building can itself trigger a s
 WARMER_BACKOFF_FAILED = 1800  # seconds a widget is left alone after a build that raised or came back empty
 WARMER_BACKOFF_BUSY = 600  # ... after the caches kept being invalidated while it was building
 WARMER_PAUSE = 2  # seconds between two builds
+WARMER_SEED_IDLE = 30  # seconds without input before the lists of pages the user has not opened yet are built
 WARM_NEXT_PROPERTY = 'TMDbHelper.Widgets.WarmNext'
 WARM_NEXT_MEMORY = 200
 
@@ -23,6 +24,8 @@ class WidgetWarmer(SafeThread):
         self._attempts = {}
         self._backoff = {}
         self._built = 0
+        self._seeding = False
+        self._seed_attempts = {}
         self._warmed_next = []
 
     @property
@@ -37,12 +40,14 @@ class WidgetWarmer(SafeThread):
         return Player().isPlayingVideo()
 
     @staticmethod
-    def _build(paramstring):
-        """The same build a plugin call does for this paramstring, without a Kodi directory (handle -1)."""
+    def _build(paramstring, row=False):
+        """The same build a plugin call does for this paramstring, without a Kodi directory (handle -1).
+        row=True: a plain list the skin shows as a row, built as a single page whatever window is open now."""
         from tmdbhelper.lib.items.router import Router
         from tmdbhelper.lib.items.routes import get_container
         router = Router(-1, paramstring)
         container = get_container(router.params.get('info'))(-1, router.paramstring, **router.params)
+        container.row_build = True if row else None
         container.get_tmdb_id()
         items = container.get_directory(items_only=True)
         return items, container
@@ -65,15 +70,18 @@ class WidgetWarmer(SafeThread):
 
     def _warm_widgets(self):
         import time
-        from tmdbhelper.lib.items.widget_cache import read_index, needs_warm, save_cache, forget, get_last_invalidated, INDEX_MAX_AGE
+        from tmdbhelper.lib.items.widget_cache import (
+            read_index, needs_warm, save_cache, forget, get_last_invalidated, rowcache_enabled, INDEX_MAX_AGE)
         from tmdbhelper.lib.addon.logger import kodi_log
         last = get_last_invalidated()
         if last and time.time() - last < WARMER_QUIET_TIME:
-            return
+            return True  # busy: nothing else is built meanwhile
         now = time.time()
+        rows_on = rowcache_enabled()
         due = [
             (key, entry) for key, entry in (read_index() or {}).items()
-            if now - entry.get('used', 0) < INDEX_MAX_AGE
+            if (rows_on or not entry.get('row'))
+            and now - entry.get('used', 0) < INDEX_MAX_AGE
             and self._attempts.get(key, 0) < WARMER_MAX_ATTEMPTS
             and self._backoff.get(key, 0) < now
             and needs_warm(key, entry)]
@@ -82,46 +90,105 @@ class WidgetWarmer(SafeThread):
                 self._bump_skins()
             self._built = 0
             self._attempts = {}
-            return
+            return False
         key, entry = max(due, key=lambda i: i[1].get('used', 0))
         self._attempts[key] = self._attempts.get(key, 0) + 1
         paramstring = entry.get('ps')
         if not paramstring:
-            return
+            return True
+        row = bool(entry.get('row'))
         try:
-            items, container = self._build(paramstring)
+            items, container = self._build(paramstring, row)
         except Exception as exc:
             self._backoff[key] = now + WARMER_BACKOFF_FAILED
             kodi_log(f'WidgetWarmer: build failed for {key}: {exc}', 1)
-            return
+            return True
         if get_last_invalidated() != last or self._should_stop:
             if self._attempts[key] >= WARMER_MAX_ATTEMPTS:
                 self._backoff[key] = now + WARMER_BACKOFF_BUSY  # invalidated while building twice: leave it for a while
-            return  # the data changed while building: this result may be older than the change
-        if not items:
+            return True  # the data changed while building: this result may be older than the change
+        if not items or (row and (container.container_update or container.container_refresh)):
             self._backoff[key] = now + WARMER_BACKOFF_FAILED
             forget(key)  # empty now: do not keep serving the old items
-            return
-        save_cache(paramstring, items, container.plugin_category, container.container_content, touch=False)
+            return True
+        save_cache(paramstring, items, container.plugin_category, container.container_content, touch=False, row=row)
         self._built += 1
         kodi_log(f'WidgetWarmer: rebuilt {key}', 2)
+        return True
+
+    def _seed_widgets(self):
+        """Build, one per call and only while the user is idle, the lists of the skin's pages that have no cache yet
+        (never opened, or older than the startup limit), so the first visit to a page is instant. No skin nudge
+        afterwards: a page that is not on screen loads from the cache when it is opened."""
+        import time
+        from tmdbhelper.lib.addon.plugin import get_condvisibility
+        from tmdbhelper.lib.addon.logger import kodi_log
+        from tmdbhelper.lib.items.widget_cache import (
+            seed_enabled, seed_entries, seed_needs_warm, save_cache, get_last_invalidated, rowcache_enabled, _get_cache_key)
+        self._seeding = False  # True only right after a seed was built: the next one follows soon, otherwise the normal poll time
+        if not seed_enabled() or not get_condvisibility(f'System.IdleTime({WARMER_SEED_IDLE})'):
+            return
+        last = get_last_invalidated()
+        now = time.time()
+        rows_on = rowcache_enabled()
+        for paramstring, row in seed_entries():
+            if row and not rows_on:
+                continue  # rows are not served with the setting off
+            key = _get_cache_key(paramstring, row)
+            if self._seed_attempts.get(key, 0) >= WARMER_MAX_ATTEMPTS or self._backoff.get(key, 0) > now:
+                continue
+            if not seed_needs_warm(paramstring, row):
+                continue
+            self._seed_attempts[key] = self._seed_attempts.get(key, 0) + 1
+            try:
+                items, container = self._build(paramstring, row)
+            except Exception as exc:
+                self._backoff[key] = now + WARMER_BACKOFF_FAILED
+                kodi_log(f'WidgetWarmer: seed build failed for {key}: {exc}', 1)
+                return
+            if get_last_invalidated() != last or self._should_stop:
+                return  # the data changed while building: try again later
+            if not items or (row and (container.container_update or container.container_refresh)):
+                self._backoff[key] = now + WARMER_BACKOFF_FAILED
+                return
+            save_cache(paramstring, items, container.plugin_category, container.container_content, touch=False, row=row)
+            kodi_log(f'WidgetWarmer: seeded {key}', 2)
+            self._seeding = True
+            return
+        self._seed_attempts = {}  # nothing left to build
 
     def _tick(self):
+        try:
+            from tmdbhelper.lib.items.widget_cache import publish_skin_rows
+            publish_skin_rows()  # cheap: only rewritten when the skin's settings changed
+        except Exception as exc:
+            from tmdbhelper.lib.addon.logger import kodi_log
+            kodi_log(f'WidgetWarmer: skin rows not published: {exc}', 1)
         if self._paused():
+            self._seeding = False
             return
         self._warm_next()
         if self._should_stop:
             return
-        self._warm_widgets()
+        if self._warm_widgets():
+            self._seeding = False
+        elif not self._should_stop:
+            self._seed_widgets()
 
     def run(self):
         from tmdbhelper.lib.addon.logger import kodi_log
         from tmdbhelper.lib.items.widget_cache import cleanup_tmp
         cleanup_tmp()
+        try:
+            from tmdbhelper.lib.items.widget_cache import publish_skin_rows, read_skin_rows
+            if not read_skin_rows():
+                publish_skin_rows()  # first run: the plugin calls need it to know which lists are skin rows (later runs reuse the file)
+        except Exception as exc:
+            kodi_log(f'WidgetWarmer error: {exc}', 1)
         self.monitor.waitForAbort(WARMER_START_DELAY)
         while not self._should_stop:
             try:
                 self._tick()
             except Exception as exc:
                 kodi_log(f'WidgetWarmer error: {exc}', 1)
-            self.monitor.waitForAbort(WARMER_PAUSE if self._built and not self._should_stop else WARMER_POLL_TIME)
+            self.monitor.waitForAbort(WARMER_PAUSE if (self._built or self._seeding) and not self._should_stop else WARMER_POLL_TIME)

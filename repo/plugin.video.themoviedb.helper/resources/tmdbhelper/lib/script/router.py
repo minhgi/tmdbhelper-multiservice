@@ -197,6 +197,8 @@ class Script(object):
             lambda **kwargs: importmodule('tmdbhelper.lib.script.method.maintenance', 'delete_cache')(**kwargs),
         'recache_kodidb':
             lambda **kwargs: importmodule('tmdbhelper.lib.script.method.maintenance', 'recache_kodidb')(),
+        'toggle_reuselanguageinvoker':
+            lambda **kwargs: importmodule('tmdbhelper.lib.script.method.maintenance', 'toggle_reuselanguageinvoker')(),
         'build_awards':
             lambda **kwargs: importmodule('tmdbhelper.lib.script.method.build_awards', 'build_awards')(**kwargs),
         'restart_service':
