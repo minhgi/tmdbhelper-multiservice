@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.7" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.8" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.8
+- Fixed: MDBList In Progress listed only the shows with an episode paused part-way, so a show you were following between episodes was missing. It now lists every show you have started and not finished, like Trakt's In Progress: a show with a watched episode and a later aired episode still unwatched, or an episode paused part-way, newest first. Dropped shows are left out. A show whose only entry is a player started at 0% is no longer listed. Movies paused part-way are listed as before. Hide watched in widgets no longer removes a started show from this list when the watched count from MDBList's whole-show marks reads "all watched". The Anime, Asian, and Movies and TV Shows Progress lists follow the same rule. The first open can take a few seconds while TMDb details are fetched.
+
 v7.0.7
 - Fixed: Kodi slowed down the longer a widget stayed selected. The background service started a new read-ahead thread about five times a second and never joined it, and each unjoined thread kept one Windows handle for good (several thousand within an hour). A finished read-ahead thread is now joined, only one read-ahead step runs at a time, and nothing is started once the queue is empty.
 - Changed: The Simkl and MDBList sync databases now add their missing columns once per run instead of once per object, which removes about a thousand duplicate-column error lines a minute from the log and many database connections.

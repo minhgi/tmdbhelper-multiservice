@@ -364,11 +364,36 @@ def _get_scope(anime_only=None, asian_only=None, other_only=None):
     return 'anime' if anime_only == 'true' else 'asian' if asian_only == 'true' else 'other' if other_only == 'true' else None
 
 
+def _playback_shows(playback):
+    """{show_tmdb_id: {'title', 'at'}} for shows with an episode paused part-way in GET /sync/playback.
+    An entry at 0% is just a started player, nothing watched yet, and is skipped; 'at' is the newest pause time."""
+    shows = {}
+    for item in playback or []:
+        if item.get('type') != 'episode':
+            continue
+        show = item.get('show') or {}
+        tmdb_id = (show.get('ids') or {}).get('tmdb')
+        try:
+            progress = float(item.get('progress'))
+        except (TypeError, ValueError):
+            continue
+        if not tmdb_id or progress <= 0:
+            continue
+        at = str(item.get('paused_at') or item.get('updated_at') or '')
+        entry = shows.setdefault(tmdb_id, {'title': show.get('title'), 'at': ''})
+        entry['at'] = max(entry['at'], at)
+    return shows
+
+
 class ListInProgress(ContainerDirectory):
-    """MDBList in-progress — GET /sync/playback.  Movies + shows (deduplicated).
+    """MDBList in-progress. Shows: every show you have started and not finished (like Trakt's In Progress) -
+    a show with an individually watched episode and a later aired episode still unwatched (the Next Up rule),
+    plus a show with an episode paused part-way (GET /sync/playback), newest activity first; dropped shows are
+    left out. Movies: GET /sync/playback (movies paused part-way).
     tmdb_type='movie' → movies only; tmdb_type='tv' → shows only; else → both.
     anime_only='true' / asian_only='true' keep only anime / Asian titles (Anime / Asian Progress menus); other_only='true' keeps
     everything else (Movies and TV Shows menu).
+    If the watch history cannot be read, shows fall back to the paused ones (the old behaviour).
     """
 
     def _keep_scope(self, normalized, scope):
@@ -380,16 +405,54 @@ class ListInProgress(ContainerDirectory):
                 kept[key] = rows
         return kept
 
+    def _get_dropped_ids(self):
+        raw = _get_user_endpoint(self.mdblist_api, 'sync', 'dropped', limit=5000)
+        return {r['id'] for r in _normalize_collection(raw if isinstance(raw, dict) else {}).get('shows') or []}
+
+    def _get_started_shows(self, paused, scope):
+        watched = _get_watched_all(self.mdblist_api)
+        if watched is None:
+            kodi_log('MDBList in progress: /sync/watched could not be read - listing only the shows with a paused episode', 1)
+            rows = [{'id': k, 'mediatype': 'show', 'title': v['title']} for k, v in sorted(paused.items(), key=lambda kv: kv[1]['at'], reverse=True)]
+            return self._keep_scope({'shows': rows}, scope).get('shows', []) if scope else rows
+        by_show = _group_watched_by_show(watched)
+        started = {k: v for k, v in by_show.items() if v['episodes']}
+        dropped = self._get_dropped_ids()
+        candidates = sorted(
+            ((k, max(started.get(k, {}).get('last') or '', paused.get(k, {}).get('at') or ''))
+             for k in set(started) | set(paused) if k not in dropped),
+            key=lambda kv: kv[1], reverse=True)[:_INPROGRESS_SHOW_CAP]
+        rows = []
+        for tmdb_id, _ in candidates:
+            show = started.get(tmdb_id)
+            # A paused episode is unfinished by itself; a show with only watched episodes needs a later aired one unwatched
+            details = {} if tmdb_id in paused and not scope else (self.tmdb_api.get_request_sc('tv', tmdb_id) or {})
+            if scope and not _in_scope(details, scope, 'tv'):
+                continue
+            if tmdb_id not in paused and not _first_unwatched(details, show, _air_dates_func(self.tmdb_api, tmdb_id)):
+                continue
+            rows.append({
+                'id': tmdb_id, 'mediatype': 'show',
+                'title': (show or {}).get('title') or paused.get(tmdb_id, {}).get('title') or details.get('name')})
+        return rows
+
     def get_items(self, tmdb_type=None, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
         raw = _get_user_endpoint(self.mdblist_api, 'sync', 'playback')
-        normalized = _normalize_playback(raw if isinstance(raw, list) else [])
-        if tmdb_type == 'movie':
-            normalized = {k: v for k, v in normalized.items() if k == 'movies'}
-        elif tmdb_type == 'tv':
-            normalized = {k: v for k, v in normalized.items() if k == 'shows'}
+        playback = raw if isinstance(raw, list) else []
         scope = _get_scope(anime_only, asian_only, other_only)
-        if normalized and scope:
-            normalized = self._keep_scope(normalized, scope)
+        normalized = {}
+        if tmdb_type != 'movie':
+            shows = self._get_started_shows(_playback_shows(playback), scope)
+            if shows:
+                normalized['shows'] = shows
+        if tmdb_type != 'tv':
+            movies = _normalize_playback(playback).get('movies')
+            if movies:
+                normalized['movies'] = movies
+        if normalized and scope and 'movies' in normalized:
+            normalized['movies'] = self._keep_scope({'movies': normalized['movies']}, scope).get('movies', [])
+            if not normalized['movies']:
+                del normalized['movies']
         if not normalized:
             return
         response = self.mdblist_api.get_paginated(normalized, page=page or 1)
@@ -402,6 +465,7 @@ class ListInProgress(ContainerDirectory):
 _NEXTUP_RESULT_CAP = 20     # episodes returned
 _NEXTUP_SHOW_CAP = 60       # shows examined (each costs one cached TMDb call)
 _NEXTUP_SCOPE_CAP = 200   # anime / Asian only: most examined shows are not, so look through more of the history
+_INPROGRESS_SHOW_CAP = 200   # In Progress lists every unfinished show, so look through more of the history (TMDb calls are cached)
 
 
 def _get_watched_all(mdblist_api, page_limit=1000, max_pages=50):
@@ -512,6 +576,33 @@ def _pick_next_episode(seasons, last_aired, watched, bulk_seasons=(), bulk_show=
     return None
 
 
+def _air_dates_func(tmdb_api, tmdb_id):
+    def _get_air_dates(season):
+        response = tmdb_api.get_request_sc(f'tv/{tmdb_id}/season/{season}') or {}
+        return {e.get('episode_number'): e.get('air_date') for e in response.get('episodes') or []}
+    return _get_air_dates
+
+
+def _first_unwatched(details, show, get_air_dates=None):
+    """(season, episode) of a started show's first unwatched aired episode, or None when it is finished (or TMDb has
+    no aired episode). details is the TMDb tv details dict, show one _group_watched_by_show entry.
+    Shared by Next Up (the episode) and In Progress (the show is in progress when there is one).
+    """
+    last = details.get('last_episode_to_air') or {}
+    last_aired = None
+    if last.get('season_number') is not None and last.get('episode_number') is not None:
+        last_aired = (last['season_number'], last['episode_number'], last.get('air_date') or '')
+    seasons = [
+        (s.get('season_number'), s.get('episode_count'), s.get('air_date'))
+        for s in details.get('seasons') or [] if s.get('season_number') is not None]
+    # Every show listed here has individually watched episodes, so a whole-show mark does not mean it is
+    # finished (the cross-service bridge marks every started show as a whole): pass no show mark.
+    # A season mark only counts for a season with no individually watched episode (same rule as the watched badges).
+    watched_seasons = {s for s, _ in show['episodes']}
+    marked_seasons = {s for s in show['bulk_seasons'] if s not in watched_seasons}
+    return _pick_next_episode(seasons, last_aired, show['episodes'], marked_seasons, None, get_air_dates)
+
+
 class ListNextUp(ContainerDirectory):
     """MDBList Next Up: one row per recently watched show (per MDBList's own history), each
     showing that show's first unwatched aired episode. Mirrors Seren's mdblistNextUp.
@@ -519,12 +610,6 @@ class ListNextUp(ContainerDirectory):
     page fails the list is empty rather than built from partial history.
     Episodes are matched on TMDb numbering (Seren used Trakt's, which can differ for anime).
     """
-
-    def _get_air_dates_func(self, tmdb_id):
-        def _get_air_dates(season):
-            response = self.tmdb_api.get_request_sc(f'tv/{tmdb_id}/season/{season}') or {}
-            return {e.get('episode_number'): e.get('air_date') for e in response.get('episodes') or []}
-        return _get_air_dates
 
     def get_items(self, tmdb_type=None, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
         scope = _get_scope(anime_only, asian_only, other_only)
@@ -543,21 +628,7 @@ class ListNextUp(ContainerDirectory):
             details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {}
             if scope and not _in_scope(details, scope, 'tv'):
                 continue
-            last = details.get('last_episode_to_air') or {}
-            last_aired = None
-            if last.get('season_number') is not None and last.get('episode_number') is not None:
-                last_aired = (last['season_number'], last['episode_number'], last.get('air_date') or '')
-            seasons = [
-                (s.get('season_number'), s.get('episode_count'), s.get('air_date'))
-                for s in details.get('seasons') or [] if s.get('season_number') is not None]
-            # Every show listed here has individually watched episodes, so a whole-show mark does not mean it is
-            # finished (the cross-service bridge marks every started show as a whole): pass no show mark.
-            # A season mark only counts for a season with no individually watched episode (same rule as the watched badges).
-            watched_seasons = {s for s, _ in show['episodes']}
-            marked_seasons = {s for s in show['bulk_seasons'] if s not in watched_seasons}
-            nxt = _pick_next_episode(
-                seasons, last_aired, show['episodes'], marked_seasons, None,
-                self._get_air_dates_func(tmdb_id))
+            nxt = _first_unwatched(details, show, _air_dates_func(self.tmdb_api, tmdb_id))
             if nxt:
                 episodes.append({
                     'id': tmdb_id, 'mediatype': 'episode', 'season': nxt[0], 'episode': nxt[1],

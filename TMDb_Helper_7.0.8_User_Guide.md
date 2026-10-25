@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.7 — Complete Features & Functions Guide
+# TMDb Helper 7.0.8 — Complete Features & Functions Guide
 
-**Version:** 7.0.7 (Enhanced Fork — Personal Build)
+**Version:** 7.0.8 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.7_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.8_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.7. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -148,6 +148,10 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.7
 
 - **Widgets no longer slow Kodi down the longer one stays selected** (7.0.7). While a widget item was selected and Kodi was otherwise idle, the background service started a new read-ahead thread about five times a second and never joined it. On the author's Windows PC each unjoined thread kept one handle for good, so Kodi's handle count climbed by several thousand within an hour and it got slower. A finished read-ahead thread is now joined, only one read-ahead step runs at a time, and nothing is started once the queue is empty; in the author's tests the handle count then stayed flat through repeated idle periods and 80 moves through a widget row. This was measured on Windows only. The Nvidia Shield runs a different Python version and was not measured, so this fix is not known to cure slowness on the Shield, although it also stops the thread being started five times a second there.
 - **Sync databases add their columns once per run** (7.0.7). The Simkl and MDBList sync databases now add their missing columns once per run instead of once per object. This removes about a thousand duplicate-column error lines a minute from Kodi's log and many database connections.
+
+### MDBList In-Progress (7.0.8)
+
+- **MDBList In-Progress lists every show you have started and not finished** (7.0.8). It used to list only the shows with an episode paused part-way in MDBList's playback list, so a show you were following between episodes was missing. It now works like Trakt's In-Progress: a show with a watched episode and a later aired episode still unwatched (the Next Up rule), or with an episode paused part-way, newest first. Dropped shows are left out, and a show whose only entry is a player started at 0% is no longer listed. Movies paused part-way are listed as before, and the Anime, Asian and Movies and TV Shows Progress lists follow the same rule. With *Hide watched* on in the widget settings these shows now stay in the list even when the local watched count, which counts MDBList's whole-show marks, reads "all watched"; a widget that was already cached keeps its old list until it refreshes. Each open reads MDBList's playback, watch history and dropped lists, so the first open can take a few seconds (about 12 s on the author's account, 3 s afterwards).
 
 ---
 

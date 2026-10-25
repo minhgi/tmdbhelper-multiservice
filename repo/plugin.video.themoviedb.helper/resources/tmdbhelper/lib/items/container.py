@@ -233,6 +233,8 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             else:
                 playcount = max(trakt_playcount, mdb_playcount, simkl_playcount)
             li.set_playcount(playcount=playcount)
+            if _info == 'mdblist_upnext' and li.infolabels.get('mediatype') == 'tvshow':
+                li.infolabels['playcount'] = 0  # In Progress lists unfinished shows by MDBList's own history; the local count (whole-show marks) can read "all watched" and Hide watched would drop the row
             if self.hide_watched and try_int(li.infolabels.get('playcount')) != 0:
                 return
 
