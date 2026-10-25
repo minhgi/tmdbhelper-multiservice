@@ -4,7 +4,7 @@ from tmdbhelper.lib.addon.logger import kodi_try_except
 from jurialmunkey.window import get_property, get_current_window
 from tmdbhelper.lib.monitor.common import CommonMonitorFunctions, SETMAIN_ARTWORK, SETPROP_RATINGS
 from tmdbhelper.lib.monitor.itemdetails import ListItemDetails
-from tmdbhelper.lib.monitor.readahead import ListItemReadAhead, READAHEAD_CHANGED
+from tmdbhelper.lib.monitor.readahead import ListItemReadAhead, READAHEAD_CHANGED, READAHEAD_COMPLETED
 from tmdbhelper.lib.monitor.baseitem import BaseItemSkinDefaults
 from tmdbhelper.lib.items.listitem import ListItem
 from tmdbhelper.lib.files.bcache import BasicCache
@@ -117,6 +117,7 @@ class ListItemMonitorFunctions(CommonMonitorFunctions, ListItemInfoGetter):
         self._listcontainer = None
         self._last_listitem = None
         self._readahead = None
+        self._readahead_thread = None
         self._item = None
         self.property_prefix = 'ListItem'
         self._clearfunc_wp = {'func': None}
@@ -337,20 +338,42 @@ class ListItemMonitorFunctions(CommonMonitorFunctions, ListItemInfoGetter):
         if get_condvisibility(CV_USE_LISTITEM):
             return
 
-        # No readahead has started so let's start one
-        if not self._readahead:
+        # No readahead has started, or the item/window it was built for is gone (a finished queue stays idle until then)
+        if not self._readahead or (self._readahead._pre_window, self._readahead._pre_item) != (self._cur_window, self._cur_item):
             self._readahead = ListItemReadAhead(self, self._cur_window, self._cur_item)
 
+        # A finished readahead thread must be joined: an unjoined thread keeps its OS semaphore for good (one leaked
+        # per thread, every poll tick, was the service's ~5 handles/s climb)
+        if self._readahead_thread is not None and not self._readahead_thread.is_alive():
+            if getattr(self._readahead_thread, '_success', True):  # SafeThread.join() would run a never-started target inline
+                self._readahead_thread.join()
+            self._readahead_thread = None
+
+        # Queue exhausted: sit idle until the item changes (no thread needed on every poll tick)
+        if self._readahead._completed:
+            return
+
+        # One readahead step at a time: a step still running means the next poll tick has nothing to start
+        if self._readahead_thread is not None:
+            return
+
         # Readahead next item and if the main item changes in the meantime we reset to None
+        readahead = self._readahead
+
         def _next_readahead():
-            if self._readahead._locked:
+            if readahead._locked:
                 return
-            if self._readahead.next_readahead() != READAHEAD_CHANGED:
+            status = readahead.next_readahead()
+            if status == READAHEAD_COMPLETED:
+                readahead._completed = True
+            if status != READAHEAD_CHANGED:
                 return
-            self._readahead = None
+            if self._readahead is readahead:
+                self._readahead = None
 
         # Readahead is threaded to avoid locking up main lookup while loop
         t = SafeThread(target=_next_readahead)
+        self._readahead_thread = t
         t.start()
 
     @kodi_try_except('lib.monitor.listitem.on_listitem')

@@ -3,7 +3,12 @@ from tmdbhelper.lib.files.database import DataBase
 
 class SimklSyncDataBase(DataBase):
 
+    _migrated = set()  # db files already migrated by this interpreter: the ALTERs need running once, not per instance
+
     def migrate_columns(self):
+        if self._db_file in self._migrated:
+            return
+        self._migrated.add(self._db_file)
         for col_name, col_def in self.simplecache_columns.items():
             try:
                 self.execute_sql(

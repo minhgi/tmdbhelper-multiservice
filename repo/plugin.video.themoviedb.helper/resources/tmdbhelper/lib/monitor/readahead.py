@@ -11,6 +11,7 @@ READAHEAD_COMPLETED = 1  # Exausted queue so we sit idle until item changes
 class ListItemReadAhead():
     def __init__(self, parent, cur_window, cur_item):
         self._locked = False
+        self._completed = False  # set once the queue is exhausted so the service stops polling it
         self._parent = parent
         self._pre_window = cur_window
         self._pre_item = cur_item

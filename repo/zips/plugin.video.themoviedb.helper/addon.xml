@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.6"
+version="7.0.7"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.7
+- Fixed: Kodi slowed down the longer a widget stayed selected. The background service started a new read-ahead thread about five times a second and never joined it, and each unjoined thread kept one Windows handle for good (several thousand within an hour). A finished read-ahead thread is now joined, only one read-ahead step runs at a time, and nothing is started once the queue is empty.
+- Changed: The Simkl and MDBList sync databases now add their missing columns once per run instead of once per object, which removes about a thousand duplicate-column error lines a minute from the log and many database connections.
+
 v7.0.6
 - Changed: Opening a list is faster on Android (Nvidia Shield). Each list now looks in Python's own library first instead of searching every add-on's library folder on slow storage, and cached rows no longer set properties that Bingie does not use.
 

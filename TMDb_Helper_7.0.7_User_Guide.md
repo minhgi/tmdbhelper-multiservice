@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.6 — Complete Features & Functions Guide
+# TMDb Helper 7.0.7 — Complete Features & Functions Guide
 
-**Version:** 7.0.6 (Enhanced Fork — Personal Build)
+**Version:** 7.0.7 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.6_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.7_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.7. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -143,6 +143,11 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6
 - **Re-Use Language Invoker switch** (7.0.3). Kodi can keep TMDb Helper's Python process loaded between calls, which makes widgets and menus start faster. It is **off by default**. *Settings → Expert → Other* shows its status and a *Toggle Re-Use Language Invoker* button; Kodi must be restarted to apply a change, and an add-on update keeps your choice. In the author's tests Kodi 22 RC1 crashed in some runs with it on and in none with it off (see section 16), so leave it off unless you want to try it, and switch it off again if Kodi starts crashing.
 - **Skin row cache and background page build** (7.0.4). Titan Bingie Mod's hub rows and banners are cached on disk like widgets, so they open at once and refresh in the background after a sync; the same list opened with and without a `reload=` token shares one cache. While Kodi is idle (no video playing, no input for 30 seconds) the pages of your skin that have no cache yet are built in the background. Two switches in *Settings → Widgets*, both on by default: *Cache the rows and banners of the skin* and *Build every page of the skin in the background*. Lists you open yourself (Show all, searches, details) are never cached. On the author's PC the six rows of the Movies page all came from the cache in 0.4–0.5 s each, and after a restart all 31 start-up list requests did.
 - **Faster list opening** (7.0.5, 7.0.6). Lists with nothing to look up (Trending, Popular, a Trakt list) skip the TMDb ID lookup (7.0.5). Each list request now searches Python's own library first instead of every add-on's library folder, which matters most on Android where those folders sit on slow storage, and Titan Bingie Mod's cached rows no longer set row properties that the skin never reads (7.0.6). In Kodi's log on an Nvidia Shield a typical request went from about 1.65 s to about 1.3 s. Each widget still runs once every time you return to Home, and every add-on that starts with Kodi is its own Python process, so on a slow device the first minute after launch stays the slowest.
+
+### Idle slowdown fix (7.0.7)
+
+- **Widgets no longer slow Kodi down the longer one stays selected** (7.0.7). While a widget item was selected and Kodi was otherwise idle, the background service started a new read-ahead thread about five times a second and never joined it. On the author's Windows PC each unjoined thread kept one handle for good, so Kodi's handle count climbed by several thousand within an hour and it got slower. A finished read-ahead thread is now joined, only one read-ahead step runs at a time, and nothing is started once the queue is empty; in the author's tests the handle count then stayed flat through repeated idle periods and 80 moves through a widget row. This was measured on Windows only. The Nvidia Shield runs a different Python version and was not measured, so this fix is not known to cure slowness on the Shield, although it also stops the thread being started five times a second there.
+- **Sync databases add their columns once per run** (7.0.7). The Simkl and MDBList sync databases now add their missing columns once per run instead of once per object. This removes about a thousand duplicate-column error lines a minute from Kodi's log and many database connections.
 
 ---
 
@@ -653,4 +658,4 @@ Turn on **Debug logging** (Settings → Expert), repeat the problem, then attach
 
 ---
 
-*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The 6.0.216–7.0.2 changes (the monitor properties, the placeholder route and the MDBList Next Up rules) were checked against the add-on source (`listitemtools.py`, `consts.py`, `container.py`, `mdblist/lists.py`); the Cast row in Arctic Fuse 3 was live-tested on 6.0.216, the stats route on 7.0.0, a 229-list sweep of the MDBList, Simkl, Anime and Asian lists on 7.0.0, and MDBList Next Up on the author's account with 7.0.1 and 7.0.2. The 7.0.3–7.0.6 changes (the Re-Use Language Invoker switch, the row cache and the background page build) were live-tested on the author's PC Kodi 22 test install, and the speed figures were read from the kodi.log of an Nvidia Shield running 7.0.4 and timing builds of 7.0.5 and 7.0.6; the new switches were not exercised on the Shield's screen. The rest is source-verified only and was not each exercised on a live account.*
+*Source-verified against the 6.0.215 add-on source (`basedir.py`, `settings.xml`, `strings.po`, `router.py`, `players.py`, `downloader.py`, `bridge_sync.py`, `cronjob.py`, `context.py`, `changelog.txt`). Live-confirmed: the players install through Install players → Install from URL; the Left / Right keys page empty days and months in the calendar windows; the Anime and Asian calendar windows open from the shortcut links above; the calendar air time, Today button, badges and watched tick; the anime list matching (first build and saved-table build) and Simkl Next Up for anime (All Next Up, Anime Progress and Movies and TV Shows Progress) on one account. The Simkl-based Asian Drama and Anime TV calendars, the anime score properties (with the Titan Bingie Mod footer labels) and the Anime Recommendations list were live-checked on that account too. The 6.0.216–7.0.2 changes (the monitor properties, the placeholder route and the MDBList Next Up rules) were checked against the add-on source (`listitemtools.py`, `consts.py`, `container.py`, `mdblist/lists.py`); the Cast row in Arctic Fuse 3 was live-tested on 6.0.216, the stats route on 7.0.0, a 229-list sweep of the MDBList, Simkl, Anime and Asian lists on 7.0.0, and MDBList Next Up on the author's account with 7.0.1 and 7.0.2. The 7.0.3–7.0.6 changes (the Re-Use Language Invoker switch, the row cache and the background page build) were live-tested on the author's PC Kodi 22 test install, and the speed figures were read from the kodi.log of an Nvidia Shield running 7.0.4 and timing builds of 7.0.5 and 7.0.6; the new switches were not exercised on the Shield's screen. The 7.0.7 thread-leak fix was measured on the author's Windows PC (Kodi 21.3) by counting the kodi.exe handles over repeated idle and browsing runs; it was copied to the Shield but not tested there. The rest is source-verified only and was not each exercised on a live account.*
