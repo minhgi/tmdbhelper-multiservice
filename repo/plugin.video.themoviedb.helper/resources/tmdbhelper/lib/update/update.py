@@ -148,6 +148,40 @@ def get_unique_movie_folder(name, tmdb_id, basedir):
     return name
 
 
+TRAKT_LIST_MAX_PAGES = 60  # safety cap on a paginated read; Trakt pages hold 100 items and a list holds 5000 at most
+
+
+def get_trakt_list_all_pages(*path):
+    """GET a Trakt list endpoint to completion. Trakt sends only the first 100 items of a list unless the later pages are
+    asked for (X-Pagination-Page-Count), so a list of 300 items arrived as 100. Returns None when any page cannot be read,
+    so a list is never added part-way. An object (dict) or a single page comes back unchanged."""
+    trakt_api = TraktAPI()
+    response = trakt_api.get_response(*path)
+    try:
+        items = response.json()
+    except (ValueError, AttributeError):
+        return
+    if not isinstance(items, list):
+        return items
+    try:
+        page_count = int(response.headers.get('X-Pagination-Page-Count') or 1)
+    except (AttributeError, TypeError, ValueError):
+        page_count = 1
+    if page_count > TRAKT_LIST_MAX_PAGES:
+        kodi_log(f'Trakt list {"/".join(path)} has {page_count} pages - not read', 1)
+        return
+    for page in range(2, page_count + 1):
+        response = trakt_api.get_response(*path, page=page)
+        try:
+            more = response.json()
+        except (ValueError, AttributeError):
+            return
+        if not isinstance(more, list):
+            return
+        items.extend(more)
+    return items
+
+
 def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_spinner=True):
 
     def get_userlist_path():
@@ -158,7 +192,7 @@ def get_userlist(user_slug=None, list_slug=None, confirm=True, busy_spinner=True
     def get_userlist_list():
         if user_slug == '__api_mdblist__':
             return MDbList().get_custom_trakt_style_list(list_slug).items
-        return TraktAPI().get_response_json(*get_userlist_path())
+        return get_trakt_list_all_pages(*get_userlist_path())
 
     with BusyDialog(is_enabled=busy_spinner):
         request = get_userlist_list()

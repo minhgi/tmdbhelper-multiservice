@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.15 — Complete Features & Functions Guide
+# TMDb Helper 7.0.16 — Complete Features & Functions Guide
 
-**Version:** 7.0.15 (Enhanced Fork — Personal Build)
+**Version:** 7.0.16 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.15_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.16_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.15. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.16. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -165,6 +165,11 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Scrobble items played by other add-ons** (7.0.13). Optional and off by default: Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
 - **Include Trakt** (7.0.13). A second switch, off by default, shown only when Trakt is enabled and usable only when the first switch is on. It sends these items to Trakt as well. Leave it off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate.
 - **Seren is recognised** (7.0.14, 7.0.15). Seren plays a plain stream URL, so Kodi never says which add-on started it. Seren 3.9.58 and later name themselves in a Home window property while they play, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice; from 7.0.15 this covers Seren episodes as well as movies. Older Seren versions behave as before. Tested with Seren and with a stand-in player, not with a real Elementum play.
+
+### Next Up and Trakt library fixes (7.0.16)
+
+- **MDBList Next Up no longer stops at 20** (7.0.16). MDBList Next Up, and the Anime and Asian Next Up rows, stopped at 20 episodes with no Next Page item, however many shows you were following. It now lists the next episode of every show you are following, looking through your 200 most recently watched shows (it used to look at 60), and pages them like any other list: 20 per page with a Next Page item (for a widget, turn on Settings → Widgets → Next page item), or all on one page by raising the page multiplier for Trakt basic lists. The first open after updating can take longer while TMDb details of the extra shows are fetched; they are cached after that, and a widget you had already opened can keep showing its old list until the next sync refreshes it.
+- **Trakt lists are added to the library in full** (7.0.16). Trakt sends a list 100 items at a time, and adding a Trakt list or your Trakt watchlist to the Kodi library, or keeping it in the library monitor, only read the first page, so a list of 300 items arrived as 100. All pages are now read before the list is checked against the size limits (500 TV shows and 2,500 movies per list, unchanged); if a page cannot be read, the list is not added, rather than being added part-way. A free Trakt account can also be limited in how many items a list may hold, so check the count on trakt.tv if a list is shorter than you expect.
 
 ---
 
@@ -378,6 +383,7 @@ MDBList Next Up (and Anime Progress → Next Up) picks each show's next episode 
 - A **whole-season mark counts only for a season in which no episode is individually marked watched.**
 - A show for which MDBList lists every watched episode one by one, with none left, still reads as finished and is left out of Next Up. That is MDBList's own data, not a filter.
 - **Dropped shows are left out** (7.0.10). A show on your MDBList dropped list is not offered, even when it still has an aired episode you have not watched.
+- **Next Up is not capped at 20** (7.0.16). It lists the next episode of each show you follow, from your 200 most recently watched shows, 20 to a page.
 
 The watched badges apply the same rule to show and season marks.
 
@@ -525,6 +531,7 @@ Settings → Library:
 - **Ignore folder creation checks** and **Use alternative .nfo filename** are compatibility options.
 - **MDBList lists are read in full** (7.0.9). Adding an MDBList list reads every page of it; if a page cannot be read, nothing is added.
 - **Movies with the same title and year** (7.0.11) each get their own folder; the later one carries its TMDb ID in the folder name.
+- **Trakt lists are read in full** (7.0.16). Adding a Trakt list or your watchlist reads every page of it before the size limits are checked; if a page cannot be read, nothing is added.
 
 ---
 
@@ -612,7 +619,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | Group | Settings |
 |---|---|
 | **Details** | Configure provider data allowlist · Container content fallback for service listitems without mediatypes (off) · Readahead caching of service listitems (off) · Refresh cached Kodi Library details |
-| **Page multipliers** (higher is slower) | Library windows (2) · TMDb basic lists (1) · Trakt basic lists (1) · Trakt sync lists (1) |
+| **Page multipliers** (higher is slower) | Library windows (2) · TMDb basic lists (1) · Trakt basic lists (1) · Trakt sync lists (1). Trakt basic lists also sets the page size (20 times the number) of MDBList and Simkl lists, Next Up included |
 | **Context menu** | Show or hide each entry from section 9 (all on) |
 | **Artwork** | Genre icons folder (TMDb) · Genre icon folder (Trakt) · Provider icons folder (TMDb) |
 | **Notifications** | Authorisation and sync notifications on startup (on) · Trakt / MDBList / Simkl sync progress notifications (on) · Connection error notifications (on) |

@@ -468,8 +468,7 @@ class ListInProgress(ContainerDirectory):
         return response.items + response.next_page
 
 
-_NEXTUP_RESULT_CAP = 20     # episodes returned
-_NEXTUP_SHOW_CAP = 60       # shows examined (each costs one cached TMDb call)
+_NEXTUP_SHOW_CAP = 200      # shows examined (each costs one cached TMDb call); one episode per show, so this also bounds the list, which the paginator then pages
 _NEXTUP_SCOPE_CAP = 200   # anime / Asian only: most examined shows are not, so look through more of the history
 _INPROGRESS_SHOW_CAP = 200   # In Progress lists every unfinished show, so look through more of the history (TMDb calls are cached)
 
@@ -631,8 +630,6 @@ class ListNextUp(ContainerDirectory):
 
         episodes = []
         for tmdb_id, show in recent:
-            if len(episodes) >= _NEXTUP_RESULT_CAP:
-                break
             details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {}
             if scope and not _in_scope(details, scope, 'tv'):
                 continue

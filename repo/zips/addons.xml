@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.15" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.16" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,10 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.16
+- Fixed: MDBList Next Up (and the Anime and Asian Next Up rows) stopped at 20 episodes with no Next Page item, however many shows you were following. It now lists the next episode of every show you are following, looking through your 200 most recently watched shows (it used to look at 60), and pages them like any other list: 20 per page with a Next Page item (for widgets, turn on Settings &gt; Widgets &gt; Next page item), or all on one page by raising the Trakt basic lists page multiplier. The first time you open Next Up after updating it can take longer while TMDb details of the extra shows are fetched; they are cached after that.
+- Fixed: Adding a Trakt list (or your Trakt watchlist) to the Kodi library, or keeping it in the library monitor, only added the first 100 items. Trakt now sends a list 100 items at a time and the later pages were never asked for, so a list of 300 items arrived as 100. All pages are now read before the list is checked against the size limits and added; if a page cannot be read, the list is not added rather than being added part-way. The size limits (500 TV shows and 2500 movies per list) are unchanged.
+
 v7.0.15
 - Fixed: "Scrobble items played by other add-ons" reported nothing for a Seren episode. Seren stores the show's TMDb ID in a place that looks like an episode ID to TMDb Helper, so the episode was treated as unidentified. With Seren 3.9.58 or later, which names the show, season and episode it is playing, the episode is now accepted and reported (or left to Seren, as set in Seren), the same way as a Seren movie.
 
