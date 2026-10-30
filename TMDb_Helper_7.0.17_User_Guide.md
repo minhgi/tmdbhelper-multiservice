@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.16 — Complete Features & Functions Guide
+# TMDb Helper 7.0.17 — Complete Features & Functions Guide
 
-**Version:** 7.0.16 (Enhanced Fork — Personal Build)
+**Version:** 7.0.17 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.16_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.17_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.16. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.17. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -170,6 +170,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 
 - **MDBList Next Up no longer stops at 20** (7.0.16). MDBList Next Up, and the Anime and Asian Next Up rows, stopped at 20 episodes with no Next Page item, however many shows you were following. It now lists the next episode of every show you are following, looking through your 200 most recently watched shows (it used to look at 60), and pages them like any other list: 20 per page with a Next Page item (for a widget, turn on Settings → Widgets → Next page item), or all on one page by raising the page multiplier for Trakt basic lists. The first open after updating can take longer while TMDb details of the extra shows are fetched; they are cached after that, and a widget you had already opened can keep showing its old list until the next sync refreshes it.
 - **Trakt lists are added to the library in full** (7.0.16). Trakt sends a list 100 items at a time, and adding a Trakt list or your Trakt watchlist to the Kodi library, or keeping it in the library monitor, only read the first page, so a list of 300 items arrived as 100. All pages are now read before the list is checked against the size limits (500 TV shows and 2,500 movies per list, unchanged); if a page cannot be read, the list is not added, rather than being added part-way. A free Trakt account can also be limited in how many items a list may hold, so check the count on trakt.tv if a list is shorter than you expect.
+
+### List sort order (7.0.17)
+
+- **One setting sorts your Trakt, MDBList and Simkl lists** (7.0.17). Settings → Widgets → List sort order. The choices are Service order (the default), Release date newest or oldest first, Date added newest or oldest first, and Title A to Z or Z to A. Service order changes nothing: every list stays as the service gives it. It applies however a list is opened (a menu, a widget or a skin row): on Trakt to the watchlist, collection, favourites, history, In Progress and Trakt lists you open; on MDBList and Simkl to watchlists, collections, history, In Progress, Dropped, Next Up and, on MDBList, any list you open. Changing it takes effect at once, also for widgets you had already opened.
+- **What it does not touch** On Trakt, a sort already in a menu or widget path (for example one chosen with a list's own Sort by menu) wins over this setting. Trakt lists that are defined by their own order (Recently Released, Anticipated, Most Watched), Trakt episode lists (On Deck, Next Up), Trakt Dropped and Trakt charts (Trending, Popular and so on) keep their order, as do calendars and TMDb lists. MDBList and Simkl Next Up list episodes, so only the title sort changes them, and it sorts by the show's title. MDBList lists you open, public ranked ones included, are sorted too, and MDBList has no sort in the path to win over the setting: to keep a ranked MDBList list in its own order, leave the setting on Service order.
+- **Release date and date added** Release date is TMDb's release date for a movie and first air date for a show. A title TMDb has no date for goes to the end of the list whichever way you sort (an unannounced film, for example). Date added comes from Trakt for watchlists, favourites and lists, and from Simkl for Plan to Watch; TMDb Helper gets no added date from MDBList, so with Date added its lists, and the Simkl lists other than Plan to Watch, stay in service order. The first time a list is opened with Release date, TMDb details are looked up for every title in it (one lookup each), so a long list can take a while; they are cached after that.
 
 ---
 
@@ -441,6 +447,7 @@ Any menu row can be used as a widget in a skin. TMDb Helper is built to work wit
 - **Background rebuild** (Settings → Widgets → *Rebuild widgets in the background*, on by default): widgets you opened in the last 24 hours are rebuilt while idle, so opening one is a cache hit. Right after a restart a widget may briefly show its previous contents and then refresh. A widget that keeps failing is left alone for 30 minutes.
 - **Skin rows and banners** (7.0.4): *Settings → Widgets → Cache the rows and banners of the skin* (on) keeps the active skin's hub rows and banners on disk like widgets, and *Build every page of the skin in the background* (on) builds pages that have no cache yet once Kodi has been idle for 30 seconds. Turn either off if you prefer live lists or want less background work.
 - **Next page / hide watched:** *Next page item* adds a Next Page row to long widget lists; *Hide watched items* hides watched titles.
+- **List sort order** (7.0.17): Settings → Widgets → List sort order sorts the Trakt, MDBList and Simkl lists a widget shows. The setting is part of the widget cache key, so changing it gives a widget a freshly sorted list at once; while it stays on Service order, widgets cached earlier are used as before.
 - **Hub widgets (Titan Bingie Mod):** hub widget paths that contain a `reload=` token are refreshed in place through `Skin.SetString()`, so watched badges update when you return from the context menu.
 - **Anime rating properties** (6.0.211): for Japanese and Chinese titles `myanimelist_rating`, `myanimelist_votes`, `myanimelist_rank`, `myanimelist_popularity`, `anilist_rating`, `anilist_rank` and `anilist_popularity` are set next to the other rating properties (as `ListItem.Property(...)` on the item and as `TMDbHelper.ListItem.<name>` window properties). A skin has to draw them: the stock Titan Bingie Mod does not.
 - **Hide watched needs `widget=true`.** *Hide watched items* only applies to a path that carries `widget=true`. Titan Bingie Mod's default widgets have it; a widget path built with the skin's own picker does not, so watched titles stay visible with a watched badge until `&widget=true` is added to the path (for example `…&tmdb_type=tv&anime_only=true&widget=true`).
@@ -582,6 +589,7 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 | Setting | Default | What it does |
 |---|---|---|
 | Next page item | off | Next Page row on long widget lists |
+| List sort order | service order | Sorts Trakt, MDBList and Simkl lists by release date, date added or title; service order leaves them as the service gives them (7.0.17) |
 | Hide watched items | off | Hide watched titles in widgets |
 | Rebuild widgets in the background | on | Background rebuild of widgets used in the last 24 hours |
 | Cache the rows and banners of the skin | on | Hub rows and banners of the active skin are cached on disk and refreshed in the background (7.0.4) |

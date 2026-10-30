@@ -54,13 +54,19 @@ def _get_settings_salt(row=False):
         anime = '1' if get_setting('anime_enrichment') else '0'
     except Exception:
         anime = '0'
+    try:
+        from tmdbhelper.lib.items.globalsort import get_settings_salt
+        sort = get_settings_salt()
+    except Exception:
+        sort = ''
+    sort = f'|sort={sort}' if sort else ''  # only when a global sort is chosen, so existing caches stay valid
     if not row:
-        return f'ae={anime}'  # unchanged for widgets, so existing widget caches stay valid
+        return f'ae={anime}{sort}'  # unchanged for widgets without a global sort, so existing widget caches stay valid
     try:
         ftv = '1' if get_setting('fanarttv_lookup') else '0'
     except Exception:
         ftv = '0'
-    return f'ae={anime}|row|ftv={ftv}'
+    return f'ae={anime}|row|ftv={ftv}{sort}'
 
 
 def _get_cache_key(paramstring, row=False):

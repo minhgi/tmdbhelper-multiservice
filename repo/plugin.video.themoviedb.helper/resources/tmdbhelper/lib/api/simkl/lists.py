@@ -22,7 +22,8 @@ def _normalize_plantowatch(movies_raw, shows_raw):
     movies = [
         {'id': int(ids['tmdb']), 'mediatype': 'movie',
          'title': (i.get('movie') or {}).get('title'),
-         'release_year': (i.get('movie') or {}).get('year')}
+         'release_year': (i.get('movie') or {}).get('year'),
+         'added_at': i.get('added_to_watchlist_at')}
         for i in (movies_raw or [])
         if (ids := (i.get('movie') or {}).get('ids', {})) and ids.get('tmdb')
     ]
@@ -31,7 +32,8 @@ def _normalize_plantowatch(movies_raw, shows_raw):
     shows = [
         {'id': int(ids['tmdb']), 'mediatype': 'show',
          'title': (i.get('show') or {}).get('title'),
-         'release_year': (i.get('show') or {}).get('year')}
+         'release_year': (i.get('show') or {}).get('year'),
+         'added_at': i.get('added_to_watchlist_at')}
         for i in (shows_raw or [])
         if (ids := (i.get('show') or {}).get('ids', {})) and ids.get('tmdb')
     ]
@@ -81,7 +83,7 @@ def _resolve_anime(tmdb_api, anime_raw):
     return out
 
 
-def _normalize_anime(anime_raw):
+def _normalize_anime(anime_raw, with_added=False):
     """Anime rows -> (movies, shows) in the _normalize_plantowatch shape.
 
     Simkl files every anime in its own bucket and keeps the ids under entry['show'] - an anime film
@@ -97,19 +99,22 @@ def _normalize_anime(anime_raw):
         except (ValueError, TypeError):
             continue
         is_movie = i.get('anime_type') == 'movie'
-        (movies if is_movie else shows).append({
+        row = {
             'id': tmdb_id, 'mediatype': 'movie' if is_movie else 'show',
-            'title': show.get('title'), 'release_year': show.get('year')})
+            'title': show.get('title'), 'release_year': show.get('year')}
+        if with_added:  # Plan to Watch only: its regular rows carry the date too, so the anime rows are not left at the end of Date added
+            row['added_at'] = i.get('added_to_watchlist_at')
+        (movies if is_movie else shows).append(row)
     return movies, shows
 
 
-def _merge_anime(normalized, anime_raw, tmdb_type=None):
+def _merge_anime(normalized, anime_raw, tmdb_type=None, with_added=False):
     """Append the anime rows of one status to a _normalize_plantowatch() result (in place, and returned).
 
     tmdb_type 'tv' takes the anime shows only and 'movie' the anime films only. A tmdb id already listed
     (as a regular row or by an earlier anime row) is not added twice.
     """
-    anime_movies, anime_shows = _normalize_anime(anime_raw)
+    anime_movies, anime_shows = _normalize_anime(anime_raw, with_added)
     for key, extra in (('movies', anime_movies if tmdb_type != 'tv' else []),
                        ('shows', anime_shows if tmdb_type != 'movie' else [])):
         rows = normalized.get(key, [])
@@ -359,7 +364,7 @@ class ListPlanToWatch(ContainerDirectory):
             shows_raw = (r or {}).get('shows')
         normalized = _normalize_plantowatch(movies_raw, shows_raw)
         r = _simkl_get(self.simkl_api, '/sync/all-items/anime/plantowatch')
-        _merge_anime(normalized, _resolve_anime(self.tmdb_api, (r or {}).get('anime')), tmdb_type)
+        _merge_anime(normalized, _resolve_anime(self.tmdb_api, (r or {}).get('anime')), tmdb_type, with_added=True)
         if not normalized:
             return
         response = self.simkl_api.get_paginated(normalized, page=page or 1)

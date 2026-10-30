@@ -135,9 +135,13 @@ class ItemListPagination(ListPagination):
             permitted_types: tuple = None,
             params_def: dict = None,
             filters: dict = None,
-            trakt_style: bool = False):
+            trakt_style: bool = False,
+            global_sort: bool = False):
         super(ItemListPagination, self).__init__(meta, page=page, limit=limit)
         self.meta = [i for k, v in meta.items() for i in v if i]  # Join all content types together to mimic Trakt style combined lists TODO: Add a filter
+        if global_sort:
+            from tmdbhelper.lib.items.globalsort import sort_rows
+            self.meta = sort_rows(self.meta)  # service order unless the user chose a global sort
         self.permitted_types = permitted_types or ('movie', 'show', 'season', 'episode')
         self.params_def = params_def
         self.filters = filters

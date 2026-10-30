@@ -219,6 +219,22 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="list_global_sort" type="string" label="32747" help="32748">
+                    <level>0</level>
+                    <default>service</default>
+                    <constraints>
+                        <options>
+                            <option label="32749">service</option>
+                            <option label="32750">released_desc</option>
+                            <option label="32751">released_asc</option>
+                            <option label="32752">added_desc</option>
+                            <option label="32753">added_asc</option>
+                            <option label="32754">title_asc</option>
+                            <option label="32755">title_desc</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
                 <setting id="widgets_hidewatched" type="boolean" label="32142" help="32621">
                     <level>0</level>
                     <default>false</default>

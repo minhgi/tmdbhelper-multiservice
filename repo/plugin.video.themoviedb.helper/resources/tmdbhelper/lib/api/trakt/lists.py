@@ -3,6 +3,10 @@ from tmdbhelper.lib.addon.plugin import convert_type, PLUGINPATH, get_plugin_cat
 from tmdbhelper.lib.items.container import ContainerDirectory
 
 
+# Trakt lists whose own sort is what defines them (Recently Released, Anticipated, Most Watched): the global sort leaves them alone
+GLOBAL_SORT_KEEPS = ('released', 'plays')
+
+
 class ListBasic(ContainerDirectory):
     def get_items(
             self, info, tmdb_type, page=None, randomise=False, limit=None,
@@ -66,6 +70,14 @@ class ListSync(ContainerDirectory):
                 kept.append(i)
         return kept
 
+    @staticmethod
+    def _global_sort(sync_type, item_type, sort_by, sort_how):
+        """The global sort for a list that has no sort of its own (opt-in: other sync lists keep the order they build)."""
+        if sort_by:
+            return sort_by, sort_how
+        from tmdbhelper.lib.items.globalsort import trakt_sort_args
+        return trakt_sort_args(sync_type, item_type)
+
     def get_list_items(self, sync_type, item_type, page=1, limit=None, sort_by=None, sort_how=None, params=None, next_page=True, filters=None, tmdb_id=None, scope=None, **kwargs):
         from tmdbhelper.lib.api.trakt.sync.itemlist import ItemListSyncDataFactory
         from tmdbhelper.lib.items.itemlist import ItemListPagination
@@ -90,12 +102,16 @@ class ListSync(ContainerDirectory):
         from tmdbhelper.lib.addon.consts import TRAKT_SYNC_LISTS
         info_model = TRAKT_SYNC_LISTS.get(info)
         info_tmdb_type = info_model.get('tmdb_type') or tmdb_type
+        sort_by, sort_how = kwargs.get('sort_by', None), kwargs.get('sort_how', None)
+        if not sort_by and info_model.get('sort_by') not in GLOBAL_SORT_KEEPS:  # a path or menu sort wins, then the global sort, then the list's own
+            from tmdbhelper.lib.items.globalsort import trakt_sort_args
+            sort_by, sort_how = trakt_sort_args(info_model.get('sync_type'), convert_type(tmdb_type, 'trakt'))
         items = self.get_list_items(
             sync_type=info_model.get('sync_type', ''),
             item_type=convert_type(tmdb_type, 'trakt'),
             page=page,
-            sort_by=kwargs.get('sort_by', None) or info_model.get('sort_by', None),
-            sort_how=kwargs.get('sort_how', None) or info_model.get('sort_how', None),
+            sort_by=sort_by or info_model.get('sort_by', None),
+            sort_how=sort_how or info_model.get('sort_how', None),
             params=info_model.get('params'),
             filters=info_model.get('filters', None))
         self.tmdb_cache_only = False
@@ -302,6 +318,7 @@ class ListOnDeck(ListSync):
         self.plugin_category = f'{get_localized(32196)} {convert_type("movie", "plural")}'
         self.kodi_db = self.get_kodi_database('movie')
         sync_type = 'unwatchedplayback' if unwatched else 'playback'
+        sort_by, sort_how = self._global_sort(sync_type, 'movie', sort_by, sort_how)
         return self.get_list_items(sync_type=sync_type, item_type='movie', page=page, sort_by=sort_by, sort_how=sort_how, scope=_get_scope(anime_only, asian_only, other_only))
 
     def get_ondeck_episodes(self, page=None, sort_by=None, sort_how=None, unwatched=False, anime_only=None, asian_only=None, other_only=None, **kwargs):
@@ -343,6 +360,7 @@ class ListInProgress(ListOnDeck):
         self.kodi_db = self.get_kodi_database(tmdb_type)
         self.container_content = convert_type(tmdb_type, 'container')
         self.plugin_category = f'{get_localized(32196)} {convert_type(tmdb_type, "plural")}'
+        sort_by, sort_how = self._global_sort('inprogress', 'show', sort_by, sort_how)
         return self.get_list_items(
             sync_type='inprogress', item_type='show', page=page, sort_by=sort_by, sort_how=sort_how, params=params,
             scope=_get_scope(anime_only, asian_only, other_only))
@@ -423,13 +441,20 @@ class ListCustom(ContainerDirectory):
             **kwargs
     ):
         from jurialmunkey.parser import boolean
+        sort_by, sort_how, extended = kwargs.get('sort_by', None), kwargs.get('sort_how', None), kwargs.get('extended', None)
+        if not sort_by:  # no sort in the path: the global sort, if one is chosen
+            from tmdbhelper.lib.items.globalsort import get_global_sort
+            sort = get_global_sort()
+            if sort:
+                sort_by, sort_how = sort
+                extended = extended or ('full' if sort_by == 'released' else None)  # release dates come with extended=full
         response = self.trakt_api.get_custom_list(
             page=page or 1,
             list_slug=list_slug,
             user_slug=user_slug,
-            sort_by=kwargs.get('sort_by', None),
-            sort_how=kwargs.get('sort_how', None),
-            extended=kwargs.get('extended', None),
+            sort_by=sort_by,
+            sort_how=sort_how,
+            extended=extended,
             authorize=False if user_slug and not boolean(kwargs.get('owner', False)) else True,
             always_refresh=True if not get_setting('trakt_cacheownlists') and boolean(kwargs.get('owner', False)) else False)
         if not response:

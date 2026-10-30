@@ -3852,3 +3852,39 @@ msgstr ""
 msgctxt "#32746"
 msgid "Also send these items to Trakt. Leave off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate."
 msgstr ""
+
+msgctxt "#32747"
+msgid "List sort order"
+msgstr ""
+
+msgctxt "#32748"
+msgid "Sorts your Trakt, MDBList and Simkl lists however you open them: watchlists, collections, favourites, lists you open (MDBList lists and other people's Trakt lists too, so leave Service order on to keep a ranked list's own order), history, progress and Next Up. Service order leaves every list as the service gives it. On Trakt a sort in a menu or widget path still wins; lists defined by their own order (Recently Released, Anticipated, Most Watched), Trakt episode lists, Trakt Dropped and Trakt charts keep it. Release date uses TMDb dates: the first open of a long list looks up every title and can take a while. Date added applies to Trakt watchlists, favourites and lists, and to Simkl Plan to Watch; TMDb Helper gets no added date from MDBList, so those lists keep their order. A row without the date goes to the end. MDBList and Simkl Next Up sort by show title only."
+msgstr ""
+
+msgctxt "#32749"
+msgid "Service order"
+msgstr ""
+
+msgctxt "#32750"
+msgid "Release date, newest first"
+msgstr ""
+
+msgctxt "#32751"
+msgid "Release date, oldest first"
+msgstr ""
+
+msgctxt "#32752"
+msgid "Date added, newest first"
+msgstr ""
+
+msgctxt "#32753"
+msgid "Date added, oldest first"
+msgstr ""
+
+msgctxt "#32754"
+msgid "Title, A to Z"
+msgstr ""
+
+msgctxt "#32755"
+msgid "Title, Z to A"
+msgstr ""

@@ -186,6 +186,8 @@ class ItemListSyncDataCollection(ItemListSyncData):
 class ItemListSyncDataWatchlist(ItemListSyncData):
     """ Items on watchlist """
 
+    sort = {**ItemListSyncData.sort, 'added': ('watchlist_listed_at', True, '', )}
+
     def get_items(self):
         return self.make_list(self.trakt_syncdata.get_all_watchlist_getter)
 
@@ -206,6 +208,8 @@ class ItemListSyncDataPlayback(ItemListSyncData):
 
 class ItemListSyncDataFavorites(ItemListSyncData):
     """ Items in favourites """
+
+    sort = {**ItemListSyncData.sort, 'added': ('favorites_listed_at', True, '', )}
 
     def get_items(self):
         return self.make_list(self.trakt_syncdata.get_all_favorites_getter)

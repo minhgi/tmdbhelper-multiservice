@@ -302,4 +302,4 @@ class MDbList(RequestAPI):
         # ItemListPagination — it iterates all dict values and crashes on non-lists.
         if isinstance(response, dict):
             response = {k: v for k, v in response.items() if isinstance(v, list)}
-        return ItemListPagination(response or {}, page=page, limit=limit, permitted_types=permitted_types, trakt_style=trakt_style)
+        return ItemListPagination(response or {}, page=page, limit=limit, permitted_types=permitted_types, trakt_style=trakt_style, global_sort=not trakt_style)
