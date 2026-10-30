@@ -1,3 +1,24 @@
+v7.0.15
+- Fixed: "Scrobble items played by other add-ons" reported nothing for a Seren episode. Seren stores the show's TMDb ID in a place that looks like an episode ID to TMDb Helper, so the episode was treated as unidentified. With Seren 3.9.58 or later, which names the show, season and episode it is playing, the episode is now accepted and reported (or left to Seren, as set in Seren), the same way as a Seren movie.
+
+v7.0.14
+- Improved: "Scrobble items played by other add-ons" now recognises Seren. Seren plays a plain stream URL, so Kodi never says which add-on started it; Seren 3.9.58 now names itself in a Home property while it plays, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice. Older Seren versions behave as before.
+
+v7.0.13
+- New: Optional setting "Scrobble items played by other add-ons" (Accounts, under the scrobbling options; off by default). When another add-on such as Elementum plays a movie or episode, TMDb Helper can now send it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. It only reports an item whose TMDb ID is in Kodi's info for the playing video, and nothing otherwise. A service the playing add-on reports to itself (Seren does) is skipped, and the watched mark is skipped when the service shows the add-on already reported it. A second setting, "Include Trakt", sends these items to Trakt as well and is off by default. Every report or skip is written to the Kodi log.
+
+v7.0.12
+- Fixed: MDBList playback progress was never saved. While a movie or episode played, pausing or stopping it below 75% sent MDBList a progress value with many decimals (for example 9.95475113122172), which MDBList rejects with an error that was then dropped without a trace, so the item never reached your MDBList In Progress or the website. The progress is now rounded to two decimals, for the player and for the Trakt-to-MDBList resume sync. A refused progress update is now written to the Kodi log.
+
+v7.0.11
+- Fixed: Adding movies to the Kodi library (a list, or the context menu) overwrote a movie with another one that has the same title and year, so only the last of them was kept (for example two different films both called Watermelon (2026)). The second film now gets its own folder with its TMDb ID added to the name, as TV shows already did.
+
+v7.0.10
+- Fixed: MDBList Next Up listed shows you had dropped on MDBList. A dropped show that still had an aired episode you had not watched kept coming back as its next episode; shows on your MDBList dropped list are now left out, as they already were in MDBList In Progress. Opening Next Up makes one extra request to MDBList to read the dropped list; if that read fails the list is shown as before.
+
+v7.0.9
+- Fixed: Adding an MDBList list to the Kodi library, or keeping it in the library monitor, only read the first 20 items of the list (up to 60 with the page multiplier raised) and left the rest out. It now reads the whole list, page after page, before adding it. If a later page cannot be read the list is not added, rather than being added part-way.
+
 v7.0.8
 - Fixed: MDBList In Progress listed only the shows with an episode paused part-way, so a show you were following between episodes was missing. It now lists every show you have started and not finished, like Trakt's In Progress: a show with a watched episode and a later aired episode still unwatched, or an episode paused part-way, newest first. Dropped shows are left out. A show whose only entry is a player started at 0% is no longer listed. Movies paused part-way are listed as before. Hide watched in widgets no longer removes a started show from this list when the watched count from MDBList's whole-show marks reads "all watched". The Anime, Asian, and Movies and TV Shows Progress lists follow the same rule. The first open can take a few seconds while TMDb details are fetched.
 

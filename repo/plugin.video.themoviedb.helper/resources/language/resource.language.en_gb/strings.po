@@ -3831,3 +3831,24 @@ msgstr ""
 msgctxt "#32741"
 msgid "While Kodi is idle (no video playing, no input for 30 seconds) build the widgets and rows of every page of your skin that has no cache yet, so the first visit to a page is instant. Uses some processor time while idle, turn it off on a slow device. Needs Rebuild widgets in the background."
 msgstr ""
+
+
+msgctxt "#32742"
+msgid "Playback started by other add-ons"
+msgstr ""
+
+msgctxt "#32743"
+msgid "Scrobble items played by other add-ons"
+msgstr ""
+
+msgctxt "#32744"
+msgid "When another add-on, such as Elementum, plays a movie or episode, send it to MDBList and Simkl the way items played through TMDb Helper are sent: the resume point while it plays or stops, and watched from 75%. Only items whose TMDb ID is in Kodi's info for the playing video are reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself (Seren does) is skipped, and so is the watched mark if the service shows the add-on already reported it. Every report or skip is written to the Kodi log."
+msgstr ""
+
+msgctxt "#32745"
+msgid "Include Trakt"
+msgstr ""
+
+msgctxt "#32746"
+msgid "Also send these items to Trakt. Leave off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate."
+msgstr ""

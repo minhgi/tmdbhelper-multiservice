@@ -247,10 +247,49 @@ class MDbList(RequestAPI):
     def get_list_of_lists_search(self, query):
         return self.get_list_of_lists(path=f'lists/search?query={query}')
 
+    def get_all_list_items(self, path, max_pages=50):
+        """ GET a list's /items to completion, merging the pages. One request returns only the first server page, so a bigger list
+        came back truncated. MDBList flags a further page in the X-Has-More response header (not in the body), so the raw response is
+        read, not get_request_sc's parsed body; each next page is asked for with offset = items served so far (no limit: the server's
+        page size is the one the first request already worked with). Returns the merged {'movies': [...], 'shows': [...]}, or None
+        when any page fails or the page budget runs out: an empty or part-way list must not pass for the whole list. """
+        combined = {}
+        seen = set()
+        offset = 0
+        for _ in range(max_pages):
+            response = self.get_api_request(self.get_request_url(path, offset=offset or None), headers=self.headers)
+            try:
+                page = response.json() if response is not None else None
+            except ValueError:
+                page = None
+            if not isinstance(page, dict):
+                return None
+            served = 0
+            for k, v in page.items():
+                if not isinstance(v, list):
+                    continue
+                for i in v:
+                    served += 1
+                    key = (k, i.get('id'), i.get('mediatype')) if isinstance(i, dict) else None
+                    if key and key in seen:
+                        continue
+                    seen.add(key)
+                    combined.setdefault(k, []).append(i)
+            if offset and not served:  # the page after a has_more page came back empty: a failed read, not the end
+                return None
+            has_more = str(response.headers.get('X-Has-More', '')).lower() == 'true' or bool((page.get('pagination') or {}).get('has_more'))
+            if not has_more:
+                return combined
+            if not served:
+                return None
+            offset += served
+        return None
+
     def get_custom_trakt_style_list(self, list_id):
         path = f'lists/{list_id}/items'
-        response = self.get_request_sc(path, cache_refresh=True)
-        return self.get_paginated(response, permitted_types=('movie', 'show'), trakt_style=True)
+        response = self.get_all_list_items(path)
+        total = sum(len(v) for v in response.values() if isinstance(v, list)) if isinstance(response, dict) else 0
+        return self.get_paginated(response, limit=total or None, permitted_types=('movie', 'show'), trakt_style=True)
 
     def get_custom_list(self, list_id, page=1, limit: int = None):
         path = f'lists/{list_id}/items'

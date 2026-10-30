@@ -1,3 +1,4 @@
+import re
 import xbmcvfs
 from xbmcgui import Dialog
 from tmdbhelper.lib.addon.dialog import BusyDialog
@@ -122,6 +123,28 @@ def get_unique_folder(name, tmdb_id, basedir):
     nfo_id = get_tmdb_id_nfo(basedir, name) if name in xbmcvfs.listdir(basedir)[0] else None
     if nfo_id and try_int(nfo_id) != try_int(tmdb_id):
         name += f' (TMDB {tmdb_id})'
+    return name
+
+
+def get_unique_movie_folder(name, tmdb_id, basedir):
+    """ Folder name for a movie: two different movies with the same title and year would share one folder and the second would
+    overwrite the first, so the one that finds another movie's .nfo in its folder gets its TMDb id added to the name.
+    Reads the disk directly instead of with xbmcvfs.listdir like get_unique_folder: listing the movies folder makes Kodi cache that
+    listing, and Kodi then reports the next movie folder it creates in it as missing (a 'unable to create path' dialog that stops the
+    add). A folder that is not on the local disk (smb://, nfs://) is left as it was. name must already be a valid file name. """
+    from os import listdir
+    from os.path import isdir, join
+    folder = join(xbmcvfs.translatePath(basedir), name)
+    if '://' in folder or not isdir(folder):
+        return name
+    try:
+        for nfo in (f for f in listdir(folder) if f.lower().endswith('.nfo')):
+            with open(join(folder, nfo), encoding='utf-8') as file:
+                match = re.search(r'themoviedb\.org/movie/(\d+)', file.read())
+            if match and try_int(match.group(1)) != try_int(tmdb_id):
+                return f'{name} (TMDB {tmdb_id})'
+    except (OSError, UnicodeDecodeError) as exc:
+        kodi_log(f'ERROR GETTING TMDBID FROM NFO:\n{exc}')
     return name
 
 

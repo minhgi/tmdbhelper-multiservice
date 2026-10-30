@@ -6,10 +6,78 @@ from tmdbhelper.lib.monitor.images import ImageFunctions
 from tmdbhelper.lib.monitor.common import CommonMonitorFunctions, SETPROP_RATINGS, SETMAIN_ARTWORK
 from tmdbhelper.lib.addon.plugin import get_condvisibility, get_infolabel, get_setting
 from tmdbhelper.lib.addon.thread import SafeThread
+from tmdbhelper.lib.addon.logger import kodi_log
+
+
+EXTERNAL_GUARD_DELAY = 12  # seconds the observer waits at the end of playback before checking whether the playing add-on already reported it
+
+# Add-ons that report their own playback, and the services each one reports to: {addon id: {service: reports(setting)}}.
+# setting(key) reads one of that add-on's settings ('' when unset). Keep the conditions the same as the add-on's own.
+EXTERNAL_OWNERS = {
+    'plugin.video.seren': {
+        'trakt': lambda s: bool(s('trakt.auth')) and s('trakt.enabled') == 'true' and s('trakt.scrobbling') != 'false',
+        'mdblist': lambda s: bool(s('mdblist.auth') or s('mdblist.apikey')) and s('mdblist.enabled') == 'true' and s('mdblist.scrobbling') != 'false',
+        'simkl': lambda s: bool(s('simkl.auth')) and s('simkl.enabled') != 'false' and s('simkl.scrobbling') != 'false',
+    },
+    'plugin.video.elementum': {
+        'trakt': lambda s: bool(s('trakt_token')) and (s('trakt_scrobble') == 'true' or s('trakt_sync_watched') != 'false'),
+    },
+}
+
+
+# Add-ons that play a plain stream URL (Kodi then shows no plugin:// origin) name themselves in a Home property instead:
+# {addon id: property name}. The value is JSON {"mediatype": "movie" | "episode", "tmdb_id", "season", "episode"} and only
+# counts when it matches the item that is playing. Read with prefix=-1: get_property would otherwise add "TMDbHelper.".
+EXTERNAL_HANDSHAKES = {'plugin.video.seren': 'seren.playback'}
+
+
+def get_external_handshake_origin(identity):
+    """ Id of the add-on that claims the playing item through its Home property, '' if none does """
+    for addon_id, name in EXTERNAL_HANDSHAKES.items():
+        try:
+            marker = loads(get_property(name, prefix=-1) or '{}')
+            if marker.get('mediatype') != identity['tmdb_type'] or f'{marker.get("tmdb_id")}' != identity['tmdb_id']:
+                continue
+            if identity['tmdb_type'] == 'episode' and (
+                    int(marker.get('season') or 0) != int(identity['season']) or int(marker.get('episode') or 0) != int(identity['episode'])):
+                continue
+            return addon_id
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return ''
+
+
+def get_external_owned_services(addon_id):
+    """ Services the add-on that started playback reports to itself (and so must not be reported to again) """
+    owners = EXTERNAL_OWNERS.get(addon_id)
+    if not owners:
+        return set()
+    try:
+        from xbmcaddon import Addon
+        addon = Addon(addon_id)
+    except Exception:
+        return set()
+
+    def setting(key):
+        try:
+            return addon.getSetting(key)
+        except Exception:
+            return ''
+
+    return {service for service, reports in owners.items() if reports(setting)}
 
 
 class PlayerScrobbler():
-    def __init__(self, trakt_api, total_time):
+    external = False  # True when another add-on started playback and this scrobbler only observes it (see PlayerMonitor.get_external_playerstrings)
+    service_name = 'Trakt'
+    _baseline = None
+    _baseline_thread = None
+    _own_stamps = {}  # {service:media type: watched stamp left by our own last watched post}, shared so back-to-back episodes do not mistake it for another add-on's
+
+    def __init__(self, trakt_api, total_time, playerstring=None):
+        if playerstring is not None:  # Identity handed in by the monitor: {} makes the scrobbler inert
+            self._playerstring = playerstring
+            self.external = bool(playerstring)
         self.trakt_api = trakt_api
         self.current_time = 0
         self.total_time = total_time
@@ -82,6 +150,10 @@ class PlayerScrobbler():
         return loads(playerstring)
 
     def is_match(self, tmdb_type, tmdb_id):
+        if self.external:
+            # The identity was fixed from the info tag when this item started and the scrobblers are rebuilt for every new
+            # item; the monitor's own tmdb_id can differ (it reads a show's id under 'tmdb' as an episode id), so compare the type only
+            return f'{self.tmdb_type}' == f'{tmdb_type}'
         if f'{self.tmdb_id}' != f'{tmdb_id}':
             return False
         if f'{self.tmdb_type}' != f'{tmdb_type}':
@@ -119,11 +191,8 @@ class PlayerScrobbler():
                 'progress': self.progress
             }
 
-    @is_scrobbling
     @is_trakt_authorized
-    def trakt_scrobbling(self, method):
-        if method not in ('start', 'pause', 'stop'):
-            return
+    def _trakt_scrobble_post(self, method):
         self.trakt_item['progress'] = self.progress
         self.trakt_api.get_api_request(
             f'https://api.trakt.tv/scrobble/{method}',
@@ -133,9 +202,77 @@ class PlayerScrobbler():
         )
 
     @is_scrobbling
+    def trakt_scrobbling(self, method):
+        if method not in ('start', 'pause', 'stop'):
+            return
+        self._trakt_scrobble_post(method)
+
+    @property
+    def _watched_ready(self):
+        """ True when a watched mark would actually be sent: service signed in and its scrobbling setting on """
+        return bool(boolean(get_property('TraktIsAuth')) and self.trakt_api.authorization and get_setting('trakt_scrobbling'))
+
+    @property
+    def _resume_ready(self):
+        return self._watched_ready
+
+    def external_report(self):
+        """ What external playback will send to this service, for the log """
+        sends = [name for name, ready in (('resume points', self._resume_ready), ('watched', self._watched_ready)) if ready]
+        return 'reports ' + ' + '.join(sends) if sends else 'skipped (not signed in or its scrobbling settings are off)'
+
+    def _watched_stamp(self):
+        """ Newest watched-activity stamp of the service for this media type, None if it cannot be read """
+        try:
+            data = self.trakt_api.get_api_request('https://api.trakt.tv/sync/last_activities', headers=self.trakt_api.headers).json()
+            return data['movies' if self.tmdb_type == 'movie' else 'episodes']['watched_at'] or ''
+        except Exception:
+            return None
+
+    def _start_baseline(self):
+        """ External playback only: note the service's watched stamp as playback starts (read off the monitor thread) """
+        if not self.external or self._baseline_thread or not self._watched_ready:
+            return
+
+        def _read():
+            self._baseline = self._watched_stamp()
+
+        self._baseline_thread = SafeThread(target=_read)
+        self._baseline_thread.start()
+
+    def _report_watched(self, action):
+        """ Run the post that marks the item watched.
+        For playback started by another add-on that add-on may already have reported the same viewing, so wait a moment
+        and post only if the service's watched activity has not moved since playback started.
+        """
+        if not self.external:
+            return action()
+        if not self._watched_ready:
+            return
+        SafeThread(target=self._report_watched_guarded, args=(action, )).start()
+
+    def _report_watched_guarded(self, action):
+        from xbmc import Monitor
+        label = f'External playback {self.tmdb_type} {self.tmdb_id} S{self.season}E{self.episode} ({self.service_name})'
+        own_key = f'{self.service_name}:{self.tmdb_type}'
+        if self._baseline_thread:
+            self._baseline_thread.join()
+        if Monitor().waitForAbort(EXTERNAL_GUARD_DELAY):
+            return
+        after = self._watched_stamp()
+        if self._baseline is None or after is None:
+            return kodi_log(f'{label}: not marked watched - the service\'s watched activity could not be read', 1)
+        if after not in (self._baseline, PlayerScrobbler._own_stamps.get(own_key)):
+            return kodi_log(f'{label}: not marked watched - the playing add-on already reported it', 1)
+        action()
+        kodi_log(f'{label}: watched mark sent', 1)
+        PlayerScrobbler._own_stamps[own_key] = self._watched_stamp()
+
+    @is_scrobbling
     def start(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
+        self._start_baseline()
         self.trakt_scrobbling('start')
         self.started = True
 
@@ -148,6 +285,14 @@ class PlayerScrobbler():
     @is_scrobbling
     def stop(self, tmdb_type, tmdb_id):
         if not self.started:
+            return
+        if self.external:
+            # Kodi marks its own library and refreshes the widgets itself; only Trakt's stop (which logs the play from 80%) is guarded
+            if self.progress >= 75:
+                self._report_watched(lambda: self._trakt_scrobble_post('stop'))
+            else:
+                self.trakt_scrobbling('stop')
+            self.stopped = True
             return
         self.trakt_scrobbling('stop')
         self.set_kodi_watched()
@@ -224,8 +369,13 @@ class MDbListScrobbler(PlayerScrobbler):
         stop <75% — POST /scrobble/pause (server-only resume save; no local DB write in v1).
     """
 
-    def __init__(self, mdblist_api, total_time):
+    service_name = 'MDBList'
+
+    def __init__(self, mdblist_api, total_time, playerstring=None):
         # Mirrors PlayerScrobbler.__init__ but stores mdblist_api instead of trakt_api.
+        if playerstring is not None:
+            self._playerstring = playerstring
+            self.external = bool(playerstring)
         self.mdblist_api = mdblist_api
         self.current_time = 0
         self.total_time = total_time
@@ -243,15 +393,28 @@ class MDbListScrobbler(PlayerScrobbler):
     def _is_authorized(self):
         return bool(self.mdblist_api.user_token.value or self.mdblist_api.api_key)
 
+    @property
+    def _resume_ready(self):
+        return bool(get_setting('service_mdblist') and get_setting('mdblist_playprogress') and self._is_authorized)
+
+    @property
+    def _watched_ready(self):
+        return bool(get_setting('service_mdblist') and get_setting('mdblist_scrobbling') and self._is_authorized)
+
+    @property
+    def _api_progress(self):
+        """MDBList rejects (HTTP 400, which the request layer drops silently) any progress with more than 2 decimals."""
+        return round(min(max(self.progress, 0), 100), 2)
+
     def _pause_payload(self):
         """Build /scrobble/pause payload (POV-confirmed format with 'ids' wrapper)."""
         if self.tmdb_type == 'movie':
-            return {'movie': {'ids': {'tmdb': self.tmdb_id}}, 'progress': self.progress}
+            return {'movie': {'ids': {'tmdb': self.tmdb_id}}, 'progress': self._api_progress}
         if self.tmdb_type == 'tv' and self.season and self.episode:
             return {
                 'show': {'ids': {'tmdb': self.tmdb_id},
                          'season': {'number': self.season, 'episode': {'number': self.episode}}},
-                'progress': self.progress
+                'progress': self._api_progress
             }
 
     def _update_progress_in_db(self, progress):
@@ -321,7 +484,9 @@ class MDbListScrobbler(PlayerScrobbler):
         if not payload:
             return
         url = self.mdblist_api.get_request_url('scrobble', 'pause')
-        self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
+        response = self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
+        if response is None:
+            kodi_log(f'MDBList scrobble/pause was not accepted: {payload}', 1)
         self._update_progress_in_db(self.progress)
 
     def _mark_watched(self):
@@ -346,10 +511,19 @@ class MDbListScrobbler(PlayerScrobbler):
         self._clear_progress_in_db()  # item no longer in-progress
         item.refresh_containers(force=True)
 
+    def _watched_stamp(self):
+        try:
+            url = self.mdblist_api.get_request_url('sync', 'last_activities')
+            data = self.mdblist_api.get_api_request(url, headers=self.mdblist_api.auth_headers).json()
+            return data['watched_at' if self.tmdb_type == 'movie' else 'episode_watched_at'] or ''
+        except Exception:
+            return None
+
     @PlayerScrobbler.is_scrobbling
     def start(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
+        self._start_baseline()
         self.started = True  # No API call — MDBList has no /scrobble/start endpoint
 
     @PlayerScrobbler.is_scrobbling
@@ -363,7 +537,7 @@ class MDbListScrobbler(PlayerScrobbler):
         if not self.started:
             return
         if self.progress >= 75:
-            self._mark_watched()
+            self._report_watched(self._mark_watched)
         else:
             self._post_pause()
         self.stopped = True
@@ -385,7 +559,12 @@ class SimklScrobbler(PlayerScrobbler):
 
     BASE_URL = 'https://api.simkl.com'
 
-    def __init__(self, simkl_api, total_time):
+    service_name = 'Simkl'
+
+    def __init__(self, simkl_api, total_time, playerstring=None):
+        if playerstring is not None:
+            self._playerstring = playerstring
+            self.external = bool(playerstring)
         self.simkl_api = simkl_api
         self.current_time = 0
         self.total_time = total_time
@@ -402,6 +581,14 @@ class SimklScrobbler(PlayerScrobbler):
     @property
     def _is_authorized(self):
         return bool(self.simkl_api and self.simkl_api.user_token.value)
+
+    @property
+    def _resume_ready(self):
+        return bool(get_setting('service_simkl') and get_setting('simkl_playprogress') and self._is_authorized)
+
+    @property
+    def _watched_ready(self):
+        return bool(get_setting('service_simkl') and get_setting('simkl_scrobbling') and self._is_authorized)
 
     def _pause_payload(self):
         if self.tmdb_type == 'movie':
@@ -510,10 +697,22 @@ class SimklScrobbler(PlayerScrobbler):
         self._clear_progress_in_db()
         item.refresh_containers(force=True)
 
+    def _watched_stamp(self):
+        try:
+            url = f'{self.BASE_URL}/sync/activities?client_id={self.simkl_api.client_id}'
+            data = self.simkl_api.get_api_request(url, headers=self.simkl_api.auth_headers).json()
+            if self.tmdb_type == 'movie':
+                return data['movies']['completed'] or ''
+            shows = data['tv_shows']
+            return f"{shows['watching'] or ''}|{shows['completed'] or ''}"
+        except Exception:
+            return None
+
     @PlayerScrobbler.is_scrobbling
     def start(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
+        self._start_baseline()
         self.started = True  # No /scrobble/start endpoint
 
     @PlayerScrobbler.is_scrobbling
@@ -527,7 +726,7 @@ class SimklScrobbler(PlayerScrobbler):
         if not self.started:
             return
         if self.progress >= 75:
-            self._mark_watched()
+            self._report_watched(self._mark_watched)
         else:
             self._post_pause()
         self.stopped = True
@@ -819,6 +1018,90 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         if self.simkl_scrobbler:
             self.simkl_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
 
+    def get_external_identity(self):
+        """ Identity of the playing item from the explicit ids in Kodi's info tag - never a title search.
+        {} unless the tag has a TMDb id (plus season and episode for an episode) """
+        meta = self.player_item.meta
+        if self.dbtype == 'movie':
+            tmdb_id, season, episode = meta.get('UniqueID.tmdb'), 0, 0
+        else:
+            tmdb_id, season, episode = meta.get('UniqueID.tvshow.tmdb'), meta.get('Season'), meta.get('Episode')
+            if not f'{tmdb_id or ""}'.isdigit():
+                # Seren stores the SHOW's id under plain 'tmdb' on an episode, which is indistinguishable from an episode id
+                # (Elementum): accept it only when Seren's handshake names this very show, season and episode
+                shows_id = meta.get('UniqueID.tmdb')
+                if f'{shows_id or ""}'.isdigit() and get_external_handshake_origin(
+                        {'tmdb_type': 'episode', 'tmdb_id': f'{shows_id}', 'season': season or 0, 'episode': episode or 0}):
+                    tmdb_id = shows_id
+        if not f'{tmdb_id or ""}'.isdigit() or not int(tmdb_id):
+            return {}
+        if self.dbtype == 'episode' and not ((season or 0) > 0 and (episode or 0) > 0):
+            return {}
+        identity = {'tmdb_type': self.dbtype, 'tmdb_id': f'{tmdb_id}'}
+        if self.dbtype == 'movie':
+            imdb_id = meta.get('IMDBNumber')
+            if imdb_id and f'{imdb_id}'.startswith('tt'):
+                identity['imdb_id'] = imdb_id
+        else:
+            identity['season'], identity['episode'] = season, episode
+        return identity
+
+    def get_external_origin(self, identity=None):
+        """ Id of the add-on that started the playing item, '' if it is not visible: the plugin:// path Kodi shows for a
+        resolved item, else a Home-property handshake from an add-on that plays a stream URL (needs the item's identity) """
+        candidates = [get_infolabel('Player.Filenameandpath'), get_infolabel('Player.Folderpath')]
+        try:
+            candidates.insert(0, self.getVideoInfoTag().getFilenameAndPath())
+        except Exception:
+            pass
+        for path in candidates:
+            if path and f'{path}'.startswith('plugin://'):
+                return f'{path}'[len('plugin://'):].split('/', 1)[0]
+        return get_external_handshake_origin(identity) if identity else ''
+
+    def get_external_playerstrings(self):
+        """ Opt-in observer (setting scrobble_external_playback, off by default) for playback started by another add-on.
+        Returns the identity each scrobbler is built with, {} per service to leave it inert, or {} overall (nothing to do) when
+        the setting is off, TMDb Helper's own player started the item, or it is not a movie or episode.
+        - Identity comes from the info tag only. No TMDb id there means nothing is reported.
+        - A service the playing add-on reports to itself is left alone. Trakt is also off unless scrobble_external_trakt is on.
+        """
+        self._external_log = None
+        if not get_setting('scrobble_external_playback') or self.dbtype not in ('movie', 'episode'):
+            return {}
+
+        own = PlayerScrobbler.get_playerstring()
+        own_type = 'movie' if own.get('tmdb_type') == 'movie' else 'tv' if own.get('tmdb_type') in ('season', 'episode', 'tv') else ''
+        if own.get('tmdb_id') and f'{own["tmdb_id"]}' == f'{self.tmdb_id}' and own_type == self.tmdb_type:
+            return {}  # Started by TMDb Helper's own player: the normal scrobblers cover it
+
+        identity = self.get_external_identity()
+        origin = self.get_external_origin(identity)
+        if not identity:
+            kodi_log(f'External playback ({origin or "origin unknown"}): no TMDb id in the info tag - nothing reported', 1)
+            return {'trakt': {}, 'mdblist': {}, 'simkl': {}}
+
+        owned = get_external_owned_services(origin)
+        plan = {
+            'trakt': identity if get_setting('scrobble_external_trakt') and 'trakt' not in owned else {},
+            'mdblist': {} if 'mdblist' in owned else identity,
+            'simkl': {} if 'simkl' in owned else identity,
+        }
+        skipped = {key: 'skipped (reported by the add-on)' if key in owned else 'skipped (off)' for key in plan if not plan[key]}
+        self._external_log = (origin, identity, skipped)  # Logged by log_external_plan once the scrobblers say what they will send
+        return plan
+
+    def log_external_plan(self):
+        if not self._external_log:
+            return
+        origin, identity, skipped = self._external_log
+        self._external_log = None
+        scrobblers = {'trakt': self.scrobbler, 'mdblist': self.mdb_scrobbler, 'simkl': self.simkl_scrobbler}
+        summary = ', '.join(
+            f'{name} {skipped.get(key) or scrobblers[key].external_report()}'
+            for key, name in (('trakt', 'Trakt'), ('mdblist', 'MDBList'), ('simkl', 'Simkl')))
+        kodi_log(f'External playback ({origin or "origin unknown"}) {identity}: {summary}', 1)
+
     @property
     def details(self):
         return self.player_item.details
@@ -953,9 +1236,11 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
 
         # Update scrobbler
         self.scrobbler_stop()
-        self.scrobbler = PlayerScrobbler(trakt_api=self.trakt_api, total_time=self.getTotalTime())
-        self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_api, total_time=self.getTotalTime())
-        self.simkl_scrobbler = SimklScrobbler(simkl_api=self.simkl_api, total_time=self.getTotalTime())
+        external = self.get_external_playerstrings()
+        self.scrobbler = PlayerScrobbler(trakt_api=self.trakt_api, total_time=self.getTotalTime(), playerstring=external.get('trakt'))
+        self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_api, total_time=self.getTotalTime(), playerstring=external.get('mdblist'))
+        self.simkl_scrobbler = SimklScrobbler(simkl_api=self.simkl_api, total_time=self.getTotalTime(), playerstring=external.get('simkl'))
+        self.log_external_plan()
 
         # Clear properties and store the last cleared item
         self.previous_item = self.current_item

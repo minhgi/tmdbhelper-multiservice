@@ -976,6 +976,26 @@
                     </control>
                 </setting>
             </group>
+            <group id="5" label="32742">
+                <setting id="scrobble_external_playback" type="boolean" label="32743" help="32744">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="scrobble_external_trakt" type="boolean" label="32745" help="32746" parent="scrobble_external_playback">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="scrobble_external_playback">True</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_trakt">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+            </group>
         </category>
         <category id="players" label="32014" help="32607">
             <group id="1" label="32033">

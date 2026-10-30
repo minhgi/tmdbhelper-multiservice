@@ -1043,7 +1043,7 @@ class BridgeSync:
         if self._mdb_ok:
             for row in movie_rows:
                 try:
-                    tmdb_id, progress = int(row[0]), float(row[1])
+                    tmdb_id, progress = int(row[0]), round(float(row[1]), 2)  # MDBList 400s on more than 2 decimals
                     url = self.mdb.get_request_url('scrobble', 'pause')
                     self.mdb.get_api_request(
                         url,
@@ -1053,7 +1053,7 @@ class BridgeSync:
                     pass
             for row in ep_rows:
                 try:
-                    tmdb_id, progress, season, episode = int(row[0]), float(row[1]), int(row[2]), int(row[3])
+                    tmdb_id, progress, season, episode = int(row[0]), round(float(row[1]), 2), int(row[2]), int(row[3])
                     url = self.mdb.get_request_url('scrobble', 'pause')
                     self.mdb.get_api_request(
                         url,

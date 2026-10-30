@@ -6,7 +6,7 @@ from jurialmunkey.parser import try_int
 from tmdbhelper.lib.addon.tmdate import is_unaired_timestamp, get_current_date_time
 from tmdbhelper.lib.files.futils import validify_filename, get_tmdb_id_nfo
 from tmdbhelper.lib.update.logger import _LibraryLogger
-from tmdbhelper.lib.update.update import BASEDIR_MOVIE, BASEDIR_TV, STRM_MOVIE, STRM_EPISODE, create_file, create_nfo, get_unique_folder
+from tmdbhelper.lib.update.update import BASEDIR_MOVIE, BASEDIR_TV, STRM_MOVIE, STRM_EPISODE, create_file, create_nfo, get_unique_folder, get_unique_movie_folder
 from tmdbhelper.lib.update.cacher import _TVShowCache
 from tmdbhelper.lib.update.common import LibraryCommonFunctions
 from tmdbhelper.lib.api.tmdb.api import TMDb
@@ -111,6 +111,10 @@ class LibraryAdder(LibraryCommonFunctions):
             return
         imdb_id = details.get('external_ids', {}).get('imdb_id')
         name = f'{details["title"]} ({details["release_date"][:4]})' if details.get('release_date') else details['title']
+
+        # Two movies with the same title and year share one folder name: the second would overwrite the first (as for TV shows,
+        # tell them apart by the TMDb id). The name is made valid first so it matches the folder that create_file writes.
+        name = get_unique_movie_folder(validify_filename(name), tmdb_id, BASEDIR_MOVIE)
 
         # Only add strm if not in library
         file = self.kodi_db_movies.get_info(info='file', imdb_id=imdb_id, tmdb_id=tmdb_id)

@@ -385,6 +385,13 @@ def _playback_shows(playback):
     return shows
 
 
+def _get_dropped_show_ids(mdblist_api):
+    """{tmdb id} of the shows on MDBList's dropped list (GET /sync/dropped). Empty when the read fails, so a failed read lists
+    dropped shows rather than hiding the whole menu."""
+    raw = _get_user_endpoint(mdblist_api, 'sync', 'dropped', limit=5000)
+    return {r['id'] for r in _normalize_collection(raw if isinstance(raw, dict) else {}).get('shows') or []}
+
+
 class ListInProgress(ContainerDirectory):
     """MDBList in-progress. Shows: every show you have started and not finished (like Trakt's In Progress) -
     a show with an individually watched episode and a later aired episode still unwatched (the Next Up rule),
@@ -406,8 +413,7 @@ class ListInProgress(ContainerDirectory):
         return kept
 
     def _get_dropped_ids(self):
-        raw = _get_user_endpoint(self.mdblist_api, 'sync', 'dropped', limit=5000)
-        return {r['id'] for r in _normalize_collection(raw if isinstance(raw, dict) else {}).get('shows') or []}
+        return _get_dropped_show_ids(self.mdblist_api)
 
     def _get_started_shows(self, paused, scope):
         watched = _get_watched_all(self.mdblist_api)
@@ -605,7 +611,8 @@ def _first_unwatched(details, show, get_air_dates=None):
 
 class ListNextUp(ContainerDirectory):
     """MDBList Next Up: one row per recently watched show (per MDBList's own history), each
-    showing that show's first unwatched aired episode. Mirrors Seren's mdblistNextUp.
+    showing that show's first unwatched aired episode. Shows on MDBList's dropped list are left out.
+    Mirrors Seren's mdblistNextUp.
     Reads the full watched history live (including whole-show / whole-season marks); if any
     page fails the list is empty rather than built from partial history.
     Episodes are matched on TMDb numbering (Seren used Trakt's, which can differ for anime).
@@ -617,8 +624,9 @@ class ListNextUp(ContainerDirectory):
         if not watched:
             return
         by_show = _group_watched_by_show(watched)
+        dropped = _get_dropped_show_ids(self.mdblist_api)
         recent = sorted(
-            ((k, v) for k, v in by_show.items() if v['episodes']),
+            ((k, v) for k, v in by_show.items() if v['episodes'] and k not in dropped),
             key=lambda kv: kv[1]['last'], reverse=True)[:_NEXTUP_SCOPE_CAP if scope else _NEXTUP_SHOW_CAP]
 
         episodes = []
