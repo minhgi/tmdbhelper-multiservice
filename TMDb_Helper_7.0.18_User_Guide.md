@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.17 — Complete Features & Functions Guide
+# TMDb Helper 7.0.18 — Complete Features & Functions Guide
 
-**Version:** 7.0.17 (Enhanced Fork — Personal Build)
+**Version:** 7.0.18 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.17_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.18_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.17. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.18. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -160,11 +160,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Movies with the same title and year keep their own library folders** (7.0.11). Adding movies to the Kodi library overwrote a movie with another one that had the same title and year, so only the last of them was kept (for example two different films both called Watermelon (2026)). The second film now gets its own folder with its TMDb ID added to the name, as TV shows already did.
 - **MDBList playback progress is saved** (7.0.12). While a movie or episode played, pausing or stopping it below 75% sent MDBList a progress value with many decimals, which MDBList rejects; the error was dropped without a trace, so the item never reached your MDBList In-Progress or the website. The progress is now rounded to two decimals, for the player and for the Trakt-to-MDBList resume sync, and a refused progress update is written to the Kodi log.
 
-### Playback started by other add-ons (7.0.13–7.0.15)
+### Playback started by other add-ons (7.0.13–7.0.18)
 
 - **Scrobble items played by other add-ons** (7.0.13). Optional and off by default: Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
 - **Include Trakt** (7.0.13). A second switch, off by default, shown only when Trakt is enabled and usable only when the first switch is on. It sends these items to Trakt as well. Leave it off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate.
-- **Seren is recognised** (7.0.14, 7.0.15). Seren plays a plain stream URL, so Kodi never says which add-on started it. Seren 3.9.58 and later name themselves in a Home window property while they play, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice; from 7.0.15 this covers Seren episodes as well as movies. Older Seren versions behave as before. Tested with Seren and with a stand-in player, not with a real Elementum play.
+- **Seren is recognised** (7.0.14, 7.0.15). Seren plays a plain stream URL, so Kodi never says which add-on started it. Seren 3.9.58 and later name themselves in a Home window property while they play, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice; from 7.0.15 this covers Seren episodes as well as movies. Older Seren versions behave as before. Tested with Seren and with a stand-in player.
+- **Elementum episodes are recognised** (7.0.18). Elementum tags an episode with the show's IMDb ID only and no TMDb ID, so before 7.0.18 an episode it played was treated as unidentified and nothing was sent (a movie was fine). TMDb Helper now looks up the show's TMDb ID from that IMDb ID (a cached TMDb lookup by ID, never a title search) and reports the episode like a movie. Tested with a real Elementum play of an episode: the progress reached MDBList and Simkl. A service lists a play as in progress only once it has passed a few percent, so a very short play shows nothing there.
 
 ### Next Up and Trakt library fixes (7.0.16)
 
@@ -661,7 +662,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Arctic Fuse 3** | The watch-history stats route (`trakt_history_stats`) is an empty placeholder, so skin widgets that read it stay blank. The Cast row fix was tested on the 6.0.216 build and the stats route on 7.0.0; 7.0.2 itself was not run under the skin, and the TV-episode Cast case is untested. |
 | **MDBList Next Up and marks** | A show whose watched episodes MDBList lists one by one, with none left, reads as finished and is not in Next Up. Whole-show marks are ignored and whole-season marks count only for seasons with no individually watched episode (section 7). |
 | **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
-| **Playback from other add-ons** | Optional and off by default. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren and a stand-in player, not with a real Elementum play. |
+| **Playback from other add-ons** | Optional and off by default. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren, a stand-in player and a real Elementum episode (7.0.18). |
 | **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). In October 2026 tests on Kodi 22, playback that stopped crashed Kodi in 2 of 2 runs with TMDb Helper's switch on and in 0 of 2 with it off; the log pattern looks like Kodi's open reusable-invoker race (xbmc/xbmc#30038), but that is not proven. Switch it off again if Kodi starts crashing. |
 
 ---

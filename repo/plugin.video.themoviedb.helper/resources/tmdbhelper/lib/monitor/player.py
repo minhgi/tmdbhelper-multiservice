@@ -805,7 +805,9 @@ class PlayerItem():
             meta['Season'] = info_tag.getSeason()
             meta['Episode'] = info_tag.getEpisode()
             meta['UniqueID.tvshow.tmdb'] = info_tag.getUniqueID('tvshow.tmdb')
+            meta['UniqueID.tvshow.imdb'] = info_tag.getUniqueID('tvshow.imdb')
             meta['UniqueID.tmdb'] = info_tag.getUniqueID('tmdb')
+            meta['UniqueID.imdb'] = info_tag.getUniqueID('imdb')
 
         return meta
 
@@ -1018,6 +1020,22 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         if self.simkl_scrobbler:
             self.simkl_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
 
+    def get_external_show_tmdb_id(self, meta):
+        """ TMDb id of a playing episode's show from the show's IMDb id in the info tag, for add-ons that tag an episode with
+        the IMDb id only (Elementum). The lookup is TMDb's cached /find by id, never a title search; an episode's own tt id has
+        no tv result, so it yields nothing rather than a wrong show """
+        for key in ('UniqueID.tvshow.imdb', 'UniqueID.imdb', 'IMDBNumber'):
+            imdb_id = f'{meta.get(key) or ""}'
+            if not imdb_id.startswith('tt'):
+                continue
+            try:
+                tmdb_id = self.get_tmdb_id('tv', imdb_id=imdb_id)
+            except Exception as exc:
+                kodi_log(f'External playback: TMDb lookup for {imdb_id} failed - {exc}', 1)
+                continue
+            if f'{tmdb_id or ""}'.isdigit():
+                return tmdb_id
+
     def get_external_identity(self):
         """ Identity of the playing item from the explicit ids in Kodi's info tag - never a title search.
         {} unless the tag has a TMDb id (plus season and episode for an episode) """
@@ -1033,6 +1051,8 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
                 if f'{shows_id or ""}'.isdigit() and get_external_handshake_origin(
                         {'tmdb_type': 'episode', 'tmdb_id': f'{shows_id}', 'season': season or 0, 'episode': episode or 0}):
                     tmdb_id = shows_id
+            if not f'{tmdb_id or ""}'.isdigit() and (season or 0) > 0 and (episode or 0) > 0:
+                tmdb_id = self.get_external_show_tmdb_id(meta)
         if not f'{tmdb_id or ""}'.isdigit() or not int(tmdb_id):
             return {}
         if self.dbtype == 'episode' and not ((season or 0) > 0 and (episode or 0) > 0):

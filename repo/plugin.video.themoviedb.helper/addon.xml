@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.17"
+version="7.0.18"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.18
+- Fixed: "Scrobble items played by other add-ons" reported nothing for a TV episode played by Elementum. Elementum tags an episode with the show's IMDb ID only and no TMDb ID, so the episode was treated as unidentified and never reached MDBList or Simkl. TMDb Helper now looks up the show's TMDb ID from that IMDb ID (a cached TMDb lookup by ID, never a title search) and reports the episode like a movie. Movies were not affected.
+
 v7.0.17
 - New: Setting "List sort order" (Widgets): sorts your Trakt, MDBList and Simkl lists by release date, date added or title, newest/oldest or A to Z/Z to A, however a list is opened (watchlists, lists you made, history, progress, Next Up). The default, Service order, changes nothing. A sort set in a menu or widget path still wins; Trakt Recently Released, Anticipated, Most Watched, Trakt episode lists and Trakt charts keep their own order. Date added applies to Trakt watchlists, favourites and lists and to Simkl Plan to Watch; MDBList and Simkl Next Up sort by show title only. Release date uses TMDb dates, so the first open of a long list can take a while. MDBList lists you open, ranked ones included, are sorted too: leave Service order to keep a list's ranking.
 

@@ -1,4 +1,4 @@
-# TMDb Helper 7.0.17 — Install Instructions
+# TMDb Helper 7.0.18 — Install Instructions
 
 Covers four pieces: the **TMDb Helper** add-on (this fork), its two required script modules **script.module.jurialmunkey** and **script.module.infotagger**, the **players**, and connecting your **Trakt / MDBList / Simkl** accounts.
 
@@ -10,7 +10,7 @@ There are three separate steps, for three kinds of thing:
 
 Do Part 1 first, then Part 2, then Part 3.
 
-> **This is a personal fork, not in the official Kodi repository.** It uses the same add-on ID as the stock TMDb Helper (`plugin.video.themoviedb.helper`), so it replaces the stock one. The version numbers are above the other builds' (7.0.17 here; 5.4.16 in Kodi's official repository when checked on 2026-10-17, 6.17.9 in the signde repository and 6.18.0 in the upstream source), so Kodi will not offer to "update" you back to any of them.
+> **This is a personal fork, not in the official Kodi repository.** It uses the same add-on ID as the stock TMDb Helper (`plugin.video.themoviedb.helper`), so it replaces the stock one. The version numbers are above the other builds' (7.0.18 here; 5.4.16 in Kodi's official repository when checked on 2026-10-17, 6.17.9 in the signde repository and 6.18.0 in the upstream source), so Kodi will not offer to "update" you back to any of them.
 
 ---
 
@@ -27,7 +27,7 @@ Do Part 1 first, then Part 2, then Part 3.
 
 ### Option A — Install from the repository (recommended)
 
-The repository serves TMDb Helper 7.0.17 **and** the two script modules it needs, which are not in Kodi's official repository.
+The repository serves TMDb Helper 7.0.18 **and** the two script modules it needs, which are not in Kodi's official repository.
 
 1. **Settings → File Manager → Add source**. Enter this address and name it anything (for example "TMDb Helper Multiservice"), then select **OK**:
 
@@ -50,7 +50,7 @@ Use this if you cannot reach GitHub Pages, or want a specific version. Install t
 |---|---|---|
 | 1 | `script.module.jurialmunkey-0.2.35.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/script.module.jurialmunkey/script.module.jurialmunkey-0.2.35.zip` |
 | 2 | `script.module.infotagger-0.0.8.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/script.module.infotagger/script.module.infotagger-0.0.8.zip` |
-| 3 | `plugin.video.themoviedb.helper-7.0.17.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/plugin.video.themoviedb.helper/plugin.video.themoviedb.helper-7.0.17.zip` |
+| 3 | `plugin.video.themoviedb.helper-7.0.18.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/plugin.video.themoviedb.helper/plugin.video.themoviedb.helper-7.0.18.zip` |
 
 Download each file (or paste the address where your Kodi build accepts a web location) and select it. The add-on will still need the four modules that Kodi's official repository supplies; Kodi fetches those itself when it can. Installing from the repository (Option A) avoids chasing these by hand.
 
@@ -60,7 +60,7 @@ Installing over the stock TMDb Helper is an upgrade, and your settings are kept.
 
 ### Other repositories that carry TMDb Helper
 
-Some skins point you to another repository with its own TMDb Helper (Arctic Fuse 3 uses the signde repository, version 6.17.9). Kodi installs the highest version it can see, and this fork is numbered 7.0.17, above those, so it is not replaced and automatic updates can stay on. Arctic Fuse 3 3.4.0 asks for TMDb Helper 6.17.9 or newer, which 7.x satisfies. Do not install the other build over this one: it is an older version and has none of this fork's features.
+Some skins point you to another repository with its own TMDb Helper (Arctic Fuse 3 uses the signde repository, version 6.17.9). Kodi installs the highest version it can see, and this fork is numbered 7.0.18, above those, so it is not replaced and automatic updates can stay on. Arctic Fuse 3 3.4.0 asks for TMDb Helper 6.17.9 or newer, which 7.x satisfies. Do not install the other build over this one: it is an older version and has none of this fork's features.
 
 ---
 
@@ -168,4 +168,4 @@ In **Settings → Accounts → Cross-service sync**:
 
 ---
 
-*Source-verified against the 6.0.215 add-on source (`settings.xml`, `strings.po`, `router.py`, `basedir.py`, `bridge_sync.py`, `cronjob.py`, `players.py`, `downloader.py`) and the repository files. Confirmed live: the players pack installs through **Install players → Install from URL** (Kodi reported 91 files extracted), and the repository source address and every zip address above returned HTTP 200 when checked on 2026-10-17 (for 6.0.196; the 7.0.17 zip address works once the repository is pushed and was not checked). Not independently re-tested on a clean Kodi: that Kodi fetches `script.module.jurialmunkey` and `script.module.infotagger` automatically during the repository install (the add-on requires them and the repository carries them).*
+*Source-verified against the 6.0.215 add-on source (`settings.xml`, `strings.po`, `router.py`, `basedir.py`, `bridge_sync.py`, `cronjob.py`, `players.py`, `downloader.py`) and the repository files. Confirmed live: the players pack installs through **Install players → Install from URL** (Kodi reported 91 files extracted), and the repository source address and every zip address above returned HTTP 200 when checked on 2026-10-17 (for 6.0.196; the 7.0.18 zip address works once the repository is pushed and was not checked). Not independently re-tested on a clean Kodi: that Kodi fetches `script.module.jurialmunkey` and `script.module.infotagger` automatically during the repository install (the add-on requires them and the repository carries them).*
