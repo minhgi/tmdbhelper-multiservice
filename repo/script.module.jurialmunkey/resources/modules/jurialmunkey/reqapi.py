@@ -12,6 +12,23 @@ get_localized = KODIPLUGIN.get_localized
 
 CACHE_SHORT, CACHE_MEDIUM, CACHE_LONG, CACHE_EXTENDED = 1, 7, 14, 90
 
+REDACT_KEYS = ('authorization', 'api-key', 'api_key', 'apikey', 'token', 'secret', 'password', 'cookie', 'code')
+REDACT_TEXT = r'(?i)((?:access_token|refresh_token|client_secret|device_code|password|api_key|apikey|client_key)["\']?\s*[=:]\s*["\']?)[^&"\'\s,}]+'
+
+
+def redact_for_log(data):
+    """ Copy of data that is safe to write to the log: request headers, post data and urls carry tokens, secrets and api keys,
+    and a log is often uploaded for support """
+    if isinstance(data, dict):
+        return {k: '<redacted>' if any(i in f'{k}'.lower() for i in REDACT_KEYS) else redact_for_log(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return type(data)(redact_for_log(i) for i in data)
+    if isinstance(data, (str, bytes)):
+        from re import sub
+        text = data.decode('utf-8', 'replace') if isinstance(data, bytes) else data
+        return sub(REDACT_TEXT, r'\1<redacted>', text)
+    return data
+
 
 """ Lazyimports
 from copy import copy
@@ -273,9 +290,9 @@ class RequestAPI(object):
                 log_level = 2 if response.status_code == 404 else 1
                 self.kodi_log([
                     f'HTTP Error Code: {response.status_code}',
-                    f'\nRequest: {request.replace(self.req_api_key, "") if request else None}',
-                    f'\nPostdata: {postdata}' if postdata else '',
-                    f'\nHeaders: {headers}' if headers else '',
+                    f'\nRequest: {redact_for_log(request.replace(self.req_api_key, "")) if request else None}',
+                    f'\nPostdata: {redact_for_log(postdata)}' if postdata else '',
+                    f'\nHeaders: {redact_for_log(headers)}' if headers else '',
                     f'\nResponse: {response}' if response else ''], log_level)
 
                 return

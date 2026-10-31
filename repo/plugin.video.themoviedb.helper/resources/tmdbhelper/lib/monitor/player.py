@@ -191,15 +191,35 @@ class PlayerScrobbler():
                 'progress': self.progress
             }
 
+    @property
+    def _item_label(self):
+        return f'{self.tmdb_type} {self.tmdb_id}' + (f' S{self.season}E{self.episode}' if self.tmdb_type == 'tv' else '')
+
+    def _log_scrobble(self, action, response):
+        """ One log line per post to a service: what was sent and whether it was accepted (a refused or dropped post is otherwise silent) """
+        result = f'HTTP {response.status_code}' if response is not None else 'not accepted - no usable response (see the log lines before this)'
+        kodi_log(f'Scrobble {self.service_name} {action} {self._item_label} at {self.progress:.1f}%: {result}', 1)
+
+    def _nothing_played(self, action):
+        """ True (and logged) while no playing time has been measured. Kodi reports a pause as playback starts, and a pause or stop
+        sent then would put 0% over the progress the service already holds for the item (MDBList and Simkl accept it) """
+        if self.current_time:
+            return False
+        kodi_log(f'Scrobble {self.service_name} {action} {self._item_label}: skipped - no playing time measured yet', 1)
+        return True
+
     @is_trakt_authorized
     def _trakt_scrobble_post(self, method):
+        if method != 'start' and self._nothing_played(method):
+            return
         self.trakt_item['progress'] = self.progress
-        self.trakt_api.get_api_request(
+        response = self.trakt_api.get_api_request(
             f'https://api.trakt.tv/scrobble/{method}',
             postdata=self.trakt_item,
             headers=self.trakt_api.headers,
             method='json'
         )
+        self._log_scrobble(method, response)
 
     @is_scrobbling
     def trakt_scrobbling(self, method):
@@ -481,12 +501,13 @@ class MDbListScrobbler(PlayerScrobbler):
         if not self._is_authorized:
             return
         payload = self._pause_payload()
-        if not payload:
+        if not payload or self._nothing_played('pause'):
             return
         url = self.mdblist_api.get_request_url('scrobble', 'pause')
         response = self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
         if response is None:
             kodi_log(f'MDBList scrobble/pause was not accepted: {payload}', 1)
+        self._log_scrobble('pause', response)
         self._update_progress_in_db(self.progress)
 
     def _mark_watched(self):
@@ -505,7 +526,8 @@ class MDbListScrobbler(PlayerScrobbler):
         if not payload:
             return
         url = self.mdblist_api.get_request_url('sync', 'watched')
-        self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
+        response = self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
+        self._log_scrobble('watched', response)
         # Proven direct-write path for badge + hub refresh (same as v6.0.42 context menu fix)
         item.update_watched_in_db(True, force=True)
         self._clear_progress_in_db()  # item no longer in-progress
@@ -654,7 +676,7 @@ class SimklScrobbler(PlayerScrobbler):
         if not self._is_authorized:
             return
         payload = self._pause_payload()
-        if not payload:
+        if not payload or self._nothing_played('pause'):
             return
         url = f'{self.BASE_URL}/scrobble/pause?client_id={self.simkl_api.client_id}'
         response = self.simkl_api.get_api_request(
@@ -665,6 +687,7 @@ class SimklScrobbler(PlayerScrobbler):
                 paused_id = response.json().get('id')
             except Exception:
                 pass
+        self._log_scrobble('pause', response)
         self._update_progress_in_db(self.progress, paused_id)
 
     def _mark_watched(self):
@@ -691,8 +714,9 @@ class SimklScrobbler(PlayerScrobbler):
             url = f'{self.BASE_URL}/sync/history?client_id={self.simkl_api.client_id}'
         else:
             return
-        self.simkl_api.get_api_request(
+        response = self.simkl_api.get_api_request(
             url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
+        self._log_scrobble('watched', response)
         item.update_watched_in_db(True, force=True)
         self._clear_progress_in_db()
         item.refresh_containers(force=True)
@@ -1122,6 +1146,18 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             for key, name in (('trakt', 'Trakt'), ('mdblist', 'MDBList'), ('simkl', 'Simkl')))
         kodi_log(f'External playback ({origin or "origin unknown"}) {identity}: {summary}', 1)
 
+    def log_scrobble_plan(self):
+        """ Own playback (started by TMDb Helper's player): what each service will be sent. External playback logs its own line """
+        scrobblers = (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler)
+        if self.scrobbler.external or not self.scrobbler.tmdb_id:
+            return
+        item = f'{self.scrobbler.tmdb_type} {self.scrobbler.tmdb_id}' + (
+            f' S{self.scrobbler.season}E{self.scrobbler.episode}' if self.scrobbler.tmdb_type == 'tv' else '')
+        if not self.scrobbler.total_time:
+            return kodi_log(f'Scrobbling {item}: Kodi gave no duration for this video, so nothing will be reported to Trakt, MDBList or Simkl', 1)
+        kodi_log(f'Scrobbling {item} ({self.scrobbler.total_time:.0f}s): ' + ', '.join(
+            f'{s.service_name} {s.external_report()}' for s in scrobblers), 1)
+
     @property
     def details(self):
         return self.player_item.details
@@ -1261,6 +1297,7 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_api, total_time=self.getTotalTime(), playerstring=external.get('mdblist'))
         self.simkl_scrobbler = SimklScrobbler(simkl_api=self.simkl_api, total_time=self.getTotalTime(), playerstring=external.get('simkl'))
         self.log_external_plan()
+        self.log_scrobble_plan()
 
         # Clear properties and store the last cleared item
         self.previous_item = self.current_item

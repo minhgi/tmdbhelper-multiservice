@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.18 — Complete Features & Functions Guide
+# TMDb Helper 7.0.20 — Complete Features & Functions Guide
 
-**Version:** 7.0.18 (Enhanced Fork — Personal Build)
+**Version:** 7.0.20 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.18_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.20_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.18. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.20. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -160,12 +160,14 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Movies with the same title and year keep their own library folders** (7.0.11). Adding movies to the Kodi library overwrote a movie with another one that had the same title and year, so only the last of them was kept (for example two different films both called Watermelon (2026)). The second film now gets its own folder with its TMDb ID added to the name, as TV shows already did.
 - **MDBList playback progress is saved** (7.0.12). While a movie or episode played, pausing or stopping it below 75% sent MDBList a progress value with many decimals, which MDBList rejects; the error was dropped without a trace, so the item never reached your MDBList In-Progress or the website. The progress is now rounded to two decimals, for the player and for the Trakt-to-MDBList resume sync, and a refused progress update is written to the Kodi log.
 
-### Playback started by other add-ons (7.0.13–7.0.18)
+### Playback started by other add-ons (7.0.13–7.0.18) and scrobbling fixes (7.0.20)
 
 - **Scrobble items played by other add-ons** (7.0.13). Optional and off by default: Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
 - **Include Trakt** (7.0.13). A second switch, off by default, shown only when Trakt is enabled and usable only when the first switch is on. It sends these items to Trakt as well. Leave it off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate.
 - **Seren is recognised** (7.0.14, 7.0.15). Seren plays a plain stream URL, so Kodi never says which add-on started it. Seren 3.9.58 and later name themselves in a Home window property while they play, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice; from 7.0.15 this covers Seren episodes as well as movies. Older Seren versions behave as before. Tested with Seren and with a stand-in player.
 - **Elementum episodes are recognised** (7.0.18). Elementum tags an episode with the show's IMDb ID only and no TMDb ID, so before 7.0.18 an episode it played was treated as unidentified and nothing was sent (a movie was fine). TMDb Helper now looks up the show's TMDb ID from that IMDb ID (a cached TMDb lookup by ID, never a title search) and reports the episode like a movie. Tested with a real Elementum play of an episode: the progress reached MDBList and Simkl. A service lists a play as in progress only once it has passed a few percent, so a very short play shows nothing there.
+- **A pause sent as playback starts no longer resets saved progress** (7.0.20). Kodi reports a pause the moment playback begins, before any playing time is known, and TMDb Helper sent it as 0% to MDBList and Simkl, which accepted it and replaced the progress they already held for that episode or movie. Nothing is sent now until playing time has been measured. Tested by replaying an episode that already had 12% saved: MDBList and Simkl kept 12% after the replay was started and stopped near the beginning. Trakt cannot keep a resume point across a new start: it drops the item's resume entry when a play begins, then records the next pause or stop.
+- **The log shows what was sent to each service** (7.0.20). When a movie or episode starts from TMDb Helper's player, one line says what Trakt, MDBList and Simkl will get (or why one is skipped), and every post afterwards adds a line such as "Scrobble MDBList pause tv 33050 S1E2 at 12.0%: HTTP 200". A play that does not show up on a service can be traced from these lines. Tokens and keys are now masked in the lines a failed request writes to the log (jurialmunkey common 0.2.36, installed with this update). Older versions printed them, so delete any Headers: lines from a log made with an older version before posting it.
 
 ### Next Up and Trakt library fixes (7.0.16)
 
@@ -521,7 +523,7 @@ A full three-way reconciliation that catches changes made on a website or in ano
 | Collection | ✅ | — | — |
 | Progress (resume) | Trakt→MDBList | Trakt→Simkl | — |
 
-Use **Tools → Sync Tools → Force a sync** to run it now. **Clear last sync time** forgets when each service was last synced but keeps the "data is complete" markers, so the next sync only re-checks. **Rebuild Database** removes all synced data and rebuilds it from scratch.
+Use **Tools → Sync Tools → Force a sync** to run it now. **Clear last sync time** forgets when each service was last synced but keeps the "data is complete" markers, so the next sync only re-checks. **Rebuild Database** removes all synced data and rebuilds it from scratch. Before 7.0.19, Force a sync stopped at 60% and marked Trakt as failed, because Trakt now answers its watched-episodes list without the show each episode belongs to; that step is now skipped (episodes are stored by the show sync) and the rest of the Trakt sync runs.
 
 ---
 

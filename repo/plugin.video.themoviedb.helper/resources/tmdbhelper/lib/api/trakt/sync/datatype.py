@@ -351,6 +351,13 @@ class SyncWatched(DataTypeEpisodes):
             self.progress_state = f'partial:{time() + self.progress_retry_after}'
         kodi_log(f'Sync: watched show progress - {len(fetch) - failed} fetched, {reused} reused, {failed} failed {time() - timer_a:.1f} sec', 1)
 
+    def sync(self, forced=False):
+        # Episodes are stored by the show sync (sync_seasons in SyncItem). Trakt's /sync/watched/episodes answers with a flat
+        # list of {episode, plays, ...} and no show, so reading it raised KeyError 'show' and aborted Force a sync / Refresh Trakt sync.
+        if self.item_type == 'episode':
+            return
+        return super().sync(forced=forced)
+
     def sync_func(self):
         meta = super().sync_func()
         self.progress_state = 'ok'
