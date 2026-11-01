@@ -283,10 +283,41 @@ class PlayerScrobbler():
         if self._baseline is None or after is None:
             return kodi_log(f'{label}: not marked watched - the service\'s watched activity could not be read', 1)
         if after not in (self._baseline, PlayerScrobbler._own_stamps.get(own_key)):
-            return kodi_log(f'{label}: not marked watched - the playing add-on already reported it', 1)
+            kodi_log(f'{label}: not marked watched - the playing add-on already reported it', 1)
+            return self._refresh_after_stop()  # the service has the viewing now, so lists and widgets still need to catch up
         action()
         kodi_log(f'{label}: watched mark sent', 1)
         PlayerScrobbler._own_stamps[own_key] = self._watched_stamp()
+        if not self._refreshes_on_report:
+            self._refresh_after_stop()
+
+    _refreshes_on_report = False  # True when the watched post already reloads the lists itself (MDBList, Simkl)
+
+    def refresh_after_stop(self):
+        """ Bring lists and widgets up to date once the posts for a stop are done (in the background: Trakt's sync can download the whole watched list) """
+        SafeThread(target=self._refresh_after_stop).start()
+
+    def _refresh_after_stop(self):
+        """ Trakt: drop the cached last activities and sync the item's watched and resume data now, then reload the visible list and the widgets.
+        Syncing first matters: a list that renders before the sync reads the old data, and the widgets are only rebuilt on a reload """
+        synced = 'skipped - not signed in'
+        try:
+            if boolean(get_property('TraktIsAuth')) and self.trakt_api.authorization:
+                from tmdbhelper.lib.api.trakt.sync.datasync import SyncData
+                syncdata = SyncData(self.trakt_api)
+                syncdata.reset_lastactivities()
+                syncdata.sync('movie' if self.tmdb_type == 'movie' else 'show', ('plays', 'last_watched_at', 'playback_progress'))
+                synced = 'done'
+        except Exception as exc:
+            synced = f'failed - {type(exc).__name__}: {exc}'
+        self._reload_lists(f'Trakt sync {synced}')
+
+    def _reload_lists(self, note=''):
+        from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
+        from xbmc import executebuiltin
+        executebuiltin('Container.Refresh')
+        reload_widgets()
+        kodi_log(f'Post-stop refresh {self._item_label}: {note + ", " if note else ""}list and widgets reloaded', 1)
 
     @is_scrobbling
     def start(self, tmdb_type, tmdb_id):
@@ -312,6 +343,8 @@ class PlayerScrobbler():
                 self._report_watched(lambda: self._trakt_scrobble_post('stop'))
             else:
                 self.trakt_scrobbling('stop')
+                if self._watched_ready:
+                    self.refresh_after_stop()
             self.stopped = True
             return
         self.trakt_scrobbling('stop')
@@ -327,12 +360,8 @@ class PlayerScrobbler():
     def update_stats(self):
         from tmdbhelper.lib.script.method.trakt import get_stats
         from tmdbhelper.lib.addon.consts import LASTACTIVITIES_DATA
-        from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
-        from xbmc import executebuiltin
         get_property(LASTACTIVITIES_DATA, clear_property=True)
-        get_stats()
-        executebuiltin('Container.Refresh')
-        reload_widgets()
+        get_stats()  # the list and widget reload follows once every service has posted (PlayerMonitor.scrobbler_stop)
 
     @is_scrobbling
     def set_kodi_watched(self):
@@ -390,6 +419,10 @@ class MDbListScrobbler(PlayerScrobbler):
     """
 
     service_name = 'MDBList'
+    _refreshes_on_report = True  # _mark_watched reloads the lists itself
+
+    def _refresh_after_stop(self):
+        self._reload_lists()  # MDBList's lists read the server live and the resume row was written locally by the pause post
 
     def __init__(self, mdblist_api, total_time, playerstring=None):
         # Mirrors PlayerScrobbler.__init__ but stores mdblist_api instead of trakt_api.
@@ -469,6 +502,7 @@ class MDbListScrobbler(PlayerScrobbler):
         Also calls /scrobble/clear with the stored paused_id to remove the entry
         from the server's /sync/playback — otherwise the item stays in In-Progress.
         """
+        paused_id = None
         try:
             db_type = self.tmdb_type
             tmdb_id = int(self.tmdb_id)
@@ -484,14 +518,27 @@ class MDbListScrobbler(PlayerScrobbler):
             cache.execute_sql(
                 'UPDATE simplecache SET paused_progress=0, paused_at=NULL, paused_id=NULL WHERE id=?',
                 (item_id,))
-            # Clear server-side entry so item leaves /sync/playback (In-Progress list)
-            if paused_id:
-                url = self.mdblist_api.get_request_url('scrobble', 'clear')
-                self.mdblist_api.get_api_request(
-                    url, postdata={'id': paused_id}, method='json',
-                    headers=self.mdblist_api.auth_headers)
         except Exception:
             pass
+        # Clear the server-side entries so the item leaves /sync/playback (In-Progress list); runs even if the local clear failed
+        try:
+            self._clear_server_progress(paused_id)
+        except Exception as exc:
+            kodi_log(f'Scrobble MDBList clear {self._item_label}: failed - {type(exc).__name__}: {exc}', 1)
+
+    def _clear_server_progress(self, paused_id=None):
+        """ MDBList keeps an item's /sync/playback entry when the item is marked watched, and its pause reply carries no id.
+        The local paused_id only arrives with a playback sync, so an entry saved by a pause in this session has none: the entries
+        are looked up live by TMDb ids (as Reset resume position does) and cleared together with the stored id """
+        from tmdbhelper.lib.script.sync.mdblist_sync import ItemMDbListClearProgress
+        found = ItemMDbListClearProgress(self.tmdb_type, self.tmdb_id, self.season or None, self.episode or None).get_playback_ids()
+        ids = list(dict.fromkeys([*(found or []), *([paused_id] if paused_id else [])]))
+        url = self.mdblist_api.get_request_url('scrobble', 'clear')
+        cleared = sum(
+            self.mdblist_api.get_api_request(url, postdata={'id': i}, method='json', headers=self.mdblist_api.auth_headers) is not None
+            for i in ids)
+        kodi_log(f'Scrobble MDBList clear {self._item_label}: {cleared} of {len(ids)} resume entries cleared'
+                 + ('' if found is not None else ' (the server list could not be read)'), 1)
 
     def _post_pause(self):
         if not get_setting('service_mdblist'):
@@ -562,6 +609,8 @@ class MDbListScrobbler(PlayerScrobbler):
             self._report_watched(self._mark_watched)
         else:
             self._post_pause()
+            if self.external and self._resume_ready:
+                self.refresh_after_stop()
         self.stopped = True
 
 
@@ -582,6 +631,10 @@ class SimklScrobbler(PlayerScrobbler):
     BASE_URL = 'https://api.simkl.com'
 
     service_name = 'Simkl'
+    _refreshes_on_report = True  # _mark_watched reloads the lists itself
+
+    def _refresh_after_stop(self):
+        self._reload_lists()  # Simkl's lists read the server live and the resume row was written locally by the pause post
 
     def __init__(self, simkl_api, total_time, playerstring=None):
         if playerstring is not None:
@@ -753,6 +806,8 @@ class SimklScrobbler(PlayerScrobbler):
             self._report_watched(self._mark_watched)
         else:
             self._post_pause()
+            if self.external and self._resume_ready:
+                self.refresh_after_stop()
         self.stopped = True
 
 
@@ -1029,11 +1084,19 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
     def scrobbler_stop(self):
         if not self.scrobbler:
             return
+        scrobblers = [s for s in (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler) if s]
+        was_stopped = [s.stopped for s in scrobblers]
         self.scrobbler.stop(self.tmdb_type, self.tmdb_id)
         if self.mdb_scrobbler:
             self.mdb_scrobbler.stop(self.tmdb_type, self.tmdb_id)
         if self.simkl_scrobbler:
             self.simkl_scrobbler.stop(self.tmdb_type, self.tmdb_id)
+        # One reload after all three posts, not one per service: a reload that runs before the last post renders the old data.
+        # External playback reloads from its own scrobblers (they post later, in a background thread).
+        if any(s.external for s in scrobblers) or not any(s.stopped and not before for s, before in zip(scrobblers, was_stopped)):
+            return  # an inert scrobbler (no identity for its service) is not external, so every scrobbler is asked
+        if any(s._resume_ready or s._watched_ready for s in scrobblers):  # nothing was posted to any service: nothing changed to show
+            self.scrobbler.refresh_after_stop()
 
     def update_time(self):
         if not self.scrobbler:

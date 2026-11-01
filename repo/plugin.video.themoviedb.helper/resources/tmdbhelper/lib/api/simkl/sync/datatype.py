@@ -240,6 +240,39 @@ class SimklSyncWatched(SimklDataType):
         for it in ('movie', 'show', 'season',):
             self.cache.del_column_values(keys=keys, item_type=it)
 
+    def sync_data(self, **kwargs):
+        from datetime import datetime, timezone
+        started = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        result = super().sync_data(**kwargs)
+        if isinstance(result, tuple):
+            self.clear_unconfirmed_episode_marks(result[1], started)
+        return result
+
+    def clear_unconfirmed_episode_marks(self, data, started):
+        """Drop the local watched mark of every episode of a show that Simkl now reports with no watched episodes.
+
+        Episode rows are written locally only (a scrobble or the Set as watched action) because Simkl numbers episodes
+        the TVDB way, so the sync above never touches them and an episode unwatched on simkl.com kept its mark for ever.
+        What can be checked without that numbering is the show as a whole: when Simkl lists no watched episode for it
+        (not in the library, or a count of 0) none of its episodes can be watched. A show with some watched episodes is
+        left alone - which of its episodes changed cannot be told. A mark newer than the start of this sync is kept: the
+        scrobbler may have written it after the library was read. Anime is counted: it is in `data` as a show row. """
+        from tmdbhelper.lib.addon.logger import kodi_log
+        try:
+            index = self.keys.index('watched_episodes')
+            confirmed = {int(item_id[3:]) for item_id, row in data.items()
+                         if item_id.startswith('tv.') and item_id.count('.') == 1 and row[index]}
+            rows = self.cache.execute_sql(
+                "SELECT id, tmdb_id, last_watched_at FROM simplecache WHERE item_type='episode' AND plays > 0")
+            stale = [(row[0],) for row in (rows.fetchall() if rows else [])
+                     if row[1] not in confirmed and not (row[2] and row[2] >= started)]
+            if not stale:
+                return
+            self.cache.execute_sql('UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE id=?', stale)
+            kodi_log(f'Simkl Sync: cleared {len(stale)} local episode marks of shows with no watched episodes on Simkl', 1)
+        except Exception as error:
+            kodi_log(f'Simkl Sync: episode marks not reconciled - {error}', 1)
+
     @timerlock
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import TimerFunc, kodi_log

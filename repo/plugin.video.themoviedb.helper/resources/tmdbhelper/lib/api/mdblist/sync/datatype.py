@@ -105,7 +105,7 @@ class MDbListDataType:
         # Store the specific key's timestamp so is_expired() detects only changes
         # to THIS activity type. Storing 'all' (the max timestamp) made is_expired
         # always False — 'watched_at' <= 'all' always — so syncs never skipped.
-        value = self.last_activities.json.get(self.last_activities_key) or '2000-01-01T00:00:00.000Z'
+        value = self.last_activities.get_newest(self.last_activities.json, self.last_activities_keys) or '2000-01-01T00:00:00.000Z'
         self.cache.set_activity(self.item_type, self.method, value)
 
     def clear_timerlock(self):
@@ -177,6 +177,10 @@ class MDbListSyncWatched(MDbListDataType):
 
     keys = ('plays', 'last_watched_at', 'watched_episodes',)
     last_activities_key = 'watched_at'
+    # 'watched_at' only moves for movies (live-checked 2026-11-01: episode and season changes left it alone), so a
+    # show, season or episode watched or unwatched anywhere else never made this sync run and the stored rows stayed stale.
+    # Marking one watched moves 'episode_watched_at'; removing one moves only 'journal_at' (live-checked 2026-11-01).
+    last_activities_keys = ('watched_at', 'episode_watched_at', 'season_watched_at', 'journal_at',)
     method = 'watched'
 
     def __init__(self, class_instance_syncdata, item_type):
@@ -199,6 +203,9 @@ class MDbListSyncPaused(MDbListDataType):
 
     keys = ('paused_progress', 'paused_at', 'paused_id',)
     last_activities_key = 'paused_at'
+    # Same as the watched stamps: 'paused_at' is the movie stamp (live-checked 2026-11-01: an episode pause moved only
+    # 'episode_paused_at'), so resume points saved for episodes elsewhere were never re-read.
+    last_activities_keys = ('paused_at', 'episode_paused_at',)
     method = 'playback'
 
     def __init__(self, class_instance_syncdata, item_type):

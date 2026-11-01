@@ -1,3 +1,15 @@
+v7.0.23
+- Fixed: Episodes you watched or unwatched on MDBList (the website, another device or another add-on) could keep showing the old state in TMDb Helper until you next watched a movie. MDBList's "watched" change stamp only moves for movies, so the watched data was never re-read after an episode or season was marked watched or removed. It now also follows MDBList's episode, season and history-journal stamps, so the next list you open picks up the change (within about ten minutes, the time the stamps are kept). The same applied to resume points saved for episodes elsewhere, which are now re-read too.
+- Fixed: An episode you unwatched on simkl.com could stay marked watched in TMDb Helper's own Simkl data, so the Simkl episode menu kept offering Set as unwatched. Simkl's sync does not carry episodes (it numbers them differently), so TMDb Helper now drops its own watched mark for the episodes of a show that Simkl lists with no watched episodes. A show that still has some watched episodes on Simkl is left as it is.
+
+v7.0.22
+- Fixed: After you stopped a play before the end, the In Progress widgets and the open list could keep showing the old state until you opened the In Progress list yourself, and a finished episode's watched mark on Trakt could wait for the same. Every stop now ends with one step after all services have posted: Trakt's watched and resume data are synced, then the open list and the widgets are reloaded. This also covers plays started by other add-ons. The log shows a "Post-stop refresh" line.
+- Fixed: Simkl All In Progress TV Shows now also lists every show Simkl has as watching with a watched episode and one still to watch, not only shows with a part-watched episode, so a show stays there after you finish an episode.
+- Added: Simkl Set as watched and Set as unwatched in episode lists (TMDb season and episode numbers; an anime episode can land on a different episode because Simkl numbers anime the TVDB way).
+
+v7.0.21
+- Fixed: A movie or episode you finished on MDBList could stay in In Progress and come back as "watching" after the next sync. MDBList keeps an item's resume entry when the item is marked watched, and TMDb Helper only cleared that entry when it already knew its ID, which arrives with a later sync. It now looks the entry up on MDBList when the item finishes and clears it, and the log shows a "Scrobble MDBList clear ..." line saying how many entries were cleared.
+
 v7.0.20
 - Fixed: A request that failed (for example a refused scrobble) wrote its full request headers, post data and web address into the log, including your Trakt token, Simkl key and MDBList key. Those values are now masked in the log. This needs the updated jurialmunkey common module, which the repository installs with this update.
 - Fixed: Starting an episode or movie that already had saved progress on MDBList or Simkl could reset that progress to 0%. Kodi reports a pause as playback begins, before any playing time is known, and TMDb Helper sent it as 0%. Nothing is sent now until playing time has been measured (Trakt refused the 0% as well, which also left a failed-request line in the log on every play).

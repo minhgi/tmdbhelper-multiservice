@@ -211,6 +211,23 @@ def _normalize_inprogress(items_list):
     return result
 
 
+def _paused_show_times(items_list):
+    """{tmdb id: newest paused_at} of the shows that have an episode paused part-way in GET /sync/playback."""
+    times = {}
+    for item in items_list or []:
+        if item.get('type') != 'episode':
+            continue
+        try:
+            tmdb_id = int(((item.get('show') or {}).get('ids') or {}).get('tmdb'))
+        except (ValueError, TypeError):
+            continue
+        times[tmdb_id] = max(times.get(tmdb_id, ''), item.get('paused_at') or '')
+    return times
+
+
+_INPROGRESS_SHOW_CAP = 200   # watching shows examined; each costs one cached TMDb call
+
+
 _NEXT_TO_WATCH = re.compile(r'^S(\d+)E(\d+)$')
 
 
@@ -485,8 +502,10 @@ class ListHold(ContainerDirectory):
 
 
 class ListInProgress(ContainerDirectory):
-    """Simkl in-progress — GET /sync/playback.
-    Movies + shows (episode-level deduplicated to show-level). Sorted most-recent-first by paused_at.
+    """Simkl in-progress. Movies: GET /sync/playback (paused part-way). Shows: every show with an episode paused part-way
+    (GET /sync/playback, episode-level deduplicated to show-level) plus every show Simkl lists as 'watching' that has a watched
+    episode and one still to watch (GET /sync/all-items/shows/watching + anime/watching), newest activity first. A show on
+    hold or dropped is not 'watching' and is left out. If the watching list cannot be read only the paused shows are listed.
     anime_only='true' / asian_only='true' keep only anime / Asian titles (Anime / Asian Progress menus); other_only='true' keeps
     everything else (Movies and TV Shows menu).
     """
@@ -501,15 +520,78 @@ class ListInProgress(ContainerDirectory):
                 kept[key] = rows
         return kept
 
+    def _get_started_shows(self, paused_times, scope):
+        """Shows Simkl lists as 'watching' that have a watched episode and one still to watch, as [(last watched, row)].
+        A show whose episode was finished has no /sync/playback entry any more but is still in progress (live-probed
+        2026-11-01: after one episode Simkl answers status 'watching', watched_episodes_count 1, next_to_watch 'S01E02'; with
+        the only episode unwatched again the status stays 'watching' at count 0, so a count of 0 is not in progress).
+        A show with a paused episode is listed already. A regular show also needs its next episode to exist and to have
+        aired in TMDb's numbering (as Next Up does); an anime keeps Simkl's cour numbering and is taken as it is.
+        None when the watching list could not be read."""
+        from tmdbhelper.lib.api.mdblist.lists import _in_scope
+        r = _simkl_get(self.simkl_api, '/sync/all-items/shows/watching')
+        if not isinstance(r, dict):
+            return None
+        anime_raw = []
+        if scope in (None, 'anime'):  # as Next Up: the other scopes would drop the anime rows anyway, so skip the title matching
+            ra = _simkl_get(self.simkl_api, '/sync/all-items/anime/watching')
+            anime_raw = _resolve_anime(self.tmdb_api, ra.get('anime')) if isinstance(ra, dict) else []
+
+        def _started(item):
+            return int(item.get('watched_episodes_count') or 0) > 0 and bool(item.get('next_to_watch'))
+
+        candidates = []   # (last watched, tmdb id, show, next episode as (season, episode) or None for an anime)
+        for item in r.get('shows') or []:
+            show = (item or {}).get('show') or {}
+            match = _NEXT_TO_WATCH.match(str(item.get('next_to_watch') or ''))
+            try:
+                tmdb_id = int((show.get('ids') or {}).get('tmdb'))
+            except (ValueError, TypeError):
+                continue
+            if _started(item) and match:
+                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, (int(match.group(1)), int(match.group(2)))))
+        for item in anime_raw or []:
+            show = (item or {}).get('show') or {}
+            try:
+                tmdb_id = int((show.get('ids') or {}).get('tmdb'))
+            except (ValueError, TypeError):
+                continue
+            if item.get('anime_type') != 'movie' and _started(item):
+                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, None))
+
+        seen = set(paused_times)
+        rows = []
+        for ts, tmdb_id, show, nxt in sorted(candidates, key=lambda c: c[0], reverse=True)[:_INPROGRESS_SHOW_CAP]:
+            if tmdb_id in seen:
+                continue
+            details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {} if (nxt or scope) else {}
+            if nxt and not _exists_in_tmdb(details, *nxt):
+                continue
+            if scope and not _in_scope(details, scope, 'tv'):
+                continue
+            seen.add(tmdb_id)
+            rows.append((ts, {'id': tmdb_id, 'mediatype': 'show', 'title': show.get('title'), 'release_year': show.get('year')}))
+        return rows
+
     def get_items(self, tmdb_type=None, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
         from tmdbhelper.lib.api.mdblist.lists import _get_scope
         raw = _simkl_get(self.simkl_api, '/sync/playback')
         normalized = _normalize_inprogress(raw if isinstance(raw, list) else [])
+        scope = _get_scope(anime_only, asian_only, other_only)
+        if tmdb_type != 'movie':
+            paused_times = _paused_show_times(raw if isinstance(raw, list) else [])
+            started = self._get_started_shows(paused_times, scope)
+            if started is None:
+                kodi_log('Simkl In Progress: the watching list could not be read - listing only the shows with a paused episode', 1)
+            elif started:
+                # a paused show keeps its paused time, a started one its last watched time; newest first
+                ranked = [(paused_times.get(r['id'], ''), r) for r in normalized.get('shows', [])] + started
+                normalized['shows'] = [r for _, r in sorted(ranked, key=lambda x: x[0], reverse=True)]
+                kodi_log(f'Simkl In Progress: {len(ranked) - len(started)} shows with a paused episode, {len(started)} more started shows from the watching list', 1)
         if tmdb_type == 'movie':
             normalized = {k: v for k, v in normalized.items() if k == 'movies'}
         elif tmdb_type == 'tv':
             normalized = {k: v for k, v in normalized.items() if k == 'shows'}
-        scope = _get_scope(anime_only, asian_only, other_only)
         if normalized and scope:
             normalized = self._keep_scope(normalized, scope)
         if not normalized:

@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.20 — Complete Features & Functions Guide
+# TMDb Helper 7.0.23 — Complete Features & Functions Guide
 
-**Version:** 7.0.20 (Enhanced Fork — Personal Build)
+**Version:** 7.0.23 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.20_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.23_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.20. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.23. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -160,7 +160,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2
 - **Movies with the same title and year keep their own library folders** (7.0.11). Adding movies to the Kodi library overwrote a movie with another one that had the same title and year, so only the last of them was kept (for example two different films both called Watermelon (2026)). The second film now gets its own folder with its TMDb ID added to the name, as TV shows already did.
 - **MDBList playback progress is saved** (7.0.12). While a movie or episode played, pausing or stopping it below 75% sent MDBList a progress value with many decimals, which MDBList rejects; the error was dropped without a trace, so the item never reached your MDBList In-Progress or the website. The progress is now rounded to two decimals, for the player and for the Trakt-to-MDBList resume sync, and a refused progress update is written to the Kodi log.
 
-### Playback started by other add-ons (7.0.13–7.0.18) and scrobbling fixes (7.0.20)
+### Playback started by other add-ons (7.0.13–7.0.18) and scrobbling fixes (7.0.20–7.0.23)
 
 - **Scrobble items played by other add-ons** (7.0.13). Optional and off by default: Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
 - **Include Trakt** (7.0.13). A second switch, off by default, shown only when Trakt is enabled and usable only when the first switch is on. It sends these items to Trakt as well. Leave it off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate.
@@ -168,6 +168,10 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2
 - **Elementum episodes are recognised** (7.0.18). Elementum tags an episode with the show's IMDb ID only and no TMDb ID, so before 7.0.18 an episode it played was treated as unidentified and nothing was sent (a movie was fine). TMDb Helper now looks up the show's TMDb ID from that IMDb ID (a cached TMDb lookup by ID, never a title search) and reports the episode like a movie. Tested with a real Elementum play of an episode: the progress reached MDBList and Simkl. A service lists a play as in progress only once it has passed a few percent, so a very short play shows nothing there.
 - **A pause sent as playback starts no longer resets saved progress** (7.0.20). Kodi reports a pause the moment playback begins, before any playing time is known, and TMDb Helper sent it as 0% to MDBList and Simkl, which accepted it and replaced the progress they already held for that episode or movie. Nothing is sent now until playing time has been measured. Tested by replaying an episode that already had 12% saved: MDBList and Simkl kept 12% after the replay was started and stopped near the beginning. Trakt cannot keep a resume point across a new start: it drops the item's resume entry when a play begins, then records the next pause or stop.
 - **The log shows what was sent to each service** (7.0.20). When a movie or episode starts from TMDb Helper's player, one line says what Trakt, MDBList and Simkl will get (or why one is skipped), and every post afterwards adds a line such as "Scrobble MDBList pause tv 33050 S1E2 at 12.0%: HTTP 200". A play that does not show up on a service can be traced from these lines. Tokens and keys are now masked in the lines a failed request writes to the log (jurialmunkey common 0.2.36, installed with this update). Older versions printed them, so delete any Headers: lines from a log made with an older version before posting it.
+- **A movie or episode finished from a resume point leaves MDBList In Progress** (7.0.21). MDBList keeps an item's resume entry when the item is marked watched, and TMDb Helper only cleared that entry when it already knew its ID, which arrives with a later sync. A movie finished from a resume point therefore stayed in In Progress and went back to "watching" on the next sync. The entry is now looked up on MDBList when the item finishes and cleared, and the log says "Scrobble MDBList clear ...: 1 of 1 resume entries cleared". Tested in Kodi: a movie with a saved resume point, played past 75%, was watched on Trakt, MDBList and Simkl with no resume entry left on any of them.
+- **Lists and widgets catch up as soon as you stop** (7.0.22). Stopping a play before the end could leave the In Progress widgets and the open list showing the old state until you opened the In Progress list yourself, and a finished episode's watched tick on Trakt could wait for the same. Trakt ran its refresh before MDBList and Simkl had posted, MDBList and Simkl did not refresh at all below 75%, and a play started by another add-on refreshed nothing. Now one step runs after every service has posted: Trakt's watched and resume data are synced, then the open list and the widgets are reloaded. The log shows "Post-stop refresh ...". Tested in Kodi with an early stop and with a finished movie and episode, and with a real Elementum episode played directly (not through TMDb Helper): an early stop refreshes, MDBList and Simkl mark the episode watched from 75%, Trakt from 80% (between 75% and 80% Trakt keeps it as a pause), and the refresh follows.
+- **Simkl In-Progress shows and episode actions** (7.0.22). All In-Progress TV Shows on Simkl listed only shows with a part-watched episode, and Simkl removes that entry when the episode finishes, so a show dropped off the list while it still had episodes to watch. It now also lists every show Simkl has as watching with a watched episode and one still to watch, newest first. Set as watched and Set as unwatched now appear in Simkl episode lists, using TMDb season and episode numbers (Simkl numbers anime episodes the TVDB way, so an anime episode can land on a different one). Only the option that applies is shown: Set as unwatched when TMDb Helper recorded the episode as watched or the list shows it as played, otherwise Set as watched. With Cross-Service Sync on, the action is mirrored to Trakt and MDBList.
+- **Watched and resume data stay in step with MDBList and Simkl** (7.0.23). Episodes you watched or unwatched on MDBList somewhere else (the website, another device or another add-on) kept their old state in TMDb Helper until you next watched a movie, because the change stamp TMDb Helper checked only moves for movies. It now also follows MDBList's episode, season and history stamps, so the next list you open picks the change up (within about ten minutes, the time the stamps are kept); resume points saved for episodes elsewhere are re-read the same way. Removing a resume point on MDBList moves no stamp and is not seen until the next pause or stop. On Simkl, an episode you unwatched on simkl.com could stay marked watched in TMDb Helper's own data, so the Simkl episode menu kept offering Set as unwatched; after a sync TMDb Helper now drops its own watched mark for the episodes of a show that Simkl lists with no watched episodes. A show that still has some watched episodes on Simkl is left as it is, so unwatching a single episode of such a show is not picked up. Tested in Kodi with an episode marked and unmarked on MDBList only, an episode resume point created on MDBList only, and a stale Simkl episode mark.
 
 ### Next Up and Trakt library fixes (7.0.16)
 

@@ -13,7 +13,9 @@ class ItemSimklSyncBase:
     Writes use TMDb IDs — confirmed via live probe that Simkl resolves them
     for both /sync/history and /sync/add-to-list endpoints.
     Bearer token required for all user-data writes.
-    Episode-level writes deferred to Phase D (TVDB vs TMDb numbering).
+    Episode-level writes (Watched / Unwatched, Reset resume position) use TMDb season / episode numbers like the scrobbler;
+    Simkl numbers anime episodes the TVDB way, so an anime episode can land on a different episode. Status items, ratings
+    (an episode rating comes back not_found) and the other season / episode actions stay off.
     """
 
     allow_seasons = False
@@ -65,7 +67,7 @@ class ItemSimklSyncBase:
             return True
         if self.episode is None:
             return self.allow_seasons
-        return False  # Episode-level deferred to Phase D
+        return self.allow_episodes
 
     # --- Payload builder ---
 
@@ -93,6 +95,10 @@ class ItemSimklSyncBase:
             if to:
                 item['to'] = to
             return {'shows': [item]}
+
+        if self.simkl_type == 'episode':
+            # TMDb season / episode numbers, as the scrobbler sends them (live-probed 2026-11-01: history add and remove accept it)
+            return {'shows': [{'ids': ids, 'seasons': [{'number': int(self.season), 'episodes': [{'number': int(self.episode)}]}]}]}
 
         return {}
 
@@ -122,6 +128,20 @@ class ItemSimklSyncBase:
             return values[0] if values else None
         except Exception:
             return None
+
+    def episode_is_watched(self):
+        """Whether an episode counts as watched, for the Set as watched / unwatched menu - local data only, no API call.
+        Simkl's sync stores no episode rows, so the answer is the local mark this add-on wrote (a play it scrobbled or an
+        action it ran) or else what the focused list item shows (Kodi's play count for the same season and episode)."""
+        if self.get_sync_value('plays'):
+            return True
+        try:
+            from tmdbhelper.lib.addon.plugin import get_infolabel
+            if (get_infolabel('ListItem.Season'), get_infolabel('ListItem.Episode')) != (f'{self.season}', f'{self.episode}'):
+                return False
+            return int(get_infolabel('ListItem.PlayCount') or 0) > 0
+        except Exception:
+            return False
 
     def update_watched_in_db(self, value, force=False):
         """Write watched state directly via raw UPDATE.
@@ -414,12 +434,15 @@ class ItemSimklWatched(ItemSimklSyncBase):
     Season: POST /sync/history     {"shows":[{"seasons":[{"number":S}],"ids":{"tmdb":N}}]}
     """
     allow_seasons = True
+    allow_episodes = True
     preconfigured = True
 
     def get_self(self):
         if not super().get_self():
             return None
         if self.simkl_type == 'movie' and self.get_sync_value('plays'):
+            return None
+        if self.simkl_type == 'episode' and self.episode_is_watched():
             return None
         if self.simkl_type == 'show' and self.get_sync_value('last_watched_at'):
             return None
@@ -436,7 +459,7 @@ class ItemSimklWatched(ItemSimklSyncBase):
             return self.call_api('sync', 'history', payload=payload)
         if self.simkl_type == 'show':
             return self.call_api('sync', 'add-to-list', payload=self.build_payload(to='completed'))
-        if self.simkl_type == 'season':
+        if self.simkl_type in ('season', 'episode'):
             return self.call_api('sync', 'history', payload=self.build_payload())
         return None
 
@@ -458,14 +481,19 @@ class ItemSimklUnwatched(ItemSimklSyncBase):
     """Remove movie / show / season from Simkl watched history.
 
     POST /sync/history/remove for all types.
+    An episode is offered only when it counts as watched (episode_is_watched); Simkl's sync stores no episode rows (TVDB
+    numbering), so an episode watched on Simkl by another app and not shown as played in the list is not offered.
     """
     allow_seasons = True
+    allow_episodes = True
     preconfigured = True
 
     def get_self(self):
         if not super().get_self():
             return None
         if self.simkl_type == 'movie' and not self.get_sync_value('plays'):
+            return None
+        if self.simkl_type == 'episode' and not self.episode_is_watched():
             return None
         if self.simkl_type == 'show' and not self.get_sync_value('last_watched_at'):
             return None

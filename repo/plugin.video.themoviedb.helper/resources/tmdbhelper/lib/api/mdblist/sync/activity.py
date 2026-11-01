@@ -83,8 +83,13 @@ class MDbListLastActivities:
         if not last_activity:
             return True
         # MDBList last_activities is flat: {'watched_at': '...', 'watchlisted_at': '...', ...}
-        # keys is a 1-tuple like ('watched_at',) — look up directly
-        value = last_activity.get((keys or ('watched_at',))[0]) if keys else last_activity.get('watched_at')
+        # keys is a tuple of the stamps this data depends on; the newest one that exists decides.
+        # An activity that never happened is None, so it is skipped rather than treated as a change.
+        value = self.get_newest(last_activity, keys or ('watched_at',))
         if not value or value > timestamp:
             return True
         return False
+
+    @staticmethod
+    def get_newest(last_activity, keys):
+        return max((last_activity.get(k) for k in keys if last_activity.get(k)), default=None)
