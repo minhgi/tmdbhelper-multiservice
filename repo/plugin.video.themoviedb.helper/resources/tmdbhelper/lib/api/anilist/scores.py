@@ -4,8 +4,10 @@ MDBList already sends the MyAnimeList score and vote count (myanimelist_rating /
   myanimelist_rank, myanimelist_popularity   from Tenrai (api.tenrai.org, the Jikan-compatible MyAnimeList mirror Seren uses)
   anilist_rating (0-10), anilist_rank (all-time "highest rated"), anilist_popularity (all-time "most popular")   from AniList
 
-Per item: the TMDb id is turned into a MyAnimeList and an AniList id with the ARM service (GET /api/v2/themoviedb?id=), which
-answers with one record per season / cour / movie, so a choice has to be made (pick()): a movie takes its MOVIE record, a show page
+Per item: the TMDb id is turned into a MyAnimeList and an AniList id from the offline Fribb index (api/anilist/fribb.py, no
+network call, the file ARM is built from) and only when that index cannot answer (none yet, an older one, or one older than two
+weeks that does not list the id) with the ARM service (GET /api/v2/themoviedb?id=). Both give one record per season / cour /
+movie, so a choice has to be made (pick()): a movie takes its MOVIE record, a show page
 takes the first season's entry (the lowest MyAnimeList id of the lowest season; of all records when ARM has no season), a season or episode page takes the entry filed under
 that season, else the first season's. Only Japanese and Chinese language titles are looked up (callers gate on original_language).
 
@@ -204,11 +206,23 @@ def _fetch(source, func, key, arg, table, new, now):
     return value
 
 
+def _offline(tmdb_id):
+    """The records of the offline Fribb index for a TMDb id ([] = not anime), or None when the index cannot answer. Never raises."""
+    try:
+        from tmdbhelper.lib.api.anilist.fribb import score_records
+        return score_records(tmdb_id)
+    except Exception as exc:
+        kodi_log(f'Anime scores: offline index failed: {type(exc).__name__}', 1)
+        return None
+
+
 def _properties(tmdb_type, tmdb_id, season):
     now = time.time()
-    table = _read()
     new = {}
-    records = _fetch('arm', _arm, f'arm:{tmdb_id}', tmdb_id, table, new, now)
+    records = _offline(tmdb_id)
+    table = _read()
+    if records is None:
+        records = _fetch('arm', _arm, f'arm:{tmdb_id}', tmdb_id, table, new, now)
     chosen = pick(records, tmdb_type, season) if records else None
     results = {}
     if chosen:
@@ -235,15 +249,17 @@ def _properties(tmdb_type, tmdb_id, season):
 
 
 def source_ids(tmdb_type, tmdb_id, season=None):
-    """(MyAnimeList id, AniList id) of the record a movie / show / season page is about (ARM, saved like the scores), or None."""
+    """(MyAnimeList id, AniList id) of the record a movie / show / season page is about (the offline index, else ARM saved like the scores), or None."""
     if tmdb_type not in ('movie', 'tv') or not _int(tmdb_id):
         return None
-    now = time.time()
-    new = {}
-    try:
-        records = _fetch('arm', _arm, f'arm:{_int(tmdb_id)}', _int(tmdb_id), _read(), new, now)
-    finally:
-        _save(new, now)
+    records = _offline(_int(tmdb_id))
+    if records is None:
+        now = time.time()
+        new = {}
+        try:
+            records = _fetch('arm', _arm, f'arm:{_int(tmdb_id)}', _int(tmdb_id), _read(), new, now)
+        finally:
+            _save(new, now)
     return pick(records, tmdb_type, season) if records else None
 
 

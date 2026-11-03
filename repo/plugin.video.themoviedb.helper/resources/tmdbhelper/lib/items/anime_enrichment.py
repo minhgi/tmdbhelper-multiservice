@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """Anime episode metadata enrichment from Seren's anime cache.
 
-Phase 6 of the Seren Anime Features Plan. Reads Seren's animeCache.db directly
-via sqlite3 to overlay anime-specific episode titles, plots, and thumbnails onto
-TMDb Helper's episode ListItems. Zero API calls — all data comes from Seren's
-pre-populated SQLite cache.
+Phase 6 of the Seren Anime Features Plan. Overlays anime-specific episode titles,
+plots, and thumbnails onto TMDb Helper's episode ListItems. Shows the Fribb index
+knows are answered by api/anilist/episodes.py (AniZip, cached locally, no need to
+browse them in Seren first). Everything else falls back to reading Seren's
+animeCache.db directly via sqlite3, with zero API calls:
 
-Flow:
+Flow of the Seren fallback:
   1. Given a TMDb show ID, query anime_id_map for anime IDs
   2. Build the episode cache key (mal_{id}, al_{id}, etc.)
   3. Query anime_episodes for the specific season/episode
@@ -196,13 +197,14 @@ def _resolve_show_id(conn, tmdb_id, now):
     return show_id
 
 
-def get_anime_episode_overlay(tmdb_id, season, episode):
-    """Look up anime episode metadata from Seren's cache.
+def get_anime_episode_overlay(tmdb_id, season, episode, tmdb_airdate=None):
+    """Look up anime episode metadata: the Fribb index + AniZip first, Seren's cache for shows the index does not know.
 
     Args:
         tmdb_id: TMDb TV show ID (int or str)
         season: Season number (int)
         episode: Episode number (int)
+        tmdb_airdate: TMDb's own air date of the episode ('YYYY-MM-DD'), used to check the index mapping
 
     Returns:
         dict with keys 'title', 'plot', 'thumb' if found, else None.
@@ -210,6 +212,17 @@ def get_anime_episode_overlay(tmdb_id, season, episode):
     """
     if not tmdb_id or season is None or episode is None:
         return None
+
+    # The index maps the TMDb season/episode to the right AniList cour and needs nothing from Seren. When it knows the show but
+    # rejects the episode (no such cour episode, or the air dates disagree), Seren's cache is not asked: it would answer for the
+    # same ids with its per-cour numbering, which is the mismatch the index mapping avoids.
+    try:
+        from tmdbhelper.lib.api.anilist.episodes import episode_overlay
+        overlay, indexed = episode_overlay(tmdb_id, season, episode, tmdb_airdate)
+        if indexed:
+            return overlay
+    except Exception:
+        pass
 
     conn = _get_connection()
     if not conn:
@@ -317,3 +330,31 @@ def is_anime_enrichment_enabled():
         return get_setting('anime_enrichment')
     except Exception:
         return False
+
+
+def apply_anime_overlay(li):
+    """Overlay anime-specific episode data onto an episode ListItem (called by ItemBuilder.get_listitem). Never raises."""
+    try:
+        if not is_anime_enrichment_enabled():
+            return
+        tmdb_id = li.unique_ids.get('tvshow.tmdb') or li.unique_ids.get('tmdb')
+        season = li.infolabels.get('season')
+        episode = li.infolabels.get('episode')
+        if not tmdb_id or season is None or episode is None:
+            return
+        overlay = get_anime_episode_overlay(tmdb_id, season, episode, li.infolabels.get('premiered'))
+        if not overlay:
+            return
+        if 'title' in overlay:
+            li.infolabels['title'] = overlay['title']
+            li.label = overlay['title']
+        if 'plot' in overlay:
+            li.infolabels['plot'] = overlay['plot']
+        if 'thumb' in overlay:
+            li.art['thumb'] = overlay['thumb']
+        if 'airdate' in overlay and not li.infolabels.get('premiered'):
+            li.infolabels['premiered'] = overlay['airdate']
+        if overlay.get('duration'):
+            li.infolabels['duration'] = overlay['duration'] * 60  # minutes -> seconds
+    except Exception:
+        return

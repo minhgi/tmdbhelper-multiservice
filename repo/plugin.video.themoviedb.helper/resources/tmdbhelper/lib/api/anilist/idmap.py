@@ -1,14 +1,17 @@
 """AniList id -> TMDb id table for the Anime lists, kept on disk.
 
-Order for each AniList entry: the saved table, then the ARM service (arm.haglund.dev, one batch request for the list),
-then the caller's own title search. An ARM id is only used after TMDb itself confirms it: the id has to exist on TMDb,
-be Japanese-language, and (when it only exists as the other kind, TV vs movie) have a matching year. Anything ARM or
-the check does not settle falls back to the title search, so with ARM down the lists behave as before.
+Order for each AniList entry: the saved table, then the offline Fribb index (api/anilist/fribb.py, no network), then the
+ARM service (arm.haglund.dev, one batch request) for the entries the index has no TMDb id for, then the caller's own title
+search. An id from Fribb or ARM is only used after TMDb itself confirms it: the id has to exist on TMDb, be
+Japanese-language, and (when it is not the kind AniList's format implies, TV vs movie) have a matching year. Fribb names the
+kind of each id itself (its `tv` / `movie` key), so only that kind is tried; ARM's `media` field is no type check, so for
+ARM ids both kinds are tried. Anything the sources or the check do not settle falls back to the title search, so with no
+index and ARM down the lists behave as before.
 
-Entries are saved by AniList id: ARM answers 90 days, title-search answers 14 days (so a later ARM answer can replace
-them). "Not found" is never saved (a failed TMDb request looks the same, and would hide a show for days). The TMDb
-season ARM reports is saved with the entry (not shown anywhere yet). Several lists can build at once (separate
-plugin processes), so a save merges into whatever is on disk instead of overwriting it.
+Entries are saved by AniList id: Fribb and ARM answers 90 days, title-search answers 14 days (so a later Fribb/ARM answer
+can replace them). "Not found" is never saved (a failed TMDb request looks the same, and would hide a show for days). The
+TMDb season (and, from Fribb, the episode offset) is saved with the entry (not shown anywhere yet). Several lists can
+build at once (separate plugin processes), so a save merges into whatever is on disk instead of overwriting it.
 """
 import json
 import os
@@ -21,7 +24,7 @@ ARM_URL = 'https://arm.haglund.dev/api/v2/ids'
 ARM_BATCH = 100                  # the service accepts at most 100 ids per request
 ARM_TIMEOUT = 10
 CACHE_FILE = 'special://profile/addon_data/plugin.video.themoviedb.helper/anime_idmap_cache.json'
-TTL = {'arm': 90 * 24 * 3600, 'title': 14 * 24 * 3600}
+TTL = {'fribb': 90 * 24 * 3600, 'arm': 90 * 24 * 3600, 'title': 14 * 24 * 3600}
 YEAR_TOLERANCE = 1               # AniList start year vs TMDb release year, when the id only exists as the other kind
 
 
@@ -141,10 +144,32 @@ def _confirm(tmdb_api, media, record):
     return None
 
 
+def _confirm_fribb(tmdb_api, media, record):
+    """((mediatype, tmdb id), season, offset) when TMDb confirms a Fribb id for this AniList entry, else None.
+
+    Only the kind Fribb names for the id is tried (never the other number space). A kind that is not the one AniList's
+    format implies (a film filed under a show id, or an OVA under a movie id) needs the year to agree as well."""
+    kind = record['kind']
+    movie_format = media.get('format') == 'MOVIE'
+    for tmdb_id in record['ids']:
+        details = tmdb_api.get_details_request(kind, tmdb_id)
+        if not details or _first_int(details.get('id')) != tmdb_id or details.get('original_language') != 'ja':
+            continue
+        if (kind == 'movie') != movie_format:
+            try:
+                if abs(int(_year(details)) - int((media.get('startDate') or {}).get('year'))) > YEAR_TOLERANCE:
+                    continue
+            except (ValueError, TypeError):
+                continue
+        tv = kind == 'tv'
+        return ('show' if tv else 'movie', tmdb_id), (record.get('season') if tv else None), (record.get('offset') if tv else None)
+    return None
+
+
 def resolve(tmdb_api, media_list, title_search):
     """TMDb match for each AniList entry of media_list, same order: (mediatype, tmdb id) or None.
 
-    title_search(media) is the caller's own lookup, used for what the table and ARM do not settle."""
+    title_search(media) is the caller's own lookup, used for what the table, the Fribb index and ARM do not settle."""
     from tmdbhelper.lib.addon.thread import ParallelThread
     now = time.time()
     table = _read()
@@ -160,12 +185,27 @@ def resolve(tmdb_api, media_list, title_search):
         kodi_log(f'Anime ID map: {len(media_list)} entries, all from the saved table', 1)
         return results
 
-    arm, reachable = _arm_lookup(list(dict.fromkeys(media_list[i].get('id') for i in todo)))
-    sources, fresh = {}, {}
+    try:
+        from tmdbhelper.lib.api.anilist.fribb import records
+        known = records([media_list[i].get('id') for i in todo])   # offline index; empty until the service has built it
+    except Exception as exc:
+        kodi_log(f'Anime ID map: Fribb index unusable: {type(exc).__name__}', 1)
+        known = {}
+    sources, fresh, seasons, offsets = {}, {}, {}, {}
+    with_fribb = [i for i in todo if media_list[i].get('id') in known]
+    with ParallelThread(with_fribb, lambda i: _confirm_fribb(tmdb_api, media_list[i], known[media_list[i].get('id')])) as pt:
+        confirmed = pt.queue
+    for index, outcome in zip(with_fribb, confirmed):
+        if outcome:
+            results[index], seasons[index], offsets[index] = outcome
+            sources[index] = 'fribb'
+
+    # ARM is built from the same file (refreshed daily, the index weekly): ask it only about what the index has no TMDb id for
+    ask_arm = list(dict.fromkeys(media_list[i].get('id') for i in todo if media_list[i].get('id') not in known))
+    arm, reachable = _arm_lookup(ask_arm) if ask_arm else ({}, True)
     with_arm = [i for i in todo if media_list[i].get('id') in arm]
     with ParallelThread(with_arm, lambda i: _confirm(tmdb_api, media_list[i], arm[media_list[i].get('id')])) as pt:
         confirmed = pt.queue
-    seasons = {}
     for index, outcome in zip(with_arm, confirmed):
         if outcome:
             results[index], seasons[index] = outcome
@@ -184,11 +224,14 @@ def resolve(tmdb_api, media_list, title_search):
             entry = {'k': sources[index], 't': results[index][0], 'id': results[index][1], 'ts': now}
             if seasons.get(index) is not None:
                 entry['s'] = seasons[index]
+            if offsets.get(index) is not None:
+                entry['o'] = offsets[index]
             fresh[str(media_list[index].get('id'))] = entry
     if fresh:
         _save(fresh, now)
     kodi_log(
         f'Anime ID map: {len(media_list)} entries: {len(media_list) - len(todo)} saved, '
-        f'{sum(1 for s in sources.values() if s == "arm")} ARM, {sum(1 for s in sources.values() if s == "title")} title search, '
+        f'{sum(1 for s in sources.values() if s == "fribb")} Fribb, {sum(1 for s in sources.values() if s == "arm")} ARM, '
+        f'{sum(1 for s in sources.values() if s == "title")} title search, '
         f'{sum(1 for i in todo if results[i] is None)} not found{"" if reachable else " (ARM unreachable)"}', 1)
     return results

@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.23 — Complete Features & Functions Guide
+# TMDb Helper 7.0.28 — Complete Features & Functions Guide
 
-**Version:** 7.0.23 (Enhanced Fork — Personal Build)
+**Version:** 7.0.28 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.23_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.28_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.23. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.28. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -186,6 +186,13 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.2
 
 ---
 
+### Anime from the offline Fribb list (7.0.24–7.0.28)
+
+- **Anime lists find the TMDb page in an offline copy first** (7.0.24). The Anime lists (and the anime part of Simkl Next Up) look up the TMDb page for each AniList title in an offline copy of the Fribb anime-lists file first, and only ask the ARM web service about titles that copy does not know. The service downloads the copy once a week (about 7.5 MB), and only after TMDb Helper has looked up an anime title once; until it exists, and whenever it cannot be read, the lists work as before. Every id is still checked against TMDb before it is used. See section 5.
+- **Anime episode enrichment works for every anime the Fribb list knows** (7.0.25, 7.0.26). With Anime episode enrichment on (Settings → Other), the episode titles, plots, pictures and run times of an anime come from AniZip for every anime the Fribb list knows, not only for shows you have already browsed in Seren. The right season of the series is found from the Fribb list, and a result is only used when the episode's air date agrees with TMDb's (within three days), so a wrong match shows TMDb's own data instead. English titles replace TMDb's only when AniZip has a real one, never "Episode 5". The data is fetched once per series part and kept for 30 days (one day while it is airing). Shows the list does not know still use Seren's cache as before. In earlier versions this setting was not connected to anything, so it had no effect; it is now. Turn it off to see TMDb's own data. An anime part that the Fribb list lists without its TMDb season is not matched to AniZip episodes, because for series like these the episode order often differs between AniZip and TMDb (Medabots showed AniZip's titles on the wrong episodes while the air dates still agreed) and a wrong title is worse than TMDb's own. If AniZip answers in an unexpected format, that is now handled like any other failure (the answer is skipped for ten minutes, and fetching pauses after two failures in a row) instead of asking again for every episode of the list.
+- **Anime ranks and scores use the offline copy** (7.0.27). The MyAnimeList rank and popularity and the AniList rating, rank and popularity (section 5 and section 10) find the MyAnimeList and AniList page of a movie or show in the offline Fribb copy instead of asking the ARM web service for every title. ARM is only used when the copy cannot answer: it does not exist yet, it is older than two weeks and does not list the title, or it cannot be read. Titles that are not anime need no request at all while the copy is fresh. The copy is rebuilt once after this update (the service does it within a few minutes, once you have opened an anime list), then weekly as before.
+- **Simkl Next Up asks TMDb for fewer seasons** (7.0.28). In Simkl Next Up, an anime cour of a long TMDb series (many seasons under one TMDb id) needs one TMDb season instead of every season to find its episode, when the offline Fribb list names that season and the episode it points to is the one airing nearest the cour's AniList start date. Anything else is looked up as before, so the episodes shown do not change. For a series with 25 seasons that is 2 TMDb requests instead of 26 on the first open after the cache expires; it makes no difference for shows with one season. Next Up also logs, per anime row, which way it found the episode and how many TMDb requests it needed (debug log).
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -293,7 +300,7 @@ Both hubs have the same shape: **Movies**, **TV Shows** and **Search Movies & TV
 
 *Anime* means Japanese-language animation. The lists come from AniList and are matched to TMDb, so every row opens a normal TMDb Helper item.
 
-**How the matching works:** each AniList entry is looked up in a table saved on your device (ARM matches are kept up to 90 days, title-search matches 14 days), then in the ARM id service, whose answer is checked against TMDb (the id must exist there and be a Japanese-language title) before it is used, then by title search on TMDb (English, romaji, then the Japanese title). Entries nothing finds, mostly shorts and ONAs that TMDb does not list, are left out and tried again the next time. Several AniList entries of one series (its seasons or cours) show as one row, the series page. In a sample of 193 current-season entries about 94 % were matched.
+**How the matching works:** each AniList entry is looked up in a table saved on your device (ARM matches are kept up to 90 days, title-search matches 14 days), then in the offline Fribb anime-lists copy (7.0.24; kept up to date by the service, see section 2), then in the ARM id service for titles that copy does not know, whose answer is checked against TMDb (the id must exist there and be a Japanese-language title) before it is used, then by title search on TMDb (English, romaji, then the Japanese title). Entries nothing finds, mostly shorts and ONAs that TMDb does not list, are left out and tried again the next time. Several AniList entries of one series (its seasons or cours) show as one row, the series page. In a sample of 193 current-season entries about 94 % were matched.
 
 **Anime TV Shows menu:** Airing Last Season · Airing This Season · Airing Next Season · **Calendar** · Trending · Popular · Top 100 · Genres & Tags · Search
 
@@ -638,7 +645,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Context menu** | Show or hide each entry from section 9 (all on) |
 | **Artwork** | Genre icons folder (TMDb) · Genre icon folder (Trakt) · Provider icons folder (TMDb) |
 | **Notifications** | Authorisation and sync notifications on startup (on) · Trakt / MDBList / Simkl sync progress notifications (on) · Connection error notifications (on) |
-| **Anime** | Anime episode enrichment (Seren) (on) — overlays anime episode titles, plots and thumbnails from Seren's anime cache; needs Seren with anime features |
+| **Anime** | Anime episode enrichment (on) — overlays anime-specific episode titles, plots and thumbnails from AniZip (any anime in the Fribb list) or, for other shows, from Seren's anime cache |
 
 ### Expert
 
@@ -663,7 +670,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Static hub widget paths** | Hub slot refresh needs a `reload=` token in the path; fully static paths update on the next navigation. |
 | **Anime / Asian scoping** | Decided client-side from TMDb language and genres; an unusually tagged title can land in the wrong menu. |
 | **Anime calendars** | The TV calendar reads Simkl's anime file, so it lists only anime Simkl has a TMDb id for and TMDb files as Japanese or Chinese animation; about a third of the future episodes show as E3 because TMDb has not listed them yet; days outside the file use Trakt's anime tag. The movie calendar is Japan only and ignores the region setting. |
-| **Anime Recommendations** | Offered only for Japanese-language animation; a title the ARM id service does not know gives an empty list. AniList allows about 30 requests a minute, shared with the Anime lists. |
+| **Anime Recommendations** | Offered only for Japanese-language animation; a title that neither the offline Fribb copy nor the ARM id service knows gives an empty list. AniList allows about 30 requests a minute, shared with the Anime lists. |
 | **Players need their add-ons** | A listed player does nothing if its add-on is not installed. |
 | **Arctic Fuse 3** | The watch-history stats route (`trakt_history_stats`) is an empty placeholder, so skin widgets that read it stay blank. The Cast row fix was tested on the 6.0.216 build and the stats route on 7.0.0; 7.0.2 itself was not run under the skin, and the TV-episode Cast case is untested. |
 | **MDBList Next Up and marks** | A show whose watched episodes MDBList lists one by one, with none left, reads as finished and is not in Next Up. Whole-show marks are ignored and whole-season marks count only for seasons with no individually watched episode (section 7). |

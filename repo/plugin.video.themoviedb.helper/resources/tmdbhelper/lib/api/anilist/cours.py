@@ -3,7 +3,8 @@
 Simkl numbers every anime cour from episode 1 ("E12" = the 12th episode of that cour), while TMDb files a franchise under
 one id with its own seasons, sometimes all in season 1. The AniList start date of the cour is the date of its first
 episode, so the TMDb episode airing within START_WINDOW days of it is that cour's episode 1, and Simkl's E<n> is the
-episode n-1 places after it in TMDb's order.
+episode n-1 places after it in TMDb's order. When the offline Fribb index names the TMDb season of the cour and the episodes
+before it (anchor_in_season), only that one season has to be fetched, and only an answer that agrees with the air dates is used.
 
 The answer is only used when the episode it lands on has aired and airs about where a weekly show would (start date +
 (n-1) weeks, with room for breaks that grows with n); batch releases and irregular shows therefore fail and the row is
@@ -80,6 +81,23 @@ def tmdb_episodes(tmdb_api, details):
     for number, season in zip(seasons, data):
         episodes += [(number, e.get('episode_number'), _date(e.get('air_date'))) for e in season.get('episodes') or []]
     return episodes
+
+
+def anchor_in_season(tmdb_api, tmdb_id, season, offset, start, n, today=None):
+    """(season, episode) of Simkl's cour-episode n using ONE TMDb season, the one the Fribb index lists for the cour with the
+    number of TMDb episodes before the cour (offset), or None.
+
+    The index offset is wrong about one time in seven, and the weekly tolerance of anchor_episode would let an off-by-one
+    offset through, so the offset only says where to look: the answer counts only when anchor_episode, run on that season
+    alone, lands on exactly (season, offset + n), i.e. the cour's first episode is the one airing nearest to its AniList start
+    date. Anything else (including a nearer episode in another season, which only the full search sees) returns None and the
+    caller does the full search over every season."""
+    if not start or n < 1 or not season or season < 1:
+        return None
+    data = tmdb_api.get_request_sc('tv', tmdb_id, 'season', season) or {}
+    episodes = [(season, e.get('episode_number'), _date(e.get('air_date'))) for e in data.get('episodes') or []]
+    found = anchor_episode(episodes, start, n, today)
+    return found if found == (season, (offset or 0) + n) else None
 
 
 def anchor_episode(episodes, start, n, today=None):

@@ -295,6 +295,21 @@ def _anime_tmdb_season(details, total):
     return seasons[0] if len(seasons) == 1 else None
 
 
+class _CountedTMDb:
+    """The TMDb API as the Next Up mapping uses it, counting the requests it makes."""
+
+    def __init__(self, api):
+        self._api = api
+        self.calls = 0
+
+    def get_request_sc(self, *args, **kwargs):
+        self.calls += 1
+        return self._api.get_request_sc(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._api, name)
+
+
 def _anime_next_targets(tmdb_api, rows, use_anilist=True):
     """For each anime Next Up row (season None) the (tmdb id, season, episode, how) to show, or None to leave it out.
 
@@ -302,7 +317,9 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
     two disagree the one whose TMDb episode list has the cour starting on its AniList start date wins (a TMDb language or
     genre check cannot tell, Simkl's wrong ids are Japanese animation too). The season is then the one season of the cour's
     length (_anime_tmdb_season, first choice) or else the cour's first episode is found by its AniList start date against
-    TMDb's air dates (api/anilist/cours.py), which also covers cours inside a longer TMDb season. Without AniList data the
+    TMDb's air dates (api/anilist/cours.py), which also covers cours inside a longer TMDb season; when the offline Fribb index
+    names the cour's TMDb season, that one season is tried before all of them and only an answer the air dates agree with is
+    used. Without AniList data the
     behaviour is as before: Simkl's id and the season rule only (use_anilist=False asks for exactly that)."""
     from tmdbhelper.lib.api.anilist import cours
     from tmdbhelper.lib.api.anilist.idmap import resolve
@@ -311,23 +328,40 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
 
     media = cours.fetch_media([r.get('anilist') for r in rows]) if use_anilist else {}
     with_media = [r for r in rows if r.get('anilist') in media]
+    try:   # the offline index names the TMDb season of a cour and the episodes before it (api/anilist/cours.py anchor_in_season)
+        from tmdbhelper.lib.api.anilist.fribb import records
+        index = records([r.get('anilist') for r in rows]) if use_anilist else {}
+    except Exception as exc:
+        kodi_log(f'Simkl Next Up: Fribb index unusable: {type(exc).__name__}', 1)
+        index = {}
     table = {}
     if with_media:
         found = resolve(tmdb_api, [media[r['anilist']] for r in with_media], lambda m: _match_tmdb(tmdb_api, m))
         table = {r['anilist']: match[1] for r, match in zip(with_media, found) if match and match[0] == 'show'}
 
-    def _anchor(tmdb_id, details, start, n):
-        found = cours.anchor_episode(cours.tmdb_episodes(tmdb_api, details), start, n) if start else None
-        return (tmdb_id, found[0], found[1], 'air date') if found else None
-
     def _one(row):
+        api = _CountedTMDb(tmdb_api)   # counts the TMDb requests this row needs (cached or not): the cost of the mapping
+
+        def _anchor(tmdb_id, details, start, n):
+            found = cours.anchor_episode(cours.tmdb_episodes(api, details), start, n) if start else None
+            return (tmdb_id, found[0], found[1], 'air date') if found else None
+
+        def _indexed(tmdb_id, start, n):
+            """The index's season only (one TMDb request instead of every season), when it agrees with the air dates."""
+            record = index.get(row.get('anilist'))
+            if not record or record.get('kind') != 'tv' or tmdb_id not in record.get('ids') or not start:
+                return None
+            found = cours.anchor_in_season(api, tmdb_id, record.get('season'), record.get('offset'), start, n)
+            return (tmdb_id, found[0], found[1], 'air date, Fribb season') if found else None
+
+        target = None
         try:
             start = cours.start_date(media.get(row.get('anilist')))
             simkl_id, table_id, n = row.get('id'), table.get(row.get('anilist')), row['episode']
             tried_anchor = False
             if simkl_id and table_id and simkl_id != table_id and start:
                 for tmdb_id in (table_id, simkl_id):
-                    target = _anchor(tmdb_id, tmdb_api.get_request_sc('tv', tmdb_id) or {}, start, n)
+                    target = _indexed(tmdb_id, start, n) or _anchor(tmdb_id, api.get_request_sc('tv', tmdb_id) or {}, start, n)
                     if target:
                         return target
                 tmdb_id, tried_anchor = simkl_id, True   # neither id starts on the date: Simkl's id and the season rule, as before
@@ -335,14 +369,18 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
                 tmdb_id = simkl_id or table_id
             if not tmdb_id:
                 return None
-            details = tmdb_api.get_request_sc('tv', tmdb_id) or {}
+            details = api.get_request_sc('tv', tmdb_id) or {}
             season = _anime_tmdb_season(details, row.get('total'))
             if season is not None:
-                return tmdb_id, season, n, 'season length'
-            return None if tried_anchor else _anchor(tmdb_id, details, start, n)
+                target = tmdb_id, season, n, 'season length'
+                return target
+            target = None if tried_anchor else (_indexed(tmdb_id, start, n) or _anchor(tmdb_id, details, start, n))
+            return target
         except Exception as exc:
             kodi_log(f'Simkl Next Up: anime row {row.get("title")!r} failed: {type(exc).__name__}: {exc}', 1)
             return None
+        finally:
+            kodi_log(f'Simkl Next Up anime row: anilist {row.get("anilist")} simkl tmdb {row.get("id")} table tmdb {table.get(row.get("anilist"))} E{row.get("episode")} of {row.get("total")} -> {target[:3] if target else None} via {target[3] if target else "-"}, {api.calls} TMDb requests', 0)
 
     with ParallelThread(rows, _one) as pt:
         return pt.queue

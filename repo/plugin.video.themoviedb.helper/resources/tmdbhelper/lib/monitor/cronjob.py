@@ -19,6 +19,7 @@ class CronJobMonitor(SafeThread):
         self._do_recache_kodidb()
         self._do_trakt_authorization()
         self._do_bridge_sync_startup()
+        self._do_anime_fribb_update()
 
     def _on_poll(self):
         self._do_library_update_check()
@@ -27,6 +28,34 @@ class CronJobMonitor(SafeThread):
         self._do_cleanup_widget_cache()   # Item 5: delete widget_cache/*.json older than 24h
         self._do_cleanup_image_cache()    # Item 4: prune blur_v2/crop_v2/desaturate_v2 dirs
         self._do_bridge_sync()
+        self._do_anime_fribb_update()
+
+    def _do_anime_fribb_update(self):
+        """Keep the offline AniList to TMDb id index (api/anilist/fribb.py) fresh: built weekly, and only once the anime id
+        table exists (the user has opened an anime list). Runs in its own thread, 30 s after it is started, so a 7.5 MB
+        download never holds up this loop or the startup tasks; a list build only ever reads the index."""
+        try:
+            if getattr(self, '_fribb_thread', None) is not None and self._fribb_thread.is_alive():
+                return
+            from tmdbhelper.lib.api.anilist import fribb
+            if not fribb.update_due():
+                return
+            monitor = self.update_monitor
+
+            def _run():
+                monitor.waitForAbort(30)
+                if monitor.abortRequested():
+                    return
+                try:
+                    fribb.update_db(abort=monitor.abortRequested)
+                except Exception as exc:
+                    from tmdbhelper.lib.addon.logger import kodi_log
+                    kodi_log(f'Anime Fribb index: update error: {exc}', 2)
+
+            self._fribb_thread = SafeThread(target=_run)
+            self._fribb_thread.start()
+        except Exception:
+            pass
 
     def _do_cleanup_widget_cache(self):
         """Delete widget_cache/*.json files with mtime older than 24 hours. (Item 5)

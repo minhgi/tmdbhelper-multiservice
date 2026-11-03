@@ -3149,11 +3149,11 @@ msgid "Anime"
 msgstr ""
 
 msgctxt "#32570"
-msgid "Anime episode enrichment (Seren)"
+msgid "Anime episode enrichment"
 msgstr ""
 
 msgctxt "#32571"
-msgid "Overlay anime-specific episode titles, plots, and thumbnails from Seren's anime cache. Requires Seren with anime features enabled."
+msgid "Overlay anime-specific episode titles, plots, and thumbnails from AniZip (any anime in the Fribb list) or, for other shows, from Seren's anime cache."
 msgstr ""
 
 msgctxt "#32572"

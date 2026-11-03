@@ -285,6 +285,9 @@ class ItemBuilder(_ArtworkSelector):
             item = self._undo_iterprops(item, tmdb_type, tmdb_id, season, episode)
         li.set_details(item['listitem'], override=True)  # Old method for override checked (if self.tmdb_api.iso_language == 'en') to override only for non-English but lets standardise behaviour
         li.art = self.get_item_artwork(item['artwork'], is_season=mediatype in ['season', 'episode'])
+        if mediatype == 'episode':
+            from tmdbhelper.lib.items.anime_enrichment import apply_anime_overlay
+            apply_anime_overlay(li)   # anime episode titles/plots/stills (setting "Anime episode enrichment"); not stored in the item cache
         return li
 
 
