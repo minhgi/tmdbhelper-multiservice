@@ -1,7 +1,8 @@
 """MyAnimeList and AniList ranks and scores for anime, as rating properties for the skins (monitor/common.py get_all_ratings).
 
 MDBList already sends the MyAnimeList score and vote count (myanimelist_rating / myanimelist_votes); this adds what it does not have:
-  myanimelist_rank, myanimelist_popularity   from Tenrai (api.tenrai.org, the Jikan-compatible MyAnimeList mirror Seren uses)
+  myanimelist_rank, myanimelist_popularity   from Tenrai (api.tenrai.org, the Jikan-compatible MyAnimeList mirror Seren uses); when
+                                             Tenrai cannot be reached, from jikan-edge (jikan.lucashdo.com, same two fields)
   anilist_rating (0-10), anilist_rank (all-time "highest rated"), anilist_popularity (all-time "most popular")   from AniList
 
 Per item: the TMDb id is turned into a MyAnimeList and an AniList id from the offline Fribb index (api/anilist/fribb.py, no
@@ -25,6 +26,7 @@ from tmdbhelper.lib.addon.logger import kodi_log
 
 ARM_URL = 'https://arm.haglund.dev/api/v2/themoviedb'
 TENRAI_URL = 'https://api.tenrai.org/v1/anime/{}'
+JIKAN_EDGE_URL = 'https://jikan.lucashdo.com/v1/anime/{}'
 ANILIST_URL = 'https://graphql.anilist.co'
 ANILIST_QUERY = 'query($id:Int){Media(id:$id,type:ANIME){averageScore popularity rankings{rank type allTime}}}'
 CACHE_FILE = 'special://profile/addon_data/plugin.video.themoviedb.helper/anime_scores_cache.json'
@@ -136,20 +138,48 @@ def _arm(tmdb_id):
     return compact(data) if isinstance(data, list) else None
 
 
-def _tenrai(mal_id):
-    """{'rank', 'popularity'} from Tenrai ({} when MyAnimeList does not have them), or None when Tenrai could not be reached."""
-    response = _get(TENRAI_URL.format(mal_id))
-    if response.status_code == 404:
-        return {}
-    if response.status_code != 200:
-        return None
-    data = (response.json() or {}).get('data') or {}
+def _ranks(data):
+    """The MyAnimeList rank / popularity properties of an anime record (Tenrai and jikan-edge name both fields the same way)."""
     out = {}
     if _int(data.get('rank')):
         out['myanimelist_rank'] = str(_int(data['rank']))
     if _int(data.get('popularity')):
         out['myanimelist_popularity'] = str(_int(data['popularity']))
     return out
+
+
+def _tenrai(mal_id):
+    """{'rank', 'popularity'} ({} when MyAnimeList does not have them), or None when no source could be reached.
+    Tenrai answers; only when it cannot (no connection, a server error, an unreadable answer) is jikan-edge asked.
+    A 404 from Tenrai means MyAnimeList does not know the id, so jikan-edge is not asked about it."""
+    try:
+        response = _get(TENRAI_URL.format(mal_id))
+        if response.status_code == 404:
+            return {}
+        if response.status_code == 200:
+            return _ranks((response.json() or {}).get('data') or {})
+        kodi_log(f'Anime scores: Tenrai answered {response.status_code}', 1)
+    except Exception as exc:
+        kodi_log(f'Anime scores: Tenrai failed: {type(exc).__name__}', 1)
+    return _jikan_edge(mal_id)
+
+
+def _jikan_edge(mal_id):
+    """The same properties from jikan-edge (jikan.lucashdo.com, a Cloudflare cache of MyAnimeList's public pages), or None when it
+    cannot answer. Its 404 is not taken for 'MyAnimeList has nothing': Tenrai was already down, so the question stays open."""
+    try:
+        response = _get(JIKAN_EDGE_URL.format(mal_id))
+        if response.status_code != 200:
+            return None
+        data = (response.json() or {}).get('data') or {}
+    except Exception as exc:
+        kodi_log(f'Anime scores: jikan-edge failed: {type(exc).__name__}', 1)
+        return None
+    answered = _int(data.get('malId', data.get('mal_id')))
+    if answered is not None and answered != _int(mal_id):
+        return None                     # an answer about another title is no answer
+    kodi_log('Anime scores: Tenrai unavailable, used jikan-edge', 1)
+    return _ranks(data)
 
 
 def _anilist(anilist_id):

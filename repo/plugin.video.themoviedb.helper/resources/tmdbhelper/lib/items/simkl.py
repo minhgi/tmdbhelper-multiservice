@@ -76,7 +76,20 @@ class SimklPlayData:
                 season=li.infolabels.get('season')) or 0
             return min(watched, air_count) if air_count else watched
 
-        # Episode-level deferred to Phase D (TVDB vs TMDb numbering)
+        if li.infolabels.get('mediatype') == 'episode':
+            # Simkl's watched list carries no episode rows (TVDB numbering), so this is the local mark written when an
+            # episode is finished (scrobble) or set as watched here, in TMDb numbering. It is only used when Trakt and
+            # MDBList show no watched marks: the lists take the highest count of all services and an episode unwatched
+            # from the Trakt or MDBList menu is not mirrored to Simkl, so this mark could not be cleared from there.
+            from tmdbhelper.lib.addon.plugin import get_setting
+            if any(get_setting(s) and get_setting(i) for s, i in (
+                    ('service_trakt', 'trakt_watchedindicators'), ('service_mdblist', 'mdblist_watchedindicators'))):
+                return
+            return self.simkl_syncdata.get_value(
+                'tv', li.unique_ids.get('tvshow.tmdb'),
+                season=li.infolabels.get('season'),
+                episode=li.infolabels.get('episode'),
+                key='plays') or 0
 
     @is_sync
     def set_playprogress(self, li):

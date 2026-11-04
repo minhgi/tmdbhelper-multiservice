@@ -378,6 +378,12 @@ class SyncPlayback(DataTypeEpisodes):
     method = 'playback'
     key_prefix = 'playback'
 
+    def __init__(self, class_instance_syncdata, item_type):
+        """ Trakt only has sync/playback/movies and sync/playback/episodes. A show's resume points are its episodes: asking for
+        'show' requested sync/playback/shows (HTTP 400), so nothing was stored and an episode's stop point only appeared
+        after the In Progress list (item type 'episode') had synced. """
+        super().__init__(class_instance_syncdata, 'episode' if item_type == 'show' else item_type)
+
 
 class SyncRatings(DataType):
     keys = ('rating', 'rated_at', )

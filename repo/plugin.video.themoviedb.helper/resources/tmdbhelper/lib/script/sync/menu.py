@@ -146,17 +146,21 @@ class SimklMenu(MenuAttributes):
         self.tmdb_id = tmdb_id
         self.season = season
         self.episode = episode
+        self.direct = False
 
     def choose(self):
         if not self.choices:
             return -1
-        if len(self.choices) == 1:
+        # A Simkl episode has a single entry (Set as watched / unwatched), which used to run the moment Simkl options
+        # was picked. Show the list anyway, unless one action was asked for by name (a skin button).
+        if len(self.choices) == 1 and self.direct:
             return 0
         return Dialog().contextmenu([i.name for i in self.choices])
 
     def select(self, sync_type=None):
         if sync_type:
             self.items = {sync_type: self.items[sync_type]}
+            self.direct = True
         x = self.choose()
         if x == -1:
             return

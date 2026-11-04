@@ -770,9 +770,43 @@ class SimklScrobbler(PlayerScrobbler):
         response = self.simkl_api.get_api_request(
             url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
         self._log_scrobble('watched', response)
-        item.update_watched_in_db(True, force=True)
+        matched = not self._not_found(response)
+        if not matched:
+            response = self._retry_watched_by_other_ids(url, payload)
+            matched = response is not None and not self._not_found(response)
+        if matched:  # a mark Simkl did not take must not show as watched in the lists
+            item.update_watched_in_db(True, force=True)
         self._clear_progress_in_db()
         item.refresh_containers(force=True)
+
+    @staticmethod
+    def _not_found(response):
+        """ True when Simkl answered but matched nothing: it replies HTTP 201 with 'added' at 0 and the item under 'not_found' """
+        try:
+            not_found = response.json().get('not_found') or {}
+        except Exception:
+            return False
+        return any(not_found.get(k) for k in ('movies', 'shows', 'episodes'))
+
+    def _retry_watched_by_other_ids(self, url, payload):
+        """ Simkl did not know the TMDb id: send the watched mark again with the item's IMDb and TVDB ids from TMDb """
+        key = 'movies' if self.tmdb_type == 'movie' else 'shows'
+        try:
+            from tmdbhelper.lib.api.tmdb.api import TMDb
+            external = (TMDb().get_request_sc(self.tmdb_type, self.tmdb_id, append_to_response='external_ids') or {}).get('external_ids') or {}
+        except Exception as exc:
+            external = {}
+            kodi_log(f'Scrobble Simkl watched {self._item_label}: external ids could not be read - {exc}', 1)
+        ids = {k: v for k, v in (('imdb', external.get('imdb_id')), ('tvdb', external.get('tvdb_id'))) if v}
+        if not ids:
+            kodi_log(f'Scrobble Simkl watched {self._item_label}: Simkl did not know the TMDb id and TMDb has no IMDb or TVDB id to try - not marked on Simkl', 1)
+            return None
+        retry = {key: [{**payload[key][0], 'ids': ids}]}
+        response = self.simkl_api.get_api_request(url, postdata=retry, method='json', headers=self.simkl_api.auth_headers)
+        found = response is not None and not self._not_found(response)
+        kodi_log(f'Scrobble Simkl watched {self._item_label}: Simkl did not know the TMDb id, retried with {"/".join(ids)}: '
+                 f'{"Simkl recognised it" if found else "still not recognised by Simkl"}', 1)
+        return response
 
     def _watched_stamp(self):
         try:

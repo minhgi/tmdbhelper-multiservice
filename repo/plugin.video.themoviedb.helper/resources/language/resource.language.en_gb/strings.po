@@ -3888,3 +3888,27 @@ msgstr ""
 msgctxt "#32755"
 msgid "Title, Z to A"
 msgstr ""
+
+msgctxt "#32756"
+msgid "Off"
+msgstr ""
+
+msgctxt "#32757"
+msgid "Log only"
+msgstr ""
+
+msgctxt "#32758"
+msgid "Watchlist and collection"
+msgstr ""
+
+msgctxt "#32759"
+msgid "Also watched history"
+msgstr ""
+
+msgctxt "#32760"
+msgid "Copy removals made elsewhere"
+msgstr ""
+
+msgctxt "#32761"
+msgid "What Cross-Service Sync does when you remove an item on the website or in an app of one service (not in Kodi, which is copied at once). Removing from watched history deletes every play of the item on the other services, so it is a separate choice. An item is only removed after it is missing on two runs in a row; if a lot of items disappear at once nothing is removed. Watchlist and collection is the default. Also watched history adds unwatching. Log only writes what would be removed to the Kodi log and removes nothing."
+msgstr ""

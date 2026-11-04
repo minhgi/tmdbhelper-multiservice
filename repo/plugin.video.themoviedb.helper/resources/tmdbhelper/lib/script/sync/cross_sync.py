@@ -433,6 +433,15 @@ def _simkl_post(simkl, payload, *path_parts):
         return None
 
 
+def _simkl_not_found(resp):
+    """ True when Simkl answered but matched nothing: it replies HTTP 201 with the item under 'not_found' and 'added' at 0 """
+    try:
+        not_found = resp.json().get('not_found') or {}
+    except Exception:
+        return False
+    return any(not_found.get(k) for k in ('movies', 'shows', 'episodes'))
+
+
 def _update_simkl_watched_db(simkl, tmdb_type, tmdb_id, season, value):
     """Mirror ItemSimklSyncBase.update_watched_in_db() for cross-posted watched state.
     Movie: writes plays + last_watched_at.
@@ -539,8 +548,12 @@ def mirror_watched_to_simkl(tmdb_type, tmdb_id, season, episode, remove):
         else:
             payload = _build_simkl_payload(tmdb_type, tmdb_id, season)
             resp = _simkl_post(simkl, payload, 'sync', 'history')
-        if resp is not None:
+        if resp is None:
+            return
+        if remove or not _simkl_not_found(resp):  # a removal of something Simkl does not have leaves it unwatched, as asked
             _update_simkl_watched_db(simkl, tmdb_type, tmdb_id, season, not remove)
+        else:
+            kodi_log(f'cross_sync: Simkl did not know {tmdb_type} {tmdb_id} by its TMDb id - not marked watched there or in the local data', 1)
     except Exception as exc:
         kodi_log(f'cross_sync mirror_watched_to_simkl error: {exc}', 2)
 
@@ -586,7 +599,10 @@ def mirror_watchlist_to_simkl(tmdb_type, tmdb_id):
             kodi_log(f'cross_sync: movie {tmdb_id} is watched on Simkl - not moved to plan-to-watch', 1)
             return
         payload = _build_simkl_payload(tmdb_type, tmdb_id, None, to='plantowatch')
-        if _simkl_post(simkl, payload, 'sync', 'add-to-list') is not None:
+        resp = _simkl_post(simkl, payload, 'sync', 'add-to-list')
+        if resp is not None and not _simkl_not_found(resp):
             _update_simkl_status_db(simkl, tmdb_type, tmdb_id, 'plantowatch_at', True)
+        elif resp is not None:
+            kodi_log(f'cross_sync: Simkl did not know {tmdb_type} {tmdb_id} by its TMDb id - not added to plan-to-watch there or in the local data', 1)
     except Exception as exc:
         kodi_log(f'cross_sync mirror_watchlist_to_simkl error: {exc}', 2)
