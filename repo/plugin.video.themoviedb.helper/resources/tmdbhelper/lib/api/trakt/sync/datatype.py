@@ -470,7 +470,7 @@ class SyncAllNextEpisodes(DataTypeEpisodes):
             dpro.max_value = len(sd.items)
             with ParallelThread(sd.items, get_items) as pt:
                 item_queue = pt.queue
-            meta = [i for items in item_queue for i in items if i]
+            meta = [i for items in item_queue if items for i in items if i]  # a show whose Trakt lookup failed leaves None in its slot
         return meta
 
 

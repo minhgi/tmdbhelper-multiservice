@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.33"
+version="7.0.34"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.34
+- Fix: The Trakt Next Up list (the Up Next / next episodes of a show) no longer stops with an error when Trakt does not answer for one of your shows in time. Before, a single Trakt timeout while the next episodes were being synced ended the whole sync with a TypeError ('NoneType' object is not iterable) and the list failed to open. Now that show is skipped for this sync and the rest of the list loads.
+
 v7.0.33
 - New: The MyAnimeList rank and popularity shown for anime now come from jikan-edge (jikan.lucashdo.com) when Tenrai, the usual source, cannot be reached or answers with an error, so they keep showing while Tenrai is down. Tenrai is still asked first, and jikan-edge is not asked about a title Tenrai says MyAnimeList does not have. Only the MyAnimeList id is sent. AniList scores are not affected.
 
