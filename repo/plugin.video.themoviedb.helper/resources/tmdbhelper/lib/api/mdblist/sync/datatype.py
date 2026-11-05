@@ -182,10 +182,28 @@ class MDbListSyncWatched(MDbListDataType):
     # Marking one watched moves 'episode_watched_at'; removing one moves only 'journal_at' (live-checked 2026-11-01).
     last_activities_keys = ('watched_at', 'episode_watched_at', 'season_watched_at', 'journal_at',)
     method = 'watched'
+    # lactivities entry: missing means the stored show totals date from before 7.0.35, when season 0 (specials) was counted
+    # in them (a show with 49 of 53 episodes read 99 watched); it forces one rebuild, then the normal activity stamps apply
+    totals_marker = 'watched_totals_v1'
 
     def __init__(self, class_instance_syncdata, item_type):
         # Normalise to 'all' — one call covers both movies and shows
         super().__init__(class_instance_syncdata, 'all')
+
+    totals_retry_after = 1800  # seconds before a rebuild that did not finish (MDBList down, rate limited) is tried again
+
+    @property
+    def is_expired(self):
+        if not self.cache.get_activity(self.item_type, self.totals_marker):
+            propname = 'mdblist.syncdecorators.totals_retry.watched'
+            if not get_timestamp(self.window.get_property(propname) or 0, set_int=True):
+                self.window.get_property(propname, set_timestamp(self.totals_retry_after, set_int=True))
+                return True
+        return super().is_expired
+
+    def store_last_activity(self):
+        super().store_last_activity()
+        self.cache.set_activity(self.item_type, self.totals_marker, 'ok')
 
     def clear_columns(self, keys):
         for it in ('movie', 'show', 'season', 'episode'):

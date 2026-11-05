@@ -1,3 +1,9 @@
+v7.0.36
+- Fix: The In Progress / Currently Watching lists no longer hide shows that Trakt itself lists as unfinished when Hide watched is on. A show's watched count there was the highest of Trakt, MDBList and Simkl, and MDBList / Simkl can hold every aired episode of a show marked watched in one go (a whole-show mark), so a show you are partway through read as fully watched and was dropped from the row. The In Progress list now uses Trakt's own count, the same service that decides which shows belong in the list. Other lists are unchanged.
+
+v7.0.35
+- Fix: A show you are partway through could be missing from the In Progress / Currently Watching widgets when Hide watched is on and MDBList is connected. MDBList's watched total for a show also counted the watched specials (season 0), so a show with 49 of 53 episodes watched read 99 watched and was treated as finished. The total now counts regular episodes only (the season 0 row keeps its own count). The stored MDBList watched data is rebuilt once after this update.
+
 v7.0.34
 - Fix: The Trakt Next Up list (the Up Next / next episodes of a show) no longer stops with an error when Trakt does not answer for one of your shows in time. Before, a single Trakt timeout while the next episodes were being synced ended the whole sync with a TypeError ('NoneType' object is not iterable) and the list failed to open. Now that show is skipped for this sync and the rest of the list loads.
 

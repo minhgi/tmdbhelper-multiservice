@@ -223,13 +223,19 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             # Watched indicators — service-specific personal views use only their own service's data;
             # all other views use the union (max across all enabled services).
             _info = self.params.get('info') or ''
-            trakt_playcount = self.trakt_playdata.get_playcount(li) or 0
+            trakt_raw = self.trakt_playdata.get_playcount(li)  # None = no Trakt data (service or watched indicators off)
+            trakt_playcount = trakt_raw or 0
             mdb_playcount = self.mdblist_playdata.get_playcount(li) or 0
             simkl_playcount = self.simkl_playdata.get_playcount(li) or 0
             if _info in ('mdblist_watchlist', 'mdblist_history', 'mdblist_upnext'):
                 playcount = mdb_playcount
             elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext', 'simkl_watching', 'simkl_hold', 'simkl_dropped'):
                 playcount = simkl_playcount
+            elif _info == 'trakt_inprogress' and li.infolabels.get('mediatype') == 'tvshow' and trakt_raw is not None:
+                # In Progress lists the shows Trakt says are unfinished (aired > watched). Taking the highest count of all services here
+                # let MDBList / Simkl whole-show marks (every aired episode marked on one day) read "all watched", so Hide watched
+                # dropped shows the list itself had just selected (8 of 13 on the test account)
+                playcount = trakt_playcount
             else:
                 playcount = max(trakt_playcount, mdb_playcount, simkl_playcount)
             li.set_playcount(playcount=playcount)

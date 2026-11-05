@@ -127,7 +127,11 @@ class MDbListSyncItem:
             total_watched = 0
             for season, episodes in sd['seasons'].items():
                 season_watched = len(set(episodes))
-                total_watched += season_watched
+                # The show total is regular episodes only: season 0 (specials) are not part of the aired / total episode
+                # count the lists compare it with, so watched specials made a show with 49 of 53 episodes read 99 watched
+                # (= fully watched) and "Hide watched" dropped it from In Progress. The season 0 row below keeps its own count.
+                if self._to_int(season) != 0:
+                    total_watched += season_watched
                 season_id = f'tv.{tmdb_id}.{season}'
                 data[season_id] = self._row(
                     [None, None, season_watched],
