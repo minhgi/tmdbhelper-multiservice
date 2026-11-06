@@ -249,6 +249,41 @@ def _index_entries(tmdb_id):
     return _index_memo[key]
 
 
+def entry_for_episode(tmdb_id, season, episode, tmdb_airdate=None):
+    """(AniList id, the episode's number inside that entry) for TMDb episode `season`x`episode` of a show the Fribb index knows,
+    or None. The same candidates and the same air-date check as episode_overlay (a Fribb offset is wrong about one time in
+    seven, so a mapping only counts when AniZip's air date agrees with TMDb's; with no TMDb air date only a single candidate
+    counts), but it returns the entry itself, for a service that numbers anime by entry (Simkl)."""
+    _expire_state()
+    entries = _index_entries(tmdb_id)
+    if not entries:
+        return None
+    try:
+        season, episode = int(season), int(episode)
+    except (ValueError, TypeError):
+        return None
+    if season < 1 or episode < 1:
+        return None
+    candidates = [(anilist_id, offset or 0) for anilist_id, entry_season, offset in entries
+                  if entry_season == season and (offset or 0) < episode]
+    candidates.sort(key=lambda c: (-c[1], c[0]))
+    candidates = candidates[:MAX_CANDIDATES]
+    tmdb_date = _to_date(tmdb_airdate) if tmdb_airdate else None
+    for anilist_id, offset in candidates:
+        episodes = _entry_episodes(anilist_id)
+        data = episodes.get(episode - offset) if episodes else None
+        if not data:
+            continue
+        aired = _to_date(data['airdate'])
+        if tmdb_date and aired:
+            if abs((aired - tmdb_date).days) > DATE_TOLERANCE:
+                continue
+        elif len(candidates) > 1:
+            continue
+        return anilist_id, episode - offset
+    return None
+
+
 def episode_overlay(tmdb_id, season, episode, tmdb_airdate=None):
     """(overlay or None, indexed): the AniZip data for TMDb episode `season`x`episode` of a show, and whether the Fribb index
     knows the show at all (when it does, the caller must not fall back to another source for an episode this rejected)."""

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.36" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.38" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.38
+- Fix: Simkl scrobbling - An anime episode is now sent to Simkl as the anime entry (cour) it belongs to FIRST, with its AniList / MAL ids and its number inside the entry, instead of only after Simkl refused the TMDb numbers. Simkl places TMDb season and episode numbers by TVDB season, so a merged season could be refused (The Apothecary Diaries S01E49, Frieren S01E31) or be accepted into the wrong cour with a success answer that no retry could notice. This covers the resume point written on pause and the watched mark at the end of the episode. The entry comes from the offline Fribb index and is only used when the episode's air date agrees with it; when Simkl does not take it, or the episode cannot be matched to an entry, the TMDb numbers are sent as before. A watched mark that Simkl refused is not shown as watched in the lists for an anime episode that resolved to an entry. The check that skips the mark when the playing add-on has already reported the viewing now also watches Simkl's anime activity, where an anime mark is recorded.
+
+v7.0.37
+- Fix: Simkl scrobbling - An anime episode that Simkl cannot place by its TMDb season and episode number (Simkl keeps every cour as its own entry and finds an episode by TVDB season, so The Apothecary Diaries S01E49, which is episode 1 of its third cour, was refused) is now sent again as the anime entry it belongs to: its AniList / MAL ids and its number inside the entry, the form Simkl documents for anime. This covers the resume point written on pause and the watched mark at the end of the episode. The entry comes from the offline Fribb index and is only used when the episode's air date agrees with it; other shows, movies and episodes behave as before. A watched mark that Simkl refused with an error is no longer shown as watched in the lists for an anime episode that could be sent this way.
+
 v7.0.36
 - Fix: The In Progress / Currently Watching lists no longer hide shows that Trakt itself lists as unfinished when Hide watched is on. A show's watched count there was the highest of Trakt, MDBList and Simkl, and MDBList / Simkl can hold every aired episode of a show marked watched in one go (a whole-show mark), so a show you are partway through read as fully watched and was dropped from the row. The In Progress list now uses Trakt's own count, the same service that decides which shows belong in the list. Other lists are unchanged.
 

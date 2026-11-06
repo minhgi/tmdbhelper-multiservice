@@ -625,12 +625,15 @@ class SimklScrobbler(PlayerScrobbler):
 
     Resume reading: local-only (SimklSync.db written on pause). Progress from
     simkl.com or other devices not synced in this phase.
-    Episode numbers use TMDb numbering — may mismatch TVDB for anime.
+    Episode numbers use TMDb numbering, which Simkl places by TVDB season — wrong or refused for many anime. An anime episode that
+    resolves to its entry (cour) is therefore sent as that entry first: AniList / MAL ids and the number inside the entry
+    (_anime_entry); the TMDb numbers are the fallback when Simkl does not take it, and the only request for other titles.
     """
 
     BASE_URL = 'https://api.simkl.com'
 
     service_name = 'Simkl'
+    _anime_target = None  # (ids, number inside the entry) / False once resolved; see _anime_entry
     _refreshes_on_report = True  # _mark_watched reloads the lists itself
 
     def _refresh_after_stop(self):
@@ -732,8 +735,16 @@ class SimklScrobbler(PlayerScrobbler):
         if not payload or self._nothing_played('pause'):
             return
         url = f'{self.BASE_URL}/scrobble/pause?client_id={self.simkl_api.client_id}'
-        response = self.simkl_api.get_api_request(
-            url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
+        response = None
+        target = self._anime_entry()
+        if target:  # an anime episode that resolves goes out as its entry first (the TMDb numbers can land in the wrong cour with a success answer)
+            response = self.simkl_api.get_api_request(
+                url, postdata=self._anime_pause_payload(target), method='json', headers=self.simkl_api.auth_headers)
+            kodi_log(f'Scrobble Simkl pause {self._item_label}: sent as anime {target[0]} episode {target[1]}: '
+                     f'{"accepted" if response is not None else "not accepted, sending the TMDb numbers"}', 1)
+        if response is None:
+            response = self.simkl_api.get_api_request(
+                url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
         paused_id = None
         if response is not None:
             try:
@@ -767,10 +778,20 @@ class SimklScrobbler(PlayerScrobbler):
             url = f'{self.BASE_URL}/sync/history?client_id={self.simkl_api.client_id}'
         else:
             return
-        response = self.simkl_api.get_api_request(
-            url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
-        self._log_scrobble('watched', response)
-        matched = not self._not_found(response)
+        target = self._anime_entry()
+        response, matched = None, False
+        if target:  # an anime episode that resolves goes out as its entry first (the TMDb numbers can land in the wrong cour with a success answer)
+            response = self.simkl_api.get_api_request(
+                url, postdata=self._anime_watched_payload(target), method='json', headers=self.simkl_api.auth_headers)
+            matched = response is not None and not self._not_found(response)
+            kodi_log(f'Scrobble Simkl watched {self._item_label}: sent as anime {target[0]} episode {target[1]}: '
+                     f'{"accepted" if matched else "not accepted, sending the TMDb numbers"} - {self._response_text(response)}', 1)
+        if not matched:  # not an anime that resolves, or Simkl did not take the entry: the TMDb numbers
+            response = self.simkl_api.get_api_request(
+                url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
+            self._log_scrobble('watched', response)
+            # a title that resolved to an entry does not count a refused mark (None) as marked; other titles keep the old rule
+            matched = (response is not None and not self._not_found(response)) if target else not self._not_found(response)
         if not matched:
             response = self._retry_watched_by_other_ids(url, payload)
             matched = response is not None and not self._not_found(response)
@@ -779,6 +800,60 @@ class SimklScrobbler(PlayerScrobbler):
         self._clear_progress_in_db()
         item.refresh_containers(force=True)
 
+    def _anime_entry(self):
+        """({'anilist': id, 'mal': id}, episode number inside the entry) of the anime entry (cour) a TMDb episode belongs to, or
+        None. Simkl keeps each cour as its own entry numbered from 1 and places TMDb-style season / episode numbers by TVDB
+        coordinates, so a merged TMDb season (Apothecary Diaries S01E49 = episode 1 of its third cour) is not found that way;
+        the AniList / MAL ids of the entry with the number inside it are the form Simkl documents for anime. The entry comes
+        from the Fribb index with its offset confirmed by the episode's air date (api/anilist/episodes.entry_for_episode); the
+        entry's Simkl id is not sent (Fribb's is wrong for some entries and Simkl tries it first). Resolved once per playback."""
+        if self._anime_target is None:
+            self._anime_target = False
+            try:
+                self._anime_target = self._resolve_anime_entry() or False
+            except Exception as exc:
+                kodi_log(f'Scrobble Simkl {self._item_label}: anime entry lookup failed - {type(exc).__name__}: {exc}', 1)
+        return self._anime_target or None
+
+    def _resolve_anime_entry(self):
+        if self.tmdb_type != 'tv' or not (self.tmdb_id and self.season and self.episode):
+            return None
+        from tmdbhelper.lib.api.anilist import episodes, fribb
+        if not fribb.tv_entries(self.tmdb_id):  # not an anime the offline index knows: no network call
+            return None
+        from tmdbhelper.lib.api.tmdb.api import TMDb
+        season = TMDb().get_request_sc('tv', self.tmdb_id, 'season', self.season) or {}
+        airdate = next((e.get('air_date') for e in season.get('episodes') or [] if e.get('episode_number') == self.episode), None)
+        found = episodes.entry_for_episode(self.tmdb_id, self.season, self.episode, airdate)
+        if not found:
+            return None
+        anilist_id, number = found
+        ids = {'anilist': anilist_id}
+        mal_id = next((r.get('m') for r in fribb.score_records(self.tmdb_id) or [] if r.get('a') == anilist_id and r.get('m')), None)
+        if mal_id:
+            ids['mal'] = mal_id
+        return ids, number
+
+    def _anime_pause_payload(self, target):
+        ids, number = target
+        return {'progress': self.progress, 'anime': {'ids': ids}, 'episode': {'number': number}}
+
+    @staticmethod
+    def _anime_watched_payload(target):
+        ids, number = target
+        return {'anime': [{'ids': ids, 'episodes': [{'number': number}]}]}
+
+    @staticmethod
+    def _response_text(response):
+        """ Short text of a Simkl answer for the log (the shape of an anime answer is not documented in full) """
+        if response is None:
+            return 'no answer'
+        try:
+            from json import dumps
+            return dumps(response.json())[:300]
+        except Exception:
+            return f'HTTP {getattr(response, "status_code", "?")}'
+
     @staticmethod
     def _not_found(response):
         """ True when Simkl answered but matched nothing: it replies HTTP 201 with 'added' at 0 and the item under 'not_found' """
@@ -786,7 +861,7 @@ class SimklScrobbler(PlayerScrobbler):
             not_found = response.json().get('not_found') or {}
         except Exception:
             return False
-        return any(not_found.get(k) for k in ('movies', 'shows', 'episodes'))
+        return any(not_found.get(k) for k in ('movies', 'shows', 'episodes', 'anime'))
 
     def _retry_watched_by_other_ids(self, url, payload):
         """ Simkl did not know the TMDb id: send the watched mark again with the item's IMDb and TVDB ids from TMDb """
@@ -814,8 +889,8 @@ class SimklScrobbler(PlayerScrobbler):
             data = self.simkl_api.get_api_request(url, headers=self.simkl_api.auth_headers).json()
             if self.tmdb_type == 'movie':
                 return data['movies']['completed'] or ''
-            shows = data['tv_shows']
-            return f"{shows['watching'] or ''}|{shows['completed'] or ''}"
+            shows, anime = data['tv_shows'], data.get('anime') or {}   # an anime mark moves Simkl's anime section, not tv_shows
+            return f"{shows['watching'] or ''}|{shows['completed'] or ''}|{anime.get('watching') or ''}|{anime.get('completed') or ''}"
         except Exception:
             return None
 

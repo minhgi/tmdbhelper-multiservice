@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.33 — Complete Features & Functions Guide
+# TMDb Helper 7.0.55 — Complete Features & Functions Guide
 
-**Version:** 7.0.33 (Enhanced Fork — Personal Build)
+**Version:** 7.0.55 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.33_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.55_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.33. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.55. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -201,6 +201,29 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.3
 - **Cross-Service Sync copies removals made elsewhere** (7.0.32). New setting under Cross-service sync, *Copy removals made elsewhere*: *Off*; *Log only* (writes what it would remove to the Kodi log and removes nothing); *Watchlist and collection* (the default: an item you take off a Trakt, MDBList or Simkl watchlist or collection on the website or in an app is taken off the other services too); or *Also watched history* (the same, and marking an item unwatched elsewhere unwatches it on the others; this deletes every play of the item on the other services, so it is a separate choice). Before this, such a removal was only never undone. Safeguards: an item must be missing on two sync runs in a row before anything is removed; if many items disappear from a service at once (more than 10, or 5% of what was synced) nothing is removed, because that looks like an incomplete read; an item that was played again on another service since the last run is kept and put back; a Simkl item that only moved to another status (dropped, on hold, completed) is not treated as removed; and everything the sync removes is first written, with its watch dates, to *bridge_removals.jsonl* in the add-on's data folder. Trakt removes an item from its watchlist when you watch it, so that now also takes it off your MDBList and Simkl watchlists. If you turn Cross-service sync back on after a long break, leave *Also watched history* off until one run has finished.
 - **The sync no longer overwrites newer resume points** (7.0.31, 7.0.32). The sync copies Trakt's resume points to MDBList and Simkl. It used to send them on every run from a local copy that was not refreshed first, which could put a finished item back In Progress or overwrite progress made on MDBList or Simkl since. It now refreshes the copy first and sends nothing if it cannot; it sends a point only when the other service has none for the item or Trakt's is newer; it skips an item that MDBList or Simkl recorded as watched after Trakt saved the point (Trakt marks watched from 80%, they from 75%); and Simkl, which keeps one resume point per show, gets only the episode stopped most recently. Posts that get no usable answer are counted in the Kodi log.
 - **MyAnimeList rank and popularity fall back to jikan-edge** (7.0.33). Tenrai is still asked first. When Tenrai cannot be reached, errors or answers with something unreadable, the rank and popularity come from jikan-edge (jikan.lucashdo.com) so they keep showing while Tenrai is down. jikan-edge is not asked about a title Tenrai says MyAnimeList does not have, and only the MyAnimeList id is sent. If Tenrai hangs instead of failing, the first open of each title waits for it and shows no rank; the rank appears from the second open. jikan-edge is a one-person service with no uptime promise, so it is a second source, not a guarantee. AniList scores are not affected. See section 10.
+
+### Lists, widgets and Simkl scrobbling (7.0.34–7.0.38, 7.0.41, 7.0.45)
+
+- **Trakt Next Up survives a Trakt timeout** (7.0.34). Before, a single Trakt timeout while the next episodes were being synced ended the whole sync with an error and the list failed to open. That show is now skipped for this sync and the rest of the list loads.
+- **In Progress no longer hides shows you are partway through** (7.0.35, 7.0.36). With *Hide watched* on, a show you were partway through could vanish from the In Progress / Currently Watching widgets. MDBList's watched total also counted watched specials (season 0), and MDBList and Simkl can hold every aired episode of a show as watched after one whole-show mark, so the show read as finished. The MDBList total now counts regular episodes only (the stored data is rebuilt once after the update), and the In Progress list uses Trakt's own count, the same service that decides which shows belong in it. Other lists are unchanged.
+- **Anime episodes are sent to Simkl as the anime entry first** (7.0.37, 7.0.38). Simkl keeps every cour of an anime as its own entry and places TMDb season and episode numbers by TVDB season, so a merged season could be refused (The Apothecary Diaries S01E49, Frieren S01E31) or accepted into the wrong cour with a success answer. A finished anime episode, and the resume point written when you pause, are now sent to Simkl first as the entry they belong to: its AniList and MyAnimeList ids and its number inside the entry. The entry comes from the offline Fribb list and is used only when the episode's air date agrees. If Simkl does not take it, or the episode cannot be matched to an entry, the TMDb numbers are sent as before. A mark that Simkl refused is no longer shown as watched in the lists for such an episode. Other shows and movies behave as before.
+- **The number on a show's poster follows a mark** (7.0.41). The unwatched / watched number on a show's poster did not change when you marked one episode, because the MDBList and Simkl totals were only refreshed by the next periodic sync (the number shown is the highest of the Trakt, MDBList and Simkl totals). A mark now recounts the MDBList totals and moves the Simkl totals by the change. Bulk-marked seasons and shows are left alone, and specials count only toward their own season.
+- **Trakt Next Up no longer hides a show because of MDBList or Simkl marks** (7.0.45). An episode Trakt names as the next one to watch was hidden by *Hide watched* when MDBList or Simkl had it marked watched (for example one day's bulk mark of a whole show), so the show vanished from the Trakt Next Up list. That list now uses Trakt's own watched state for its episodes, as In Progress already does for its shows.
+
+### Long seasons shown as separate seasons (7.0.39–7.0.47)
+
+- **Seasons as they aired** (7.0.39). A show that TMDb lists as one long season (The Apothecary Diaries is one season of 60 episodes, Jujutsu Kaisen one of 59) is shown as the separate seasons it aired in, in every skin: a Season 1, Season 2, Season 3 list, each opening its own episodes numbered from 1. The seasons come from a TMDb episode group, and only when the group is season-style (type Production or TV) and its seasons hold exactly the show's episodes, none missing and none twice; any other show keeps TMDb's own seasons. Only the numbers, names and counts that are drawn change: playing, watched marks, syncing and Next Up still use TMDb's real season and episode, and other add-ons such as Seren keep TMDb's numbers. Other lists (Next Up, In Progress, calendars, the show's page and its Up Next button) use the same numbers once the show's season list or page has been opened; the layout is remembered for a day. Switch it off with *Show long seasons as separate seasons* (Settings → Navigation, on by default; not used with *Flatten seasons*).
+- **Episodes beside the season list reload after a mark** (7.0.40). In a skin such as Bingie the episodes shown beside the season list now reload at once after you mark an episode watched or unwatched, instead of only after reopening the window.
+- **Skin buttons use the real numbers** (7.0.44). Bingie's Refresh details, Select artwork and episode info buttons sent the layout numbers (season 3 episode 2 of The Apothecary Diaries), which TMDb does not have. They are turned back into TMDb's own numbers (season 1 episode 50) before the request runs. Other shows are untouched.
+- **Select artwork changes only that season** (7.0.47). A pick made on a laid-out season is kept for that season only; seasons with no pick of their own keep showing real season 1's artwork.
+
+### Cross-Service Sync: runs on changes, anime episodes and anime un-watches (7.0.42–7.0.55)
+
+- **Run when something changes** (7.0.42, 7.0.43, 7.0.46). New switch *Run when something changes* (Settings → Accounts → Cross-service sync, on by default; it matters only while *Mirror actions across enabled services* is on). The sync no longer waits for its interval: it runs about 20 seconds after you mark something watched, change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity (checked every 2 to 5 minutes, so a change made on a website or in an app is found too). *Sync Interval* stays as a safety net. A removal made elsewhere must now have been missing for 3 minutes before it is copied to the other services, and a run that leaves removals waiting is followed by another about 3 minutes later; a removal that never finishes (for example one Simkl keeps refusing) counts only for a few minutes, so it no longer causes extra runs after every change. MDBList's activity answer carries the server's clock, which differs on every request, so it is ignored; otherwise MDBList would have started a full sync every 5 minutes. A resume point that Simkl refuses twice in a row (a title it does not know answers 404) is no longer posted again on every run, only when it changes or after a day.
+- **Anime episodes from Simkl** (7.0.48–7.0.50, 7.0.53). New setting *Anime episodes from Simkl* (Off / Log only / On; default *Log only*). Simkl numbers every anime cour from episode 1, so its anime episodes never matched the TMDb numbers Trakt and MDBList use. Each entry's episodes are now matched to TMDb seasons with the Fribb anime list; an entry that needs an episode offset, or shares its TMDb season with another entry, is only taken for episodes whose air dates AniZip and TMDb agree on (7.0.53 also places the second cour of a series that TMDb keeps in season 1, such as Solo Leveling, by episode counts, each episode confirmed by its air date). With the setting On, the episodes you watched on Simkl are copied to Trakt and MDBList with the date Simkl recorded, also when MDBList (which stores no date) is the service that sends them. An episode that cannot be matched with confidence, or whose TMDb season does not exist, is left out, never guessed. *Log only* writes what would be copied to the Kodi log and changes nothing.
+- **Anime episodes to Simkl** (7.0.51, 7.0.52). New setting *Anime episodes to Simkl* (Off / Log only / On; default *Log only*) sends the anime episodes you watched on Trakt to Simkl. Each episode is matched to its Simkl entry with the Fribb list and the AniZip air date, checked by reading it back through the same mapping, and sent as an anime episode with Trakt's own watch date. Entries you dropped on Simkl are skipped, what Simkl already has is not sent again (an entry Simkl holds as completed in one go counts as already watched), and everything sent is written to *bridge_anime_simkl.jsonl* in the add-on's data folder. Episodes watched before this version are included.
+- **Anime un-watches** (7.0.54, 7.0.55). New setting *Anime un-watches* (Off / Log only / On; default *Log only*): an anime episode you un-watch on Simkl is un-watched on Trakt and MDBList, and one you un-watch on Trakt or MDBList is un-watched on Simkl. Simkl is judged by the entry and episode number it really recorded, never by TMDb numbers, so a changed mapping cannot remove anything; entries moved to dropped or plan-to-watch, or that lose every episode at once, are left alone. It works on top of *Copy removals made elsewhere* (set that to *Also watched history*) and its guards. An episode played again on a service shortly after the bridge removed it there is kept and carried to the other services instead of being removed again (7.0.55).
+- **Trakt's list lags after a bulk send** (7.0.50). After the bridge sends many episodes to Trakt, Trakt's own list takes a while to show them, so they looked removed and could be sent a second time. Episodes the bridge just sent are now remembered until Trakt lists them (24 hours at most) and are neither removed nor sent again meanwhile.
 
 ## 3. First-Time Setup
 
@@ -551,6 +574,20 @@ Removals made elsewhere. With *Copy removals made elsewhere* on its default, tak
 
 Resume points. Trakt's resume points are copied to MDBList and Simkl only when the other service has none for the item or Trakt's is newer, never for an item already watched there, and nothing is sent when the other service's points cannot be read.
 
+### Run when something changes (7.0.42–7.0.46)
+
+With *Run when something changes* on (the default; Settings → Accounts → Cross-service sync), the bridge does not wait for *Sync Interval*. It starts about 20 seconds after you mark something watched, change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity, which is checked every 2 to 5 minutes so changes made on a website or in an app are found too. Marks made close together share one run. The interval stays as a safety net. A removal made elsewhere must have been missing for 3 minutes (as well as on two runs in a row) before it is copied, and a run that leaves a removal waiting is followed by another about 3 minutes later.
+
+### Anime episodes (7.0.48–7.0.55)
+
+Simkl keeps every season (cour) of an anime as its own entry and counts its episodes from 1, so they do not line up with the TMDb season and episode numbers Trakt and MDBList use. Three settings, all *Off / Log only / On* and all *Log only* by default, handle anime separately from the normal watched sync. Each Simkl entry is matched to TMDb with the offline Fribb anime list; an entry that needs an episode offset, or shares its TMDb season with another entry, is only used for episodes whose air dates AniZip and TMDb agree on. An episode that cannot be matched with confidence is left out, never guessed.
+
+- *Anime episodes from Simkl*: episodes watched on Simkl are copied to Trakt and MDBList with the date Simkl recorded.
+- *Anime episodes to Simkl*: episodes watched on Trakt are sent to Simkl with Trakt's date, at most once per episode; everything sent is written to *bridge_anime_simkl.jsonl*.
+- *Anime un-watches*: an un-watch on one service is carried to the others by entry and number. It needs *Copy removals made elsewhere* on *Also watched history* and follows the same guards as other removals (missing on two runs in a row and for 3 minutes, nothing removed when many items vanish at once, an episode played again is kept).
+
+*Log only* writes what each setting would do to the Kodi log and changes nothing. Read the log for a while before switching a setting to *On*. Seren has the same three anime settings: use them in only one of the two add-ons for the same accounts.
+
 ---
 
 ## 13. Kodi Library Integration
@@ -612,6 +649,7 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 | Hide items without airdates | on | Treat undated items as unaired |
 | Special season folders | Show All | Show all, or hide Specials, Up Next and / or Episode Groups |
 | Flatten seasons | off | List all seasons' episodes together |
+| Show long seasons as separate seasons | on | A show TMDb lists as one very long season is shown as the seasons it aired in (section 2; not used with Flatten seasons) |
 
 ### Widgets
 
@@ -644,7 +682,7 @@ OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / se
 | **Trakt API** | Enable Trakt (on) · Authenticate · Account Info · Logout · Scrobble (**on**) · Get episode types (on) · Get watched indicators (**off**) · Get resume points (**off**) · Random seed pool (5) · Ignore articles (off) · Cache own lists 24 h (on) |
 | **MDbList API** | Enable MDBList (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · MDbList API key |
 | **Simkl API** | Enable Simkl (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) |
-| **Cross-service sync** | Mirror actions across enabled services (**off**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) |
+| **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) |
 | **Playback started by other add-ons** | Scrobble items played by other add-ons (**off**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
 
 ### Players
@@ -677,7 +715,9 @@ Default player for movies / episodes (none) · Play automatically using availabl
 
 | Limitation | Detail |
 |---|---|
-| **Bridge removes** | Removals made directly on trakt.tv, mdblist.com or simkl.com are copied only while *Copy removals made elsewhere* is on (7.0.32; the default copies watchlist and collection removals, unwatching needs the highest option) and only after an item is missing on two runs in a row. Context-menu unwatches are mirrored at once. |
+| **Bridge removes** | Removals made directly on trakt.tv, mdblist.com or simkl.com are copied only while *Copy removals made elsewhere* is on (7.0.32; the default copies watchlist and collection removals, unwatching needs the highest option) and only after an item is missing on two runs in a row (and for 3 minutes). Context-menu unwatches are mirrored at once; anime un-watches have their own setting (section 12). |
+| **Anime in Bridge Sync** | Anime episodes are matched with the offline Fribb list and the AniZip air date, so a series the list files without a TMDb season, or one whose episodes TMDb numbers differently, can stay unsynced until the list or TMDb is corrected. An entry that loses every episode at once on Simkl looks like a status change and nothing is removed. All three anime settings default to *Log only*, and they have been tested on one set of accounts only. |
+| **Season layout** | Applies only to a show whose single long TMDb season is split exactly by a season-style episode group. Other add-ons keep TMDb's numbers, and a fully watched laid-out season is hidden from Kodi's season list like a fully watched real season. Select artwork on a laid-out season changes that season only; its episodes and *Refresh all artwork* still use real season 1's artwork. |
 | **Progress sync direction** | Trakt → MDBList / Simkl only (Trakt's `/sync/playback` is read-only). MDBList and Simkl **movie** progress is read from the server; Simkl **episode** progress is recorded locally by the scrobbler. |
 | **Ratings** | No MDBList endpoint to read ratings back; they sync only through the on-action mirror. |
 | **Simkl episode numbering** | TMDb episode numbers are used. Other shows whose TVDB and TMDb numbering differ can land on the wrong episode. Anime cours are placed by season length or by start date (section 7); batch releases and irregular anime stay out of Next Up. |
