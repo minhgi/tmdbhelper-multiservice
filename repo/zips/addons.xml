@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.38" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.55" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,58 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.55
+- Fix: Cross-Service Sync - an episode played again (re-watched, or re-added) on a service shortly after the bridge removed it there is kept and carried to the other services, instead of being removed again as a removal that had not shown yet.
+
+v7.0.54
+- New: Cross-Service Sync - anime un-watches: an anime episode un-watched on Simkl (judged by the entry and number it really recorded) is un-watched on Trakt and MDBList, and one un-watched on Trakt or MDBList is un-watched on Simkl's entry. New setting 'Anime un-watches' (Off / Log only / On, default Log only).
+
+v7.0.53
+- Fix: Cross-Service Sync - anime: episodes of a second cour that TMDb keeps in season 1 (Solo Leveling, My Happy Marriage, Unnamed Memory) and entries whose index offset runs past their TMDb season (Full Metal Panic season 2) are placed by episode counts, each episode confirmed by its air date, instead of being left out; a Simkl episode that TMDb's season does not have is no longer bridged.
+
+v7.0.52
+- Fix: Cross-Service Sync - anime episodes to Simkl: an entry Simkl holds as completed in one go (bulk-marked, no per-episode rows) counts as already watched there, so its episodes are no longer offered to Simkl again.
+
+v7.0.51
+- New: Cross-Service Sync - anime episodes watched on Trakt can be sent to Simkl (new setting "Anime episodes to Simkl": Off / Log only / On, default Log only). Each episode is matched to its Simkl entry with the Fribb index and the AniZip air date, checked by reading it back through the same mapping, and sent as an anime episode with Trakt's own watch date; entries you dropped on Simkl are skipped, what Simkl already has is not sent again, and everything sent is written to bridge_anime_simkl.jsonl. Episodes watched before this version are included.
+
+v7.0.50
+- Fix: Cross-Service Sync - after a bulk push to Trakt the local Trakt copy lags, so the episodes just sent looked removed (and, with removals on, could have been taken off the other services) and were sent to Trakt a second time. Keys the bridge sent to Trakt are now remembered until Trakt's listing shows them (24 hours at most; one never listed under that number is dropped, never treated as a removal) and are neither removed nor sent again meanwhile.
+- Fix: Simkl anime episodes sent to Trakt keep the date Simkl recorded, also when MDBList (which stores no date) is the service that sends them; before, most carried the day of the push.
+
+v7.0.49
+- Fix: Cross-Service Sync - Simkl anime episodes whose TMDb season does not exist (the anime index says season 2 but TMDb keeps the cours merged in season 1) are left out instead of being sent to Trakt and MDBList again on every cycle only to be refused.
+
+v7.0.48
+- New: Cross-Service Sync - Simkl anime episodes can now be copied to Trakt and MDBList (new setting "Anime episodes from Simkl" under Cross-Service Sync: Off / Log only / On, default Log only). Simkl numbers every anime cour from 1, so each entry's episodes are matched to TMDb seasons with the Fribb anime index; an entry that needs an episode offset, or shares its TMDb season with another entry, is only taken for episodes whose air dates AniZip and TMDb agree on. Nothing is sent back to Simkl and an anime episode that disappears from Simkl is never removed elsewhere. Log only writes what would be copied to the log and changes nothing.
+
+v7.0.47
+- Fix: Select artwork on a season of a show with the season layout (Bingie shows The Apothecary Diaries as seasons 1, 2, 3 ...) no longer changes the artwork of the real TMDb season 1 for every layout season. A pick made on a layout season is kept for that season only (season_layout_art.json); layout seasons with no pick of their own keep showing real season 1's artwork.
+
+v7.0.46
+- Fix: Cross-Service Sync - a removal that never finished (for example one Simkl keeps refusing) no longer makes the sync run again three extra times after every change; it counts only for a few minutes after it is first seen. A resume point Simkl refuses twice in a row (a title it does not know answers 404) is no longer posted again on every run, only when it changes or after a day.
+
+v7.0.45
+- Fix: Next Up - an episode Trakt names as the next one to watch was hidden by Hide watched when MDBList or Simkl had it marked watched (for example one day's bulk mark of a whole show), so the show vanished from the Trakt Next Up list. That list now uses Trakt's own watched state for its episodes, as In Progress already does for its shows.
+
+v7.0.44
+- Fix: Season layout - a skin that reads the season and episode it shows (Bingie's Refresh details, Select artwork and episode info buttons) sent the layout numbers, e.g. season 3 episode 2 of The Apothecary Diaries, which TMDb does not have. They are now turned back into TMDb's own numbers (season 1 episode 50) before the request runs, so those buttons work on a laid-out show. Other shows are untouched.
+
+v7.0.43
+- Fix: Cross-Service Sync - With Run when something changes on, the MDBList check started a full sync every 5 minutes. MDBList's activity answer carries the server's clock, which differs on every request, so it always looked like new activity. The clock is now ignored; only real activity starts a run.
+
+v7.0.42
+- New: Cross-Service Sync - Run when something changes (Settings &gt; Navigation &gt; Cross-Service Sync, on by default). The sync no longer waits for its fixed interval: it runs about 20 seconds after you mark something watched or change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity (checked every 2 to 5 minutes, so a change made on the website or in an app is found too). The interval stays as a safety net. A removal made elsewhere now also has to have been missing for 3 minutes before it is copied to the other services, and a run that leaves removals waiting is followed by another about 3 minutes later.
+
+v7.0.41
+- Fix: Home widgets - The unwatched / watched number on a show's poster did not change when you marked one episode watched or unwatched (an unwatch never lowered it). The MDBList and Simkl show and season totals were only refreshed by the next periodic sync, and the number shown is the highest of the Trakt, MDBList and Simkl totals. A mark now recounts the MDBList totals from its episode rows (which also repairs a stale total) and moves the Simkl totals by the change made. Bulk-marked seasons and shows are left alone, and specials count only toward their own season.
+
+v7.0.40
+- Fix: Season list - After you mark an episode watched (or unwatched) the episodes shown beside the season list in a skin such as Bingie now reload at once, like a home screen widget. The list was refreshed but the skin kept the episodes it had loaded, so the new mark only showed after reopening the window. Each season item's path now carries the widget reload stamp that a mark sets, which makes the skin load the episodes again.
+
+v7.0.39
+- New: Seasons - A show that TMDb lists as one long season (The Apothecary Diaries is one season of 60 episodes, Jujutsu Kaisen one of 59) is now shown as the separate seasons it aired in, in every skin: a Season 1, Season 2, Season 3 list, each opening its own episodes numbered from 1. The seasons come from a TMDb episode group, and only when the group is a season-style one (type Production or TV) whose seasons hold exactly the show's episodes, none missing and none twice; any other show, and any show that fits no group, keeps TMDb's own seasons. Only the numbers, names and counts that are drawn change: playing, watched marks, Trakt / MDBList / Simkl syncing and Next Up still use TMDb's real season and episode. A season's watched count is worked out from its own episodes. Every other list (Next Up, In Progress, calendars, the show's page and its Up Next button) uses the same numbers and the show's season count once the show's season list or page has been opened (the layout is remembered for a day). Turn it off in Settings, Navigation, 'Show long seasons as separate seasons' (not used with Flatten seasons).
+
 v7.0.38
 - Fix: Simkl scrobbling - An anime episode is now sent to Simkl as the anime entry (cour) it belongs to FIRST, with its AniList / MAL ids and its number inside the entry, instead of only after Simkl refused the TMDb numbers. Simkl places TMDb season and episode numbers by TVDB season, so a merged season could be refused (The Apothecary Diaries S01E49, Frieren S01E31) or be accepted into the wrong cour with a success answer that no retry could notice. This covers the resume point written on pause and the watched mark at the end of the episode. The entry comes from the offline Fribb index and is only used when the episode's air date agrees with it; when Simkl does not take it, or the episode cannot be matched to an entry, the TMDb numbers are sent as before. A watched mark that Simkl refused is not shown as watched in the lists for an anime episode that resolved to an entry. The check that skips the mark when the playing add-on has already reported the viewing now also watches Simkl's anime activity, where an anime mark is recorded.
 

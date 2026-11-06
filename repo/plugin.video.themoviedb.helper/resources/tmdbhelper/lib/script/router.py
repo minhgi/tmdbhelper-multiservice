@@ -59,6 +59,9 @@ class Script(object):
             else:
                 self.params[arg] = True
         self.params = reconfigure_legacy_params(**self.params)
+        if self.params.get('season'):
+            from tmdbhelper.lib.api.tmdb.season_layout import remap_params
+            remap_params(self.params, keep_layout_season=True)  # layout season/episode numbers from a skin -> real TMDb numbers
 
     routing_table = {
         'test_func':

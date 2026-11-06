@@ -25,9 +25,10 @@ def _reload_bingie_hub_widgets(timestamp):
             xbmc.executebuiltin(f'Skin.SetString({key},{new_url}&reload={timestamp})')
 
 
-def reload_widgets(soft=False, invalidate=True):
+def reload_widgets(soft=False, invalidate=True, bridge=True):
     """soft=True: a background sync changed data (the widget cache may be served stale while the service rebuilds it).
-    invalidate=False: only nudge the skins to re-request (used by the widget warmer once its caches are fresh)."""
+    invalidate=False: only nudge the skins to re-request (used by the widget warmer once its caches are fresh).
+    bridge=False: this is not a change of the user's data, so Cross-Service Sync need not run (artwork choices)."""
     """Set widget reload properties for both TMDbHelper and common skin property names.
     TMDbHelper uses TMDbHelper.Widgets.Reload (via jurialmunkey prefix).
     Many skins use their own property names (e.g. widgetreload-movies, widgetreload).
@@ -49,6 +50,9 @@ def reload_widgets(soft=False, invalidate=True):
         if not soft:
             home.setProperty('TMDbHelper.Widgets.HardInvalidated', str(time.time()))
     _reload_bingie_hub_widgets(timestamp)
+    if invalidate and not soft and bridge:
+        from tmdbhelper.lib.monitor.bridge_trigger import request_run
+        request_run()   # a change was made in Kodi: Cross-Service Sync runs shortly (setting cross_sync_dynamic)
 
 
 def container_refresh():

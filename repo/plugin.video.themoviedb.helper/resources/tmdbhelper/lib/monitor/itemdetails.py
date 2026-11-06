@@ -61,13 +61,13 @@ class ListItemDetails(ImageManipulations):
     def season(self):
         if self._dbtype not in ['seasons', 'episodes', 'multi']:
             return
-        return self.get_infolabel('Season') or None
+        return self.get_infolabel('Property(item.season)') or self.get_infolabel('Season') or None
 
     @property
     def episode(self):
         if self._dbtype not in ['episodes', 'multi']:
             return
-        return self.get_infolabel('Episode') or None
+        return self.get_infolabel('Property(item.episode)') or self.get_infolabel('Episode') or None
 
     @property
     def imdb_id(self):

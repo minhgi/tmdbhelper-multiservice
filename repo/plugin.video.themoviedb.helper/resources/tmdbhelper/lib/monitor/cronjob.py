@@ -1,6 +1,7 @@
 from tmdbhelper.lib.addon.thread import SafeThread
 
 
+BRIDGE_TICK = 5  # seconds between checks of the bridge triggers (monitor/bridge_trigger.py)
 CRONJOB_POLL_TIME = 180  # Reduced from 600: LastInvalidated is now the primary widget-refresh signal; CronJob is just the safety net. Polling every 3 min costs ~zero (one cleared window property per poll when nothing changed).
 
 
@@ -275,8 +276,17 @@ class CronJobMonitor(SafeThread):
             kodi_log(f'BridgeSync poll error: {exc}', 2)
 
     def run(self):
+        import time
+        from tmdbhelper.lib.monitor.bridge_trigger import BridgeTrigger
         self._on_startup()
+        trigger = BridgeTrigger(self.trakt_api, self.update_monitor)
+        next_poll = time.monotonic() + self._poll_time
 
         while not self.update_monitor.abortRequested() and not self.exit:
-            self.update_monitor.waitForAbort(self._poll_time)
-            self._on_poll()
+            self.update_monitor.waitForAbort(BRIDGE_TICK)   # short steps: the bridge reacts to a mark within seconds
+            if self.update_monitor.abortRequested() or self.exit:
+                break
+            trigger.tick()
+            if time.monotonic() >= next_poll:
+                self._on_poll()
+                next_poll = time.monotonic() + self._poll_time

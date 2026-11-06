@@ -42,8 +42,8 @@ def play_using(play_using, mode='play', **kwargs):
             dictionary['tmdb_type'] = 'tv'
             dictionary['query'] = get_infolabel('ListItem.TVShowTitle')
             dictionary['ep_year'] = get_infolabel('ListItem.Year')
-            dictionary['season'] = get_infolabel('ListItem.Season')
-            dictionary['episode'] = get_infolabel('ListItem.Episode')
+            dictionary['season'] = get_infolabel('ListItem.Property(item.season)') or get_infolabel('ListItem.Season')  # item.* = the real TMDb numbers
+            dictionary['episode'] = get_infolabel('ListItem.Property(item.episode)') or get_infolabel('ListItem.Episode')
             if dictionary['query'] and dictionary['season'] and dictionary['episode']:
                 return dictionary
 

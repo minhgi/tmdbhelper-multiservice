@@ -8,6 +8,9 @@ class Router():
         self.handle = handle  # plugin:// handle
         self.paramstring, *secondary_params = paramstring.split('&&')  # plugin://plugin.video.themoviedb.helper?paramstring
         self.params = reconfigure_legacy_params(**parse_paramstring(self.paramstring))  # paramstring dictionary
+        if self.params.get('season'):
+            from tmdbhelper.lib.api.tmdb.season_layout import remap_params
+            remap_params(self.params)  # layout season/episode numbers from a skin -> real TMDb numbers
         if not secondary_params:
             return
         from urllib.parse import unquote_plus

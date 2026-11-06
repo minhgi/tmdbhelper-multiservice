@@ -250,28 +250,38 @@ def _index_entries(tmdb_id):
 
 
 def entry_for_episode(tmdb_id, season, episode, tmdb_airdate=None):
-    """(AniList id, the episode's number inside that entry) for TMDb episode `season`x`episode` of a show the Fribb index knows,
+    """(AniList id, number inside the entry) or None - see entry_status, which also says WHY there is none."""
+    return entry_status(tmdb_id, season, episode, tmdb_airdate)[1]
+
+
+def entry_status(tmdb_id, season, episode, tmdb_airdate=None):
+    """('ok', (AniList id, number inside the entry)), ('later', None) when an AniZip fetch failed or was held back (cap / breaker): ask
+    again later, or ('none', None) when no entry fits. (AniList id, the episode's number inside that entry) for TMDb episode `season`x`episode` of a show the Fribb index knows,
     or None. The same candidates and the same air-date check as episode_overlay (a Fribb offset is wrong about one time in
     seven, so a mapping only counts when AniZip's air date agrees with TMDb's; with no TMDb air date only a single candidate
     counts), but it returns the entry itself, for a service that numbers anime by entry (Simkl)."""
     _expire_state()
     entries = _index_entries(tmdb_id)
     if not entries:
-        return None
+        return 'none', None
     try:
         season, episode = int(season), int(episode)
     except (ValueError, TypeError):
-        return None
+        return 'none', None
     if season < 1 or episode < 1:
-        return None
+        return 'none', None
     candidates = [(anilist_id, offset or 0) for anilist_id, entry_season, offset in entries
                   if entry_season == season and (offset or 0) < episode]
     candidates.sort(key=lambda c: (-c[1], c[0]))
     candidates = candidates[:MAX_CANDIDATES]
     tmdb_date = _to_date(tmdb_airdate) if tmdb_airdate else None
+    later = False
     for anilist_id, offset in candidates:
         episodes = _entry_episodes(anilist_id)
-        data = episodes.get(episode - offset) if episodes else None
+        if episodes is None:           # could not be had right now (breaker, fetch cap or failure): not the same as 'no such episode'
+            later = True
+            continue
+        data = episodes.get(episode - offset)
         if not data:
             continue
         aired = _to_date(data['airdate'])
@@ -280,8 +290,8 @@ def entry_for_episode(tmdb_id, season, episode, tmdb_airdate=None):
                 continue
         elif len(candidates) > 1:
             continue
-        return anilist_id, episode - offset
-    return None
+        return 'ok', (anilist_id, episode - offset)
+    return ('later' if later else 'none'), None
 
 
 def episode_overlay(tmdb_id, season, episode, tmdb_airdate=None):

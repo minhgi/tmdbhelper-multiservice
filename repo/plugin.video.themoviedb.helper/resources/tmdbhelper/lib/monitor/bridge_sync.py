@@ -26,8 +26,9 @@ Strategy - snapshot-delta, not a raw current-state diff:
 
 Domains (Seren's scope, widened to Simkl at the user's request - Seren itself keeps Simkl to movies):
   Watched movies:   Trakt <-> MDBList <-> Simkl.
-  Watched episodes: Trakt <-> MDBList <-> Simkl (Simkl's shows bucket only - its anime bucket uses
-                    different episode numbering and is left out). Whole shows are never pushed - a
+  Watched episodes: Trakt <-> MDBList <-> Simkl (Simkl's shows bucket; its anime bucket numbers every cour from 1,
+                    so anime episodes only flow FROM Simkl TO Trakt / MDBList, mapped to TMDb numbers by the Fribb
+                    index - setting cross_sync_anime, see _anime_mapped). Whole shows are never pushed - a
                     show-level mark means "every episode".
   Watchlist:        Trakt <-> MDBList <-> Simkl plan-to-watch. An item Simkl already has in another
                     status (completed, watching, hold, dropped, not interested) is never overwritten.
@@ -59,6 +60,7 @@ from tmdbhelper.lib.addon.plugin import ADDONDATA, get_setting
 _LAST_RUN_PROP = 'TMDbHelper.BridgeSync.LastRun'
 _RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'
 _DEFAULT_INTERVAL_MINUTES = 180   # same cadence as Seren's bridge
+_REMOVE_CONFIRM_SECONDS = 180     # an item must have been missing this long, as well as on two runs: runs can now follow each other within a minute (bridge_trigger.py)
 _BATCH_SIZE = 100     # max items per Trakt / Simkl call
 _MDB_CHUNK = 50       # max items per MDBList call (Seren's live-tested chunk size)
 _SIMKL_BASE = 'https://api.simkl.com'
@@ -73,12 +75,22 @@ _SIMKL_LOCK_SECONDS = 21
 _TARGET_NAMES = {'mdblist': 'MDBList', 'simkl': 'Simkl', 'trakt': 'Trakt'}
 _STAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
 # Removals made outside Kodi (setting cross_sync_removals): 0 off, 1 log only, 2 watchlist + collection, 3 also watched history
-_REMOVE_MASS_CAP = 10          # more than this many items (or 5% of the snapshot) vanishing from one service at once looks like an
+_RESUME_FAIL_RUNS = 2          # a Simkl resume point refused on this many runs in a row is not sent again for _RESUME_FAIL_SECONDS ...
+_RESUME_FAIL_SECONDS = 86400   # ... unless Trakt's copy of it changes (a title Simkl does not know answers 404 every time, ~8 s a run)
+_REMOVE_MASS_CAP = 10         # more than this many items (or 5% of the snapshot) vanishing from one service at once looks like an
 _REMOVE_MASS_CAP_EPISODES = 40  # incomplete read, not the user: nothing is removed from the other services for it
 _REMOVE_CLOCK_MARGIN = 90       # seconds a play must be newer than the last run's end to count as 'played again'
 _REMOVE_RECENT_DAYS = 3        # how long an item the bridge removed is not taken for a new addition if the service still lists it
 _JOURNAL_FILE = 'bridge_removals.jsonl'   # addon_data: one line per removal the bridge made (what, where, the dates it held)
 _JOURNAL_LINES = 2000
+_ANIME_JOURNAL_FILE = 'bridge_anime_simkl.jsonl'   # addon_data: one line per anime episode the bridge sent to Simkl (entry ids, number, TMDb key, date)
+_ANIME_REFUSED_SECONDS = 7 * 86400   # an anime episode Simkl refused is not sent again for this long
+_ANIME_PUSH_CHUNK = 100              # episodes per Simkl anime request (several entries share one request)
+_ANIME_CYCLE_CAP = 100               # anime episodes sent to Simkl per cycle: the 21 s write spacing keeps a run short, a backlog takes a few cycles
+_ANIME_COORDS_GONE_SECONDS = 3 * 86400   # how long the entry coordinates of an anime episode that left Simkl's mapped view are kept for the removal check
+_ANIME_SENT_SECONDS = 3 * 86400      # how long a sent episode is waited for to show up when Simkl is read back
+_TRAKT_AWAIT_SECONDS = 86400   # a key the bridge sent to Trakt may take this long to show in the local Trakt copy (it lags after bulk pushes)
+# Simkl anime episodes -> Trakt / MDBList (setting cross_sync_anime): 0 off, 1 log only (default), 2 on
 
 
 class BridgeSync:
@@ -99,6 +111,15 @@ class BridgeSync:
         self._pushed = {}          # {service: items confirmed pushed to it this run}, for the finishing notification
         self._tstamps = {}         # {(media, item_key): last_watched_at from the Trakt DB}, to tell a newer play from an old one
         self._simkl_prev_real = set()   # episodes Simkl held a real record for at the last cycle
+        self._anime_cache = None   # (mapped {key: watched_at}, stats) of Simkl's anime episodes in TMDb numbering, one per run
+        self._anime_synth_cache = None   # TMDb keys of anime episodes Simkl holds only as bulk-marked rows
+        self._anime_coords = {}          # {TMDb key: (AniList id, number inside the entry)} of Simkl's real anime episodes this run (and of those just sent)
+        self._anime_gone = {}            # same, kept for a few days for keys that left the mapped view: what an un-watch on Simkl is checked against
+        self._anime_removal_logged = set()
+        self._anime_known_memo = {}   # {tmdb id: True if the Fribb index knows the show}
+        self._anime_dirty = False  # this run wrote anime episodes to Simkl: its saved views are stale, read it again next cycle
+        self._anime_stamps = {}    # {key: Simkl's watched_at} of the mapped anime episodes: the date they carry on Trakt, whichever service sends them
+        self._anime_keys = set()   # Simkl anime episodes taken into this run's Simkl view (mode 2): only ever sources, never removal sources or Simkl targets
         self._run_started = ''     # UTC ISO time this run started
         self._removed = {}         # {service: items the bridge removed this run}, for the finishing notification
 
@@ -126,6 +147,21 @@ class BridgeSync:
         last = float(get_property(_LAST_RUN_PROP) or 0)
         minutes = get_setting('cross_sync_interval', 'int') or _DEFAULT_INTERVAL_MINUTES
         return (time.time() - last) >= (minutes * 60)
+
+    @property
+    def has_pending_removals(self):
+        """True while an item first found missing within the last two confirm windows waits for its second check (read after a
+        run). An entry that stays pending for good (log-only mode, a target that keeps failing) stops counting, so it cannot keep
+        the trigger scheduling follow-up runs."""
+        import time
+        seen = self._meta.get('removals_seen') or {}
+        now = time.time()
+        for label, items in (self._meta.get('removals') or {}).items():
+            for key in items or ():
+                at = (seen.get(label) or {}).get(key)
+                if at and now - at <= 2 * _REMOVE_CONFIRM_SECONDS:
+                    return True
+        return False
 
     def _mark_done(self):
         import time
@@ -414,8 +450,9 @@ class BridgeSync:
     # Simkl views: {'movies': {tmdb: [status, last_watched_at]}, 'shows': {tmdb: [status, last_watched_at]},
     #   'anime': [tmdb of anime shows], 'ep_yes': {'show:season:number': show tmdb} (every episode Simkl counts as
     #   watched, including synthetic rows for completed shows), 'ep_real': {key: watched_at} (episodes the user
-    #   actually recorded, the only ones that may go to Trakt history)}. Shows = the shows bucket plus the anime
-    # bucket (statuses only: anime episode numbering differs, so anime episodes are not bridged).
+    #   actually recorded, the only ones that may go to Trakt history), 'anime_eps': {AniList id: {'tmdb': id, 'eps': {number in the
+    # entry: watched_at}}} (Simkl's anime episodes, numbered per entry; mapped to TMDb numbers at use - see _anime_mapped)}.
+    # Shows = the shows bucket plus the anime bucket (statuses; the anime episodes only go from Simkl to the other services).
 
     def _simkl_activity(self):
         """Simkl's top-level activity stamp (GET /sync/activities, cheap), or None if the request failed."""
@@ -424,19 +461,20 @@ class BridgeSync:
         return stamp if isinstance(stamp, str) and stamp else None
 
     def _simkl_load(self):
-        """Read Simkl's library (4 requests). None if any request failed - never a partial view."""
+        """Read Simkl's library (5 requests). None if any request failed - never a partial view."""
         reads = {}
         for name, path in (
                 ('movies', '/sync/all-items/movies/'),
                 ('yes', '/sync/all-items/shows/?extended=full&episode_watched_at=yes&include_all_episodes=yes'),
                 ('real', '/sync/all-items/shows/?extended=full&episode_watched_at=yes&include_all_episodes=original'),
-                ('anime', '/sync/all-items/anime/')):
+                ('anime', '/sync/all-items/anime/?extended=full&episode_watched_at=yes&include_all_episodes=original'),
+                ('anime_all', '/sync/all-items/anime/?extended=full&episode_watched_at=yes&include_all_episodes=yes')):   # also the bulk-marked rows
             ok, data = self._simkl_get_ok(path)
             if not ok or not (data is None or isinstance(data, dict)):
                 kodi_log(f'BridgeSync: Simkl {path.split("?")[0]} read failed - skipping Simkl this cycle', 1)
                 return None
             reads[name] = data or {}
-        views = {'movies': {}, 'shows': {}, 'anime': [], 'ep_yes': {}, 'ep_real': {}}
+        views = {'movies': {}, 'shows': {}, 'anime': [], 'ep_yes': {}, 'ep_real': {}, 'anime_eps': {}, 'anime_status': {}, 'anime_synth': {}}
         for item in reads['movies'].get('movies') or []:
             tmdb_id = ((item.get('movie') or {}).get('ids') or {}).get('tmdb')
             if tmdb_id:
@@ -444,6 +482,7 @@ class BridgeSync:
         for item in reads['anime'].get('anime') or []:
             media = item.get('show') or item.get('movie') or item
             tmdb_id = (media.get('ids') or {}).get('tmdb')
+            self._simkl_anime_episodes(views, item, media)
             if not tmdb_id:
                 continue
             if item.get('anime_type') == 'movie' or 'movie' in item:
@@ -451,6 +490,21 @@ class BridgeSync:
             else:
                 views['shows'][str(tmdb_id)] = [item.get('status'), item.get('last_watched_at')]
                 views['anime'].append(str(tmdb_id))
+        for item in reads['anime_all'].get('anime') or []:
+            # episodes Simkl holds only as bulk-marked rows (an entry completed in one go): watched for 'is it on Simkl', never sent on
+            media = item.get('show') or item.get('movie') or item
+            ids = media.get('ids') or {}
+            if item.get('anime_type') == 'movie' or 'movie' in item:
+                continue
+            try:
+                anilist_id = int(ids.get('anilist'))
+            except (TypeError, ValueError):
+                continue
+            real = (views['anime_eps'].get(str(anilist_id)) or {}).get('eps') or {}
+            extra = {str(e['number']): '' for s in item.get('seasons') or [] for e in s.get('episodes') or []
+                     if e.get('number') is not None and str(e['number']) not in real}
+            if extra:
+                views['anime_synth'][str(anilist_id)] = {'tmdb': ids.get('tmdb'), 'eps': extra}
         for name, target in (('yes', 'ep_yes'), ('real', 'ep_real')):
             for item in reads[name].get('shows') or []:
                 tmdb_id = ((item.get('show') or {}).get('ids') or {}).get('tmdb')
@@ -468,6 +522,291 @@ class BridgeSync:
                         views[target][key] = str(tmdb_id) if name == 'yes' else (episode.get('watched_at') or '')
         return views
 
+    @staticmethod
+    def _simkl_anime_episodes(views, item, media):
+        """Keep the episodes Simkl really recorded for one anime entry, as numbered INSIDE the entry:
+        views['anime_eps'] = {AniList id: {'tmdb': Simkl's TMDb id or None, 'eps': {number: watched_at}}}. They are mapped to TMDb
+        numbers every cycle (_anime_mapped), not here, so a corrected Fribb index takes effect without re-reading Simkl."""
+        if item.get('anime_type') == 'movie' or 'movie' in item:
+            return
+        ids = media.get('ids') or {}
+        try:
+            anilist_id = int(ids.get('anilist'))
+        except (TypeError, ValueError):
+            return
+        views.setdefault('anime_status', {})[str(anilist_id)] = item.get('status')   # every entry, also the ones with no watched episodes
+        eps = {}
+        for season in item.get('seasons') or []:
+            for episode in season.get('episodes') or []:
+                if episode.get('number') is not None:
+                    eps[str(episode['number'])] = episode.get('watched_at') or ''
+        if eps:
+            views['anime_eps'][str(anilist_id)] = {'tmdb': ids.get('tmdb'), 'eps': eps}
+
+    @staticmethod
+    def _anime_mode():
+        """cross_sync_anime: 0 off, 1 log only (default), 2 on."""
+        try:
+            mode = int(get_setting('cross_sync_anime', 'int'))
+        except Exception:
+            return 1
+        return mode if 0 <= mode <= 2 else 1
+
+    @staticmethod
+    def _anime_removal_mode():
+        """cross_sync_anime_removals: 0 off, 1 log only (default), 2 on - an anime episode un-watched on one service is un-watched on the others
+        (needs cross_sync_removals as well; the same two-run / 3-minute / mass-vanish guards apply)."""
+        try:
+            mode = int(get_setting('cross_sync_anime_removals', 'int'))
+        except Exception:
+            return 1
+        return mode if 0 <= mode <= 2 else 1
+
+    def _anime_coords_update(self):
+        """Remember, for the removal check, which entry and number each mapped anime key is on Simkl, and for a few days after a key leaves
+        the mapping (a removal needs two runs, so the coordinates must outlive the first one)."""
+        import time
+        self._snapshot_data()                  # the saved meta first: it is what the previous run left
+        prev = self._meta.get('anime_coords') or {}
+        gone = self._meta.get('anime_coords_gone') or {}
+        now_t = time.time()
+        current = {k: [int(v[0]), int(v[1])] for k, v in self._anime_coords.items()}
+        for key, value in prev.items():
+            if key not in current and key not in gone:
+                gone[key] = list(value) + [now_t]
+        for key in list(gone):
+            if key in current or now_t - gone[key][2] > _ANIME_COORDS_GONE_SECONDS:
+                del gone[key]
+        self._meta['anime_coords'] = current
+        self._meta['anime_coords_gone'] = gone
+        self._anime_gone = {k: (v[0], v[1]) for k, v in gone.items()}
+
+    def _anime_unwatched(self, key):
+        """True when Simkl itself dropped this anime episode: the entry is still on the list with a watching / completed / on-hold status
+        and no longer holds that episode among the episodes it really recorded. Decided in the entry's own numbering, never by the TMDb key
+        (a key can leave the mapping only because the index or TMDb changed). Needs cross_sync_anime_removals = 2 to count."""
+        mode = self._anime_removal_mode()
+        coord = self._anime_gone.get(key)
+        if not mode or coord is None:
+            return False
+        views = self._simkl or {}
+        al, n = str(coord[0]), str(coord[1])
+        status = (views.get('anime_status') or {}).get(al)
+        if status is None or status in _SIMKL_DROPPED or status == 'plantowatch':
+            return False                       # off the list, dropped, or back on plan-to-watch: a status move, not an episode un-watch
+        real = ((views.get('anime_eps') or {}).get(al) or {}).get('eps') or {}
+        synth = ((views.get('anime_synth') or {}).get(al) or {}).get('eps') or {}
+        if n in real or n in synth:
+            return False                       # Simkl still holds it: only the mapping changed
+        had = sum(1 for v in list((self._meta.get('anime_coords') or {}).values()) + [list(c) for c in self._anime_gone.values()] if str(v[0]) == al)
+        if not real and had > 1:
+            if (al, 'reset') not in self._anime_removal_logged:
+                self._anime_removal_logged.add((al, 'reset'))
+                kodi_log(f'BridgeSync: Simkl anime entry {al} lost all its recorded episodes at once - looks like a status reset, not removed elsewhere', 1)
+            return False
+        if mode == 1:
+            if key not in self._anime_removal_logged:
+                self._anime_removal_logged.add(key)
+                kodi_log(f'BridgeSync (anime removals, log only): {key} (AniList {al} episode {n}) was un-watched on Simkl - would be removed from the other services', 1)
+            return False
+        return True
+
+    def _anime_mapped(self):
+        """(mapped {'tmdb:season:episode': watched_at}, stats) of the anime episodes Simkl recorded, in TMDb numbering; ({}, None)
+        when off or Simkl is unreadable. Computed once per run."""
+        if self._anime_cache is not None:
+            return self._anime_cache
+        self._anime_cache = ({}, None)
+        views = self._simkl_state() if (self._anime_mode() or self._anime_simkl_mode()) else None
+        entries = (views or {}).get('anime_eps')
+        if not entries:
+            return self._anime_cache
+        try:
+            from tmdbhelper.lib.api.anilist.entry_map import map_entries
+            from tmdbhelper.lib.api.tmdb.api import TMDb
+            coords = {}
+            self._anime_cache = map_entries(entries, TMDb(), None, coords)
+            self._anime_coords.update(coords)
+        except Exception as exc:
+            kodi_log(f'BridgeSync: anime episode mapping failed - {type(exc).__name__}: {exc}', 2)
+        return self._anime_cache
+
+    def _anime_synth_keys(self):
+        """TMDb keys of the anime episodes Simkl holds only as bulk-marked rows (an entry completed in one go: the 'original' view lists no
+        episodes for it although Simkl counts them watched). They are on Simkl, so the Trakt -> Simkl pass must not send them (found live
+        2026-11-05: the first entry sent was already completed 12/12 there); they never go the other way (approximate dates)."""
+        if self._anime_synth_cache is not None:
+            return self._anime_synth_cache
+        self._anime_synth_cache = set()
+        entries = (self._simkl_state() or {}).get('anime_synth')
+        if entries and (self._anime_mode() or self._anime_simkl_mode()):
+            try:
+                from tmdbhelper.lib.api.anilist.entry_map import map_entries
+                from tmdbhelper.lib.api.tmdb.api import TMDb
+                self._anime_synth_cache = set(map_entries(entries, TMDb())[0])
+            except Exception as exc:
+                kodi_log(f'BridgeSync: anime bulk-marked mapping failed - {type(exc).__name__}: {exc}', 2)
+        return self._anime_synth_cache
+
+    def _anime_known(self, tmdb_id):
+        """True when the Fribb anime index knows the show (an anime Simkl numbers by entry)."""
+        key = str(tmdb_id)
+        if key not in self._anime_known_memo:
+            try:
+                from tmdbhelper.lib.api.anilist import fribb
+                self._anime_known_memo[key] = bool(fribb.tv_entries(tmdb_id))
+            except Exception:
+                self._anime_known_memo[key] = False
+        return self._anime_known_memo[key]
+
+    @staticmethod
+    def _anime_simkl_mode():
+        """cross_sync_anime_simkl: 0 off, 1 log only (default), 2 on - anime episodes watched on Trakt are sent to Simkl."""
+        try:
+            mode = int(get_setting('cross_sync_anime_simkl', 'int'))
+        except Exception:
+            return 1
+        return mode if 0 <= mode <= 2 else 1
+
+    def _anime_journal(self, rows):
+        """Append what was sent to Simkl to bridge_anime_simkl.jsonl so a bad batch can be undone exactly."""
+        try:
+            import xbmcvfs
+            path = xbmcvfs.translatePath(ADDONDATA + _ANIME_JOURNAL_FILE)
+            with open(path, 'a', encoding='utf-8') as f:
+                for row in rows:
+                    f.write(json.dumps(row) + '\n')
+        except Exception as exc:
+            kodi_log(f'BridgeSync: anime Simkl journal not written ({type(exc).__name__})', 2)
+
+    def _anime_simkl_sync(self, current):
+        """Anime episodes watched on Trakt -> Simkl (cross_sync_anime_simkl). Simkl numbers every cour from 1, so each TMDb episode is
+        resolved to its entry (AniZip air date) and round-tripped through the same mapping that reads Simkl back; it goes out as
+        {'anime': [{'ids': {anilist, mal}, 'episodes': [{number, watched_at}]}]} with Trakt's own watch date. This is a separate pass,
+        not part of the reconcile: the reconcile recorded every anime episode as 'not for Simkl' long ago, so the backlog would never be
+        'new' there. What Simkl already has (read back every cycle) decides what is missing, so nothing is sent twice."""
+        mode = self._anime_simkl_mode()
+        if not mode or not self._simkl_ok:
+            return
+        views = self._simkl_state()
+        trakt, simkl = current.get('trakt'), current.get('simkl')
+        if views is None or trakt is None or simkl is None:
+            return
+        import time
+        mapped, _stats = self._anime_mapped()
+        synth = self._anime_synth_keys()
+        anime_shows, shows = set(views.get('anime') or []), views.get('shows') or {}
+        refused = self._meta.setdefault('anime_simkl_refused', {})
+        unwatching = (self._meta.get('removals') or {}).get('watched|simkl|episode') or {}   # un-watched on Simkl, removal waiting its second run: not to be sent back
+        now = time.time()
+        for key in [k for k, at in refused.items() if now - at > _ANIME_REFUSED_SECONDS]:
+            refused.pop(key, None)
+        sent_book = self._meta.setdefault('anime_simkl_sent', {})
+        lost = 0
+        for key, at in list(sent_book.items()):
+            if key in mapped or key in simkl or key in synth:
+                sent_book.pop(key, None)                  # read back: it landed
+            elif self._simkl_loaded and now - at > 120:
+                sent_book.pop(key, None)                  # Simkl was read again and does not hold it as that episode: never send it again
+                refused[key] = now
+                lost += 1
+            elif now - at > _ANIME_SENT_SECONDS:
+                sent_book.pop(key, None)
+        if lost:
+            kodi_log(f'BridgeSync: {lost} anime episode(s) sent to Simkl did not read back as the same episode - not sent again for a week', 1)
+        counts = {'on_trakt': 0, 'present': 0, 'regular_show': 0, 'no_date': 0, 'refused': 0}
+        cand = {}
+        for key, tid in trakt.items():
+            sv = str(tid)
+            if not self._anime_known(tid):
+                continue                                  # not an anime the Fribb index knows
+            counts['on_trakt'] += 1
+            if sv in shows and sv not in anime_shows:
+                counts['regular_show'] += 1               # Simkl keeps it as an ordinary show: the normal path handles it
+            elif key in simkl or key in mapped or key in synth:
+                counts['present'] += 1
+            elif key in refused or key in unwatching:
+                counts['refused'] += 1
+            elif not self._tstamps.get(('episode', key)):
+                counts['no_date'] += 1                    # without Trakt's date Simkl would date it today
+            else:
+                cand[key] = int(tid)
+        try:
+            from tmdbhelper.lib.api.anilist.entry_map import forward_entry
+            from tmdbhelper.lib.api.tmdb.api import TMDb
+            tmdb, cache = TMDb(), {}
+        except Exception as exc:
+            kodi_log(f'BridgeSync: anime to Simkl unavailable - {type(exc).__name__}: {exc}', 2)
+            return
+        status = views.get('anime_status') or {}
+        out = {'later': 0, 'none': 0, 'dropped': 0}
+        none_by_show = {}
+        resolved = {}
+        for key in sorted(cand):
+            _, season, episode = key.split(':')
+            try:
+                state, found = forward_entry(cand[key], int(season), int(episode), tmdb, cache)
+            except Exception as exc:
+                kodi_log(f'BridgeSync: anime entry lookup {key} failed - {type(exc).__name__}', 1)
+                state, found = 'later', None
+            if state != 'ok':
+                out[state] += 1
+                if state == 'none':
+                    none_by_show[cand[key]] = none_by_show.get(cand[key], 0) + 1
+            elif status.get(str(found['anilist'])) in _SIMKL_DROPPED:
+                out['dropped'] += 1
+            else:
+                resolved[key] = found
+        groups = {}
+        for key, found in resolved.items():
+            groups.setdefault(found['anilist'], {'ids': found['ids'], 'eps': []})['eps'].append((found['number'], key))
+        summary = (f'anime on Trakt {counts["on_trakt"]}: already on Simkl {counts["present"]}, ordinary Simkl shows {counts["regular_show"]}, '
+                   f'refused before {counts["refused"]}, no Trakt date {counts["no_date"]}; missing on Simkl {len(cand)}: '
+                   f'resolvable {len(resolved)} in {len(groups)} entries, later {out["later"]}, no entry {out["none"]}, dropped on Simkl {out["dropped"]}')
+        if mode == 1:
+            kodi_log(f'BridgeSync (anime to Simkl, log only): {summary}', 1)
+            if none_by_show:
+                top = sorted(none_by_show.items(), key=lambda kv: -kv[1])[:12]
+                kodi_log(f'BridgeSync (anime to Simkl, log only): no entry for (TMDb show: episodes) {", ".join(f"{s}: {n}" for s, n in top)}', 1)
+            return
+        if not resolved:
+            if cand:
+                kodi_log(f'BridgeSync (anime to Simkl): nothing to send now - {summary}', 1)
+            return
+        limit = self._meta.get('anime_simkl_limit')       # entries per cycle; set by hand for a first small write, None = no limit
+        entries = sorted(groups)
+        if isinstance(limit, int) and limit > 0:
+            entries = entries[:limit]
+        flat = [(al, groups[al]['ids'], n, k) for al in entries for n, k in sorted(groups[al]['eps'])][:_ANIME_CYCLE_CAP]
+        kodi_log(f'BridgeSync (anime to Simkl): sending {len(flat)} episodes of {len({f[0] for f in flat})} entries - {summary}', 1)
+        sent_total = 0
+        for j in range(0, len(flat), _ANIME_PUSH_CHUNK):
+            part = flat[j:j + _ANIME_PUSH_CHUNK]
+            by_entry = {}
+            for al, ids, n, k in part:
+                by_entry.setdefault(al, {'ids': ids, 'episodes': []})['episodes'].append(
+                    {'number': n, 'watched_at': self._tstamps[('episode', k)]})
+            ok, data = self._post('simkl', ('sync', 'history'), {'anime': list(by_entry.values())})
+            if not ok:
+                break                                     # no usable answer: nothing assumed, retried next cycle
+            if (data.get('not_found') or {}) and any(data['not_found'].values()):
+                for _, _, _, k in part:                   # Simkl named something it could not match: do not send these again for a while
+                    refused[k] = now
+                kodi_log(f'BridgeSync: Simkl did not take part of an anime request ({len(part)} episodes) - not retried for a week: {self._result_text(data)}', 1)
+                continue
+            for al, ids, n, k in part:
+                simkl[k] = int(k.split(':')[0])
+                self._anime_keys.add(k)
+                self._anime_coords[k] = (al, n)
+                sent_book[k] = now
+            self._anime_journal([{'at': now, 'anilist': al, 'ids': ids, 'number': n, 'key': k,
+                                  'watched_at': self._tstamps[('episode', k)]} for al, ids, n, k in part])
+            sent_total += len(part)
+            self._anime_dirty = True
+        if sent_total:
+            self._pushed['simkl'] = self._pushed.get('simkl', 0) + sent_total
+            kodi_log(f'BridgeSync →Simkl: {sent_total} anime episodes', 1)
+
     def _simkl_prepare(self):
         """Fill self._simkl for this run: the saved views when Simkl's activity stamp has not moved since the
         last cycle, else a fresh read. Simkl asks apps to check /sync/activities before reading lists."""
@@ -483,7 +822,7 @@ class BridgeSync:
             return
         saved = self._meta.get('simkl')
         self._simkl_prev_real = set((saved or {}).get('ep_real') or ())
-        if saved and self._meta.get('simkl_activity') == stamp:
+        if saved and self._meta.get('simkl_activity') == stamp and 'anime_eps' in saved and 'anime_status' in saved and 'anime_synth' in saved:   # views saved before 7.0.52 lack the bulk-marked anime rows
             self._simkl = saved
             return
         views = self._simkl_load()
@@ -501,8 +840,8 @@ class BridgeSync:
         if not self._simkl_prepared or self._simkl is None or not self._snapshots_ok:
             return
         stamp = self._simkl_activity()
-        if stamp is None:
-            self._meta.pop('simkl_activity', None)      # unknown: re-read next cycle
+        if stamp is None or self._anime_dirty:
+            self._meta.pop('simkl_activity', None)      # unknown (or anime episodes were just written to Simkl): re-read next cycle
         else:
             self._meta['simkl_activity'] = stamp
         self._meta['simkl'] = self._simkl
@@ -527,7 +866,18 @@ class BridgeSync:
             return None
         for key, stamp in views['ep_real'].items():
             self._note_stamp('episode', key, stamp)
-        return {k: int(v) for k, v in views['ep_yes'].items()}
+        result = {k: int(v) for k, v in views['ep_yes'].items()}
+        if self._anime_mode() == 2:
+            # Simkl's anime episodes in TMDb numbering. Never put in ep_yes / ep_real (saved views) and never a removal source
+            mapped, _stats = self._anime_mapped()
+            self._anime_coords_update()
+            for key, stamp in mapped.items():
+                if key not in result:
+                    result[key] = int(key.split(':')[0])
+                    self._anime_keys.add(key)
+                    if isinstance(stamp, str) and _STAMP_RE.match(stamp):
+                        self._anime_stamps[key] = stamp
+        return result
 
     def _simkl_set(self):
         """{'movie:<id>' / 'show:<id>': id} Simkl has on plan-to-watch, or None."""
@@ -640,6 +990,41 @@ class BridgeSync:
             kodi_log(f'BridgeSync: snapshot not saved ({type(exc).__name__}) - no further pushes this cycle', 2)
             return False
 
+    def _trakt_awaiting(self, label, cur):
+        """Keys the bridge sent to Trakt that the local Trakt copy has not listed yet. They are not removals and not missing:
+        the copy lags after bulk pushes (seen live 2026-11-05: 50 items 'no longer listed' for several runs, and the same episodes
+        sent to Trakt twice). A key is forgotten once Trakt's listing shows it, or after _TRAKT_AWAIT_SECONDS: one that was never
+        listed under that number (Trakt placed the play elsewhere) is dropped from the snapshot, not treated as a removal."""
+        import time
+        book = self._meta.setdefault('trakt_awaiting', {})
+        rec = book.get(label)
+        if not rec:
+            book.pop(label, None)
+            return set()
+        now = time.time()
+        expired = {k for k, at in rec.items() if now - at > _TRAKT_AWAIT_SECONDS}
+        listed = {k for k in rec if cur is not None and k in cur}
+        for key in expired | listed:
+            rec.pop(key, None)
+        if not rec:
+            book.pop(label, None)
+        never = expired - listed
+        if never:
+            for key in never:
+                (self._snapshots or {}).get(label, {}).pop(key, None)
+            kodi_log(f'BridgeSync: {label}: {len(never)} item(s) sent to Trakt were never listed under that number - dropped, not removed elsewhere', 1)
+        return set(rec)
+
+    def _trakt_awaiting_add(self, label, keys):
+        import time
+        if not keys:
+            return
+        rec = self._meta.setdefault('trakt_awaiting', {}).setdefault(label, {})
+        now = time.time()
+        for key in [k for k, at in rec.items() if now - at > _TRAKT_AWAIT_SECONDS]:
+            rec.pop(key, None)
+        rec.update({k: now for k in keys})
+
     def _reconcile(self, domain, media, current, push_fn, caps=None, skip=None, remove_fn=None, removal_ok=None):
         """current: {service: {item_key: tmdb_id} or None (read failed / not ready)}.
         remove_fn(items, source, target) -> succeeded keys, removal_ok(source, key) -> bool: carry removals made outside
@@ -661,8 +1046,10 @@ class BridgeSync:
             return
         services = list(current)
         budget = dict(caps or {})
+        wait_label = f'{domain}|trakt|{media}'
+        awaiting = self._trakt_awaiting(wait_label, current.get('trakt')) if 'trakt' in current else set()
         pushed = {}                            # {service: {item_key: id}} put there by this run
-        held = self._removals(domain, media, current, snapshots, remove_fn, removal_ok) if remove_fn else {}
+        held = self._removals(domain, media, current, snapshots, remove_fn, removal_ok, awaiting) if remove_fn else {}
         recent = self._meta.get('removed_recent') or {}
         for source in services:
             cur = current[source]
@@ -671,9 +1058,11 @@ class BridgeSync:
             label = f'{domain}|{source}|{media}'
             snap = snapshots.get(label, {})
             # an item the bridge removed from this service that it still lists is the removal not showing yet, not a new addition
-            lagging = {k for k, at in (recent.get(label) or {}).items() if time.time() - at <= _REMOVE_RECENT_DAYS * 86400}
+            lagging = {k for k, at in (recent.get(label) or {}).items()
+                       if time.time() - at <= _REMOVE_RECENT_DAYS * 86400
+                       and not (domain == 'watched' and self._newer_than(media, k, self._iso_utc(at)))}    # played again since: new, not lagging
             newly = {k: v for k, v in cur.items() if k not in snap and k not in pushed.get(source, {}) and k not in lagging}
-            carried = {k: v for k, v in snap.items() if k in cur or k in held.get(source, ())}
+            carried = {k: v for k, v in snap.items() if k in cur or k in held.get(source, ()) or (source == 'trakt' and k in awaiting)}
             unresolved = set()
             for target in services:
                 if target == source or not newly:
@@ -681,7 +1070,7 @@ class BridgeSync:
                 if current[target] is None:    # cannot tell what the target has: retry later
                     unresolved.update(newly)
                     continue
-                missing = {k: v for k, v in newly.items() if k not in current[target]}
+                missing = {k: v for k, v in newly.items() if k not in current[target] and not (target == 'trakt' and k in awaiting)}
                 if missing and skip:
                     skipped = set(skip(missing, source, target))
                     missing = {k: v for k, v in missing.items() if k not in skipped}
@@ -702,6 +1091,10 @@ class BridgeSync:
                 except Exception as exc:
                     succeeded, given_up = set(), set()
                     kodi_log(f'BridgeSync: {label} →{_TARGET_NAMES[target]} push error: {exc}', 2)
+                if target == 'trakt':
+                    sent = set(succeeded) | set(given_up)     # Trakt answered for these: its local copy will list them later
+                    self._trakt_awaiting_add(wait_label, sent)
+                    awaiting |= sent
                 if succeeded:
                     current[target].update({k: missing[k] for k in succeeded})
                     pushed.setdefault(target, {}).update({k: missing[k] for k in succeeded})
@@ -727,6 +1120,11 @@ class BridgeSync:
     #  - the cross_sync_removals setting: 0 off, 1 log only, 2 watchlist + collection, 3 also watched history
 
     @staticmethod
+    def _iso_utc(epoch):
+        from datetime import datetime, timezone
+        return datetime.fromtimestamp(epoch, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+
+    @staticmethod
     def _utc_now():
         from datetime import datetime, timezone
         return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
@@ -748,7 +1146,7 @@ class BridgeSync:
         the last run: what the bridge itself pushed during that run carries stamps up to then). The margin covers the
         difference between this computer's clock and the services'."""
         from datetime import datetime
-        newest = max(self._stamps.get((media, key), ''), self._tstamps.get((media, key), ''))
+        newest = max(self._stamps.get((media, key), ''), self._tstamps.get((media, key), ''), self._anime_stamps.get(key, '') if media == 'episode' else '')
         if not since or not newest:
             return False
         try:
@@ -766,6 +1164,10 @@ class BridgeSync:
             if domain == 'watched' and media == 'movie':
                 entry = (views.get('movies') or {}).get(key)      # unwatched on Simkl = back on plan-to-watch (or gone)
                 return entry is None or entry[0] == 'plantowatch'
+            if domain == 'watched' and key in self._anime_keys:
+                return False           # a mapped anime episode: its mapping can change with the index, so it never counts as a removal
+            if domain == 'watched' and key in self._anime_gone:
+                return self._anime_unwatched(key)      # left the mapping: an un-watch only if Simkl itself dropped (entry, number)
             if domain == 'watched':
                 # only an episode Simkl really recorded (the rest are synthetic rows); one already waiting for its second run
                 # no longer shows in the views saved after the first
@@ -827,7 +1229,7 @@ class BridgeSync:
             kodi_log(f'BridgeSync ✕{_TARGET_NAMES[target]}: removed {len(done)} {media} ({domain})'
                      f'{" - removed on " + _TARGET_NAMES[source] if source in _TARGET_NAMES else ""}', 1)
 
-    def _removals(self, domain, media, current, snapshots, remove_fn, removal_ok):
+    def _removals(self, domain, media, current, snapshots, remove_fn, removal_ok, trakt_waiting=frozenset()):
         """Carry removals over to the other services. Returns {source: keys that must stay in its snapshot until the
         removal is resolved}. Runs before the additions so a removed item is not mistaken for 'old news' or 'new'."""
         import time
@@ -849,6 +1251,12 @@ class BridgeSync:
                     if key not in cur or time.time() - at > _REMOVE_RECENT_DAYS * 86400:
                         rec.pop(key, None)
                 again = {k: cur[k] for k in rec if k in cur}
+                if domain == 'watched':
+                    for key in [k for k in again if self._newer_than(media, k, self._iso_utc(rec[k]))]:
+                        rec.pop(key, None)             # played again after the bridge removed it: a new watch, not a removal still showing
+                        snapshots.get(label, {}).pop(key, None)   # new on this service again: the additions pass carries it to the others
+                        del again[key]
+                        kodi_log(f'BridgeSync: {label}: {key} was played again after it was removed - kept', 1)
                 if again:
                     self._journal(domain, media, 'retry', target, again)
                     try:
@@ -863,11 +1271,16 @@ class BridgeSync:
             label = f'{domain}|{source}|{media}'
             snap = snapshots.get(label, {})
             pend = pending.setdefault(label, {})
+            seen = self._meta.setdefault('removals_seen', {}).setdefault(label, {})   # when each key was first found missing
             gone = {k for k in snap if k not in cur}
+            if source == 'trakt' and trakt_waiting:
+                gone = {k for k in gone if k not in trakt_waiting}    # sent to Trakt, not listed yet: not a removal
             if removal_ok:
                 gone = {k for k in gone if removal_ok(source, k)}
             for key in [k for k in pend if k not in gone]:
                 del pend[key]                  # listed again, or only a status move: not a removal
+            for key in [k for k in seen if k not in pend and k not in gone]:
+                del seen[key]
             if not gone:
                 continue
             cap = max(_REMOVE_MASS_CAP_EPISODES if media == 'episode' else _REMOVE_MASS_CAP, len(snap) // 20)
@@ -876,9 +1289,11 @@ class BridgeSync:
                          f'nothing removed from the other services for it', 2)
                 pend.clear()
                 continue
-            confirmed = {k for k in gone if k in pend}
+            # missing on a second run AND for long enough (a pending entry from before this check has no first-seen time: old enough)
+            confirmed = {k for k in gone if k in pend and time.time() - seen.get(k, 0) >= _REMOVE_CONFIRM_SECONDS}
             for key in gone:
                 pend.setdefault(key, prev_run)
+                seen.setdefault(key, time.time())
             held[source] = set(gone)
             if not confirmed:
                 kodi_log(f'BridgeSync: {label}: {len(gone)} item(s) no longer listed - removed elsewhere only if still missing next run', 1)
@@ -914,17 +1329,76 @@ class BridgeSync:
                     for key in newer:
                         snap_target.pop(key, None)       # new on the target again: the additions pass sends it back to the source
                         del items[key]
-            if not items:
+            anime_items = {}
+            if target == 'simkl' and media == 'episode':
+                # TMDb numbers are the wrong coordinates on Simkl's anime entries: those go by (entry, number) or not at all
+                anime_items = self._anime_removable({k: v for k, v in items.items() if k in self._anime_keys})
+                items = {k: v for k, v in items.items() if k not in self._anime_keys}
+            if not items and not anime_items:
                 continue
-            self._journal(domain, media, source, target, items)
+            self._journal(domain, media, source, target, {**items, **anime_items})
+            done = set()
             try:
-                done = set(remove_fn(items, source, target) or ())
+                if items:
+                    done |= set(remove_fn(items, source, target) or ())
+                if anime_items:
+                    done |= self._remove_anime_simkl(anime_items)
             except Exception as exc:
-                done = set()
                 kodi_log(f'BridgeSync: {domain}|{target}|{media} removal error: {exc}', 2)
             self._removed_done(domain, media, source, target, done, current, snapshots)
-            unresolved.update(set(items) - done)
+            unresolved.update((set(items) | set(anime_items)) - done)
         return unresolved
+
+    def _anime_removable(self, items):
+        """The anime episodes among `items` ({key: tmdb id}) that may be un-watched on Simkl: cross_sync_anime_removals = 2 and the key's
+        entry coordinates are known from this run's reading of Simkl. Log only (1) names them and removes nothing."""
+        mode = self._anime_removal_mode()
+        if not items or not mode:
+            return {}
+        known = {k: v for k, v in items.items() if k in self._anime_coords}
+        if mode == 1:
+            for key in sorted(known):
+                if ('to', key) not in self._anime_removal_logged:
+                    self._anime_removal_logged.add(('to', key))
+                    al, n = self._anime_coords[key]
+                    kodi_log(f'BridgeSync (anime removals, log only): {key} was un-watched elsewhere - would be removed from Simkl (AniList {al} episode {n})', 1)
+            return {}
+        return known
+
+    def _remove_anime_simkl(self, items):
+        """Un-watch anime episodes {key: tmdb id} on Simkl by (AniList entry, number): {'anime': [{'ids': ..., 'episodes': [{'number': n}]}]} to
+        /sync/history/remove (verified live 2026-11-05: deleted.episodes counts them and Simkl moves the entry's status itself). Returns the keys done."""
+        try:
+            from tmdbhelper.lib.api.anilist import fribb
+        except Exception:
+            return set()
+        groups = {}
+        for key in items:
+            al, n = self._anime_coords[key]
+            groups.setdefault(al, {'tmdb': items[key], 'eps': []})['eps'].append((n, key))
+        entries = []
+        for al, g in sorted(groups.items()):
+            ids = {'anilist': al}
+            mal = next((r.get('m') for r in fribb.score_records(g['tmdb']) or [] if r.get('a') == al and r.get('m')), None)
+            if mal:
+                ids['mal'] = mal
+            entries.append({'ids': ids, 'episodes': [{'number': n} for n, _ in sorted(g['eps'])]})
+        done = set()
+        for j in range(0, len(entries), 25):
+            part = entries[j:j + 25]
+            ok, data = self._post('simkl', ('sync', 'history', 'remove'), {'anime': part})
+            if not ok or any((data.get('not_found') or {}).values()):
+                kodi_log(f'BridgeSync: Simkl anime removal not confirmed - {self._result_text(data) if ok else "no answer"}', 1)
+                continue
+            for entry in part:
+                for episode in entry['episodes']:
+                    key = next(k for n, k in groups[entry['ids']['anilist']]['eps'] if n == episode['number'])
+                    done.add(key)
+                    ((self._simkl or {}).get('anime_eps', {}).get(str(entry['ids']['anilist'])) or {}).get('eps', {}).pop(str(episode['number']), None)
+        if done:
+            self._anime_dirty = True
+            kodi_log(f'BridgeSync ✕Simkl: removed {len(done)} anime episode(s)', 1)
+        return done
 
     def _forget_in_views(self, domain, media, keys):
         """After removing from Simkl: keep the views saved for the next cycle in step with it."""
@@ -1174,14 +1648,23 @@ class BridgeSync:
 
     def _skip_episodes(self, missing, source, target):
         """Episodes that must not go to `target`: anime shows to Simkl (different numbering), and from
-        Simkl to Trakt anything the user did not actually record there (synthetic rows, approximate dates)."""
+        Simkl to Trakt anything the user did not actually record there (synthetic rows, approximate dates) - except the anime
+        episodes mapped to TMDb numbers (_anime_keys), which are real records by construction."""
         views = self._simkl or {}
         if target == 'simkl':
             anime = set(views.get('anime') or [])
+            shows = views.get('shows') or {}
+            guard = self._anime_simkl_mode() != 0     # the anime pass sends these by entry; TMDb numbers can land in the wrong cour
+
+            def is_anime(v):
+                sv = str(v)
+                if sv in anime:
+                    return True
+                return guard and sv not in shows and self._anime_known(v)    # new to Simkl: not an ordinary Simkl show
             return {k for k, v in missing.items()
-                    if str(v) in anime or (views.get('shows') or {}).get(str(v), [None])[0] in _SIMKL_DROPPED}
+                    if is_anime(v) or shows.get(str(v), [None])[0] in _SIMKL_DROPPED}
         if source == 'simkl' and target == 'trakt':
-            return {k for k in missing if k not in (views.get('ep_real') or {})}
+            return {k for k in missing if k not in (views.get('ep_real') or {}) and k not in self._anime_keys}
         return set()
 
     def _skip_movies(self, missing, source, target):
@@ -1202,15 +1685,16 @@ class BridgeSync:
 
     def _push_watched_episodes(self, items, source, target):
         """items {'show:season:number': show_tmdb_id} -> one shows[] entry per episode (Seren's payload).
-        Simkl: anime shows are not bridged (different numbering). From Simkl to Trakt only episodes the user
-        actually recorded on Simkl go out - the rest are synthetic rows with approximate dates."""
+        Simkl: anime shows are never pushed TO it (different numbering). From Simkl to Trakt only episodes the user
+        actually recorded on Simkl go out (plus the mapped anime episodes) - the rest are synthetic rows with approximate dates."""
         succeeded, given_up = set(), set()
         for chunk in self._chunks(items, _MDB_CHUNK if target == 'mdblist' else _BATCH_SIZE):
             shows = []
             for key, show_id in sorted(chunk.items()):
                 _, season, number = key.split(':')
                 episode = {'number': int(number)}
-                stamp = self._stamps.get(('episode', key))
+                # a mapped anime episode keeps the date Simkl recorded, also when MDBList (which stores no date) is the one sending it
+                stamp = self._anime_stamps.get(key) or self._stamps.get(('episode', key))
                 if stamp and target in ('trakt', 'simkl'):
                     episode['watched_at'] = stamp
                 shows.append({'ids': {'tmdb': int(show_id)}, 'seasons': [{'number': int(season), 'episodes': [episode]}]})
@@ -1327,7 +1811,28 @@ class BridgeSync:
                         remove_fn=lambda i, s, t: self._remove_watched('episode', i, s, t),
                         removal_ok=self._removal_ok('watched', 'episode'))
         if self._simkl is not None and current.get('simkl') is not None:
-            self._simkl['ep_yes'].update({k: str(v) for k, v in current['simkl'].items()})
+            self._simkl['ep_yes'].update({k: str(v) for k, v in current['simkl'].items() if k not in self._anime_keys})
+        if self._anime_mode() == 1:
+            self._anime_log_only(current)
+        self._anime_simkl_sync(current)
+
+    def _anime_log_only(self, current):
+        # cross_sync_anime = 1: say what mode 2 would send, change nothing (no snapshot, no push)
+        mapped, stats = self._anime_mapped()
+        if stats is None:
+            return
+        parts = []
+        for service in ('trakt', 'mdblist'):
+            have = current.get(service)
+            if have is None:
+                continue
+            would = sorted(k for k in mapped if k not in have)
+            shows = {k.split(':')[0] for k in would}
+            parts.append(f'{_TARGET_NAMES[service]} {len(would)} episodes of {len(shows)} shows')
+        kodi_log(f'BridgeSync (anime, log only): Simkl anime episodes {stats["episodes"]}, mapped {len(mapped)} '
+                 f'({stats["mapped_entries"]}/{stats["entries"]} entries); would send: {"; ".join(parts) or "nothing"}; '
+                 f'left out: no Fribb record {stats["no_record"]}, not a tv season {stats["not_tv"]}, show id mismatch {stats["tmdb_mismatch"]}, '
+                 f'season missing at TMDb {stats["no_season"]}, air date unconfirmed {stats["unconfirmed"]}, rejected {stats["rejected"]}', 1)
 
     def _simkl_record_movies(self, current_simkl):
         """Keep the saved Simkl views in step with what this cycle pushed to Simkl."""
@@ -1376,6 +1881,32 @@ class BridgeSync:
         self._reconcile('collection', 'movie_or_show', current, lambda i, s, t: self._push_set('collection', i, s, t),
                         remove_fn=lambda i, s, t: self._remove_set('collection', i, s, t),
                         removal_ok=self._removal_ok('collection', 'movie_or_show'))
+
+    def _resume_refused(self, key, paused_at):
+        """True when Simkl refused this exact resume point (same Trakt paused_at) on the last runs and a day has not passed."""
+        import time
+        self._snapshot_data()      # loads self._meta (a no-op once loaded)
+        rec = (self._meta.get('simkl_resume_failed') or {}).get(key)
+        return bool(rec and rec[0] == (paused_at or '') and rec[1] >= _RESUME_FAIL_RUNS and time.time() - rec[2] < _RESUME_FAIL_SECONDS)
+
+    def _resume_note(self, key, paused_at, ok):
+        """Remember a Simkl resume post that got no usable answer (and forget it once it works), so an item Simkl does not
+        know is not posted again on every run. Entries older than a week go."""
+        import time
+        self._snapshot_data()
+        now = time.time()
+        book = self._meta.setdefault('simkl_resume_failed', {})
+        for old in [k for k, v in book.items() if now - v[2] > 7 * 86400]:
+            del book[old]
+        if ok:
+            book.pop(key, None)
+            return
+        rec = book.get(key)
+        if rec and rec[0] == (paused_at or ''):
+            rec[1] += 1
+            rec[2] = now
+        else:
+            book[key] = [paused_at or '', 1, now]
 
     @staticmethod
     def _resume_due(have, paused_at):
@@ -1512,6 +2043,13 @@ class BridgeSync:
 
         if self._simkl_ok:
             simkl_ep_rows = list(simkl_newest.values())
+            refused = [r for r in simkl_movies if self._resume_refused(f'm:{int(r[0])}', r[2])]
+            refused += [r for r in simkl_ep_rows if self._resume_refused(f'e:{int(r[0])}:{int(r[2])}:{int(r[3])}', r[4])]
+            if refused:
+                simkl_movies = [r for r in simkl_movies if r not in refused]
+                simkl_ep_rows = [r for r in simkl_ep_rows if r not in refused]
+                kodi_log(f'BridgeSync: {len(refused)} Trakt resume point(s) not sent to Simkl - it refused them on the last runs '
+                         f'and they have not changed (tried again in a day)', 1)
             if simkl_movies or simkl_ep_rows:
                 self._simkl_pace()      # the bridge's own writes just above may still hold Simkl's per-user lock
             for row in simkl_movies:
@@ -1523,6 +2061,7 @@ class BridgeSync:
                         postdata={'progress': progress, 'movie': {'ids': {'tmdb': tmdb_id}}},
                         method='json', headers=self.simkl.auth_headers)
                     failed['Simkl'] += resp is None
+                    self._resume_note(f'm:{tmdb_id}', row[2], resp is not None)
                 except Exception:
                     failed['Simkl'] += 1
             for row in simkl_ep_rows:
@@ -1537,6 +2076,7 @@ class BridgeSync:
                             'episode': {'season': season, 'number': episode}},
                         method='json', headers=self.simkl.auth_headers)
                     failed['Simkl'] += resp is None
+                    self._resume_note(f'e:{tmdb_id}:{season}:{episode}', row[4], resp is not None)
                 except Exception:
                     failed['Simkl'] += 1
             if simkl_movies or simkl_ep_rows:

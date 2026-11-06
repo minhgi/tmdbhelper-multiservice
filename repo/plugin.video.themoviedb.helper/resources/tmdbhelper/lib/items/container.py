@@ -4,6 +4,7 @@ from tmdbhelper.lib.addon.consts import NO_UNAIRED_LABEL, NO_UNAIRED_CHECK, REMO
 from tmdbhelper.lib.addon.plugin import get_setting, executebuiltin, get_localized, get_condvisibility
 from tmdbhelper.lib.api.contains import CommonContainerAPIs
 from tmdbhelper.lib.addon.logger import TimerList
+from tmdbhelper.lib.items.season_layout_display import SeasonLayoutDisplay
 
 # Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
 BLANK_MENUS = ('dir_mdblist_progress', 'trakt_history_stats')
@@ -235,6 +236,11 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                 # In Progress lists the shows Trakt says are unfinished (aired > watched). Taking the highest count of all services here
                 # let MDBList / Simkl whole-show marks (every aired episode marked on one day) read "all watched", so Hide watched
                 # dropped shows the list itself had just selected (8 of 13 on the test account)
+                playcount = trakt_playcount
+            elif _info == 'trakt_nextepisodes' and li.infolabels.get('mediatype') == 'episode' and trakt_raw is not None:
+                # Next Up lists the episode Trakt itself names as the next one to watch. Taking the highest count of all services let an
+                # MDBList / Simkl whole-show mark (every aired episode marked on one day) read it "watched", so Hide watched dropped the
+                # episode the list had just selected (Bumpkin S2E1 on the test account)
                 playcount = trakt_playcount
             else:
                 playcount = max(trakt_playcount, mdb_playcount, simkl_playcount)
@@ -500,5 +506,6 @@ class ContainerDirectoryItemDetails(ContainerDirectoryCommon):
             return [i for i in (self.build_detailed_item(li) for li in items if li) if i]
 
 
-ContainerDirectory = ContainerDirectoryItemBuilder
+class ContainerDirectory(SeasonLayoutDisplay, ContainerDirectoryItemBuilder):
+    pass
 # ContainerDirectory = ContainerDirectoryItemDetails

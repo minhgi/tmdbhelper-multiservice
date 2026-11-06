@@ -188,6 +188,11 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="season_layout" type="boolean" label="32762" help="32763">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
             <group id="3" label="32723">
                 <setting id="menu_movies" type="boolean" label="32724" help="32728">
@@ -974,6 +979,16 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="cross_sync_dynamic" type="boolean" label="32764" help="32765" parent="cross_sync_services">
+                    <level>0</level>
+                    <default>true</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="cross_sync_interval" type="integer" label="32565" help="32566" parent="cross_sync_services">
                     <level>0</level>
                     <default>180</default>
@@ -1000,6 +1015,57 @@
                             <option label="32757">1</option>
                             <option label="32758">2</option>
                             <option label="32759">3</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_anime_simkl" type="integer" label="32769" help="32770" parent="cross_sync_services">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_anime_removals" type="integer" label="32771" help="32772" parent="cross_sync_services">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_anime" type="integer" label="32766" help="32767" parent="cross_sync_services">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
                         </options>
                     </constraints>
                     <dependencies>

@@ -137,7 +137,9 @@ class ItemSimklSyncBase:
             return True
         try:
             from tmdbhelper.lib.addon.plugin import get_infolabel
-            if (get_infolabel('ListItem.Season'), get_infolabel('ListItem.Episode')) != (f'{self.season}', f'{self.episode}'):
+            shown = (get_infolabel('ListItem.Property(item.season)') or get_infolabel('ListItem.Season'),
+                     get_infolabel('ListItem.Property(item.episode)') or get_infolabel('ListItem.Episode'))
+            if shown != (f'{self.season}', f'{self.episode}'):
                 return False
             return int(get_infolabel('ListItem.PlayCount') or 0) > 0
         except Exception:
@@ -178,6 +180,8 @@ class ItemSimklSyncBase:
                 episode = int(self.episode)
                 item_id = f'tv.{tmdb_id}.{season}.{episode}'
                 cache = self.simkl_syncdata.cache
+                from tmdbhelper.lib.script.sync.watched_totals import previous_plays, adjust_totals
+                before = previous_plays(cache, item_id)
                 cache.execute_sql(
                     cache.statement_insert_or_ignore('simplecache', ('id',)), (item_id,))
                 if value:
@@ -186,10 +190,14 @@ class ItemSimklSyncBase:
                         ' item_type=?, tmdb_type=?, tmdb_id=?,'
                         ' season_number=?, episode_number=? WHERE id=?',
                         (ts, 'episode', 'tv', tmdb_id, season, episode, item_id))
+                    if not before:
+                        adjust_totals(cache, tmdb_id, season, 1, ts)
                 else:
                     cache.execute_sql(
                         'UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE id=?',
                         (item_id,))
+                    if before:
+                        adjust_totals(cache, tmdb_id, season, -1)
 
             elif self.simkl_type == 'show':
                 item_id = f'tv.{int(self.tmdb_id)}'

@@ -51,7 +51,7 @@ class _ArtworkSelector():
             return
         return artwork_types[choice]
 
-    def select_artwork(self, tmdb_type, tmdb_id, container_refresh=False, blacklist=None, season=None):
+    def select_artwork(self, tmdb_type, tmdb_id, container_refresh=False, blacklist=None, season=None, layout_season=None):
         if blacklist is None:
             blacklist = []
         with BusyDialog():
@@ -60,11 +60,14 @@ class _ArtworkSelector():
             return
         ftv_id, ftv_type = self.get_ftv_typeid(tmdb_type, item, season=season)
         item_artwork = self.get_item_artwork(item['artwork'], is_season=season is not None)
+        if layout_season is not None:  # a layout season has no artwork of its own at TMDb: show what was chosen for it (real season 1's otherwise)
+            from tmdbhelper.lib.api.tmdb.season_layout import layout_art
+            item_artwork = {**item_artwork, **layout_art(tmdb_id, layout_season)}
         artwork_type = self.select_type(ftv_type if season is None else 'season', blacklist, item_artwork=item_artwork)
         if not artwork_type:
             if container_refresh:
                 executebuiltin('Container.Refresh')
-                reload_widgets()
+                reload_widgets(bridge=False)
             return
 
         # Get artwork of type and build list
@@ -80,23 +83,28 @@ class _ArtworkSelector():
                 get_localized(39123),
                 get_localized(32217).format(tmdb_type, tmdb_id))
             blacklist.append(artwork_type)  # Blacklist artwork type if not found before reprompting
-            return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season)
+            return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season, layout_season=layout_season)
 
         # Choose artwork from options
         choice = Dialog().select(get_localized(13511), items, useDetails=True)
         if choice == -1:  # If user hits back go back to main menu rather than exit completely
-            return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season)
+            return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season, layout_season=layout_season)
         success = items[choice].getLabel()
         if not success:
             return
         container_refresh = True
 
         # Cache our artwork
-        manual = item['artwork'].setdefault('manual', {})
-        manual[artwork_type] = success
-        item['expires'] = self._timestamp()  # Reup our timestamp to force child items to recache
-        self._cache.set_cache(item, cache_name=self.get_cache_name(tmdb_type, tmdb_id, season), cache_days=10000)
-        return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season)
+        if layout_season is not None:  # kept apart from real season 1's artwork, which the other layout seasons still show
+            from tmdbhelper.lib.api.tmdb.season_layout import set_layout_art
+            if not set_layout_art(tmdb_id, layout_season, artwork_type, success):
+                Dialog().notification(get_localized(39123), get_localized(32217).format(tmdb_type, tmdb_id))
+        else:
+            manual = item['artwork'].setdefault('manual', {})
+            manual[artwork_type] = success
+            item['expires'] = self._timestamp()  # Reup our timestamp to force child items to recache
+            self._cache.set_cache(item, cache_name=self.get_cache_name(tmdb_type, tmdb_id, season), cache_days=10000)
+        return self.select_artwork(tmdb_type, tmdb_id, container_refresh, blacklist, season=season, layout_season=layout_season)
 
     def refresh_all_artwork(self, tmdb_type, tmdb_id, ok_dialog=True, container_refresh=True, season=None):
         old_cache_refresh = self.ftv_api.cache_refresh
@@ -118,10 +126,10 @@ class _ArtworkSelector():
         # Refresh container to display new artwork
         if container_refresh:
             executebuiltin('Container.Refresh')
-            reload_widgets()
+            reload_widgets(bridge=False)
         self.ftv_api.cache_refresh = old_cache_refresh  # Set it back to previous setting
 
-    def manage_artwork(self, tmdb_id=None, tmdb_type=None, season=None):
+    def manage_artwork(self, tmdb_id=None, tmdb_type=None, season=None, layout_season=None):
         if not tmdb_id or not tmdb_type:
             return
         choice = Dialog().contextmenu([
@@ -130,6 +138,6 @@ class _ArtworkSelector():
         if choice == -1:
             return
         if choice == 0:
-            return self.select_artwork(tmdb_id=tmdb_id, tmdb_type=tmdb_type, season=season)
+            return self.select_artwork(tmdb_id=tmdb_id, tmdb_type=tmdb_type, season=season, layout_season=layout_season)
         if choice == 1:
             return self.refresh_all_artwork(tmdb_id=tmdb_id, tmdb_type=tmdb_type, season=season)

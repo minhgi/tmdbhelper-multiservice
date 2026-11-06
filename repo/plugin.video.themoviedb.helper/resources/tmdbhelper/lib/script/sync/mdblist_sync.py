@@ -211,6 +211,7 @@ class ItemMDbListSyncBase:
             episode = int(self.episode) if self.mdb_type == 'episode' else None
             item_id = self.mdblist_syncdata.get_name(db_type, tmdb_id, season, episode)
             cache = self.mdblist_syncdata.cache
+            from tmdbhelper.lib.script.sync.watched_totals import recount_totals
             if value:
                 from datetime import datetime, timezone
                 ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -234,6 +235,8 @@ class ItemMDbListSyncBase:
                         ' item_type=?, tmdb_type=?, tmdb_id=?,'
                         ' season_number=?, episode_number=? WHERE id=?',
                         (1, ts, item_type_str, db_type, tmdb_id, season, episode, item_id))
+                    if self.mdb_type == 'episode':
+                        recount_totals(cache, tmdb_id, season, ts)
             else:
                 if self.mdb_type == 'show':
                     cache.execute_sql(
@@ -243,6 +246,8 @@ class ItemMDbListSyncBase:
                     cache.execute_sql(
                         'UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE id=?',
                         (item_id,))
+                    if self.mdb_type == 'episode':
+                        recount_totals(cache, tmdb_id, season)
         except Exception:
             pass
 

@@ -87,6 +87,7 @@ def _update_mdb_watched_db(mdb, tmdb_type, tmdb_id, season, episode, value):
         sd = mdb.mdblist_syncdata
         item_id = sd.get_name(db_type, tmdb_id_int, season_int, episode_int)
         cache = sd.cache
+        from tmdbhelper.lib.script.sync.watched_totals import recount_totals
         if value:
             from datetime import datetime, timezone
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -98,10 +99,14 @@ def _update_mdb_watched_db(mdb, tmdb_type, tmdb_id, season, episode, value):
                 ' item_type=?, tmdb_type=?, tmdb_id=?,'
                 ' season_number=?, episode_number=? WHERE id=?',
                 (1, ts, mdb_type, db_type, tmdb_id_int, season_int, episode_int, item_id))
+            if mdb_type == 'episode':
+                recount_totals(cache, tmdb_id_int, season_int, ts)
         else:
             cache.execute_sql(
                 'UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE id=?',
                 (item_id,))
+            if mdb_type == 'episode':
+                recount_totals(cache, tmdb_id_int, season_int)
     except Exception as exc:
         kodi_log(f'cross_sync: MDBList watched DB update error: {exc}', 2)
 

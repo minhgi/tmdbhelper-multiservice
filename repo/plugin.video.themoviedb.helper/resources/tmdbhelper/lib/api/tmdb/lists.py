@@ -103,19 +103,30 @@ class ListCombo(ContainerDirectory):
 
 class ListSeasons(ContainerDirectory):
     def get_items(self, tmdb_id, **kwargs):
+        from tmdbhelper.lib.api.tmdb import season_layout
         self.ib.cache_only = self.tmdb_cache_only = False
         self.precache_parent(tmdb_id)
+        self.layout = season_layout.get_layout(self.tmdb_api, tmdb_id) if season_layout.is_enabled() else None
         items = self.tmdb_api.get_season_list(tmdb_id, special_folders=get_setting('special_folders', 'int'), get_detailed=True)
         self.container_content = convert_type('season', 'container')
         return items
 
 
 class ListEpisodes(ContainerDirectory):
-    def get_items(self, tmdb_id, season, **kwargs):
+    def get_items(self, tmdb_id, season, lseason=None, **kwargs):
+        from tmdbhelper.lib.api.tmdb import season_layout
         self.ib.cache_only = self.tmdb_cache_only = False
-        self.precache_parent(tmdb_id, season)
-        items = self.tmdb_api.get_episode_list(tmdb_id, season, get_detailed=True)
-        items = list(items) if items else []
+        layout = season_layout.get_layout(self.tmdb_api, tmdb_id) if lseason and season_layout.is_enabled() else None
+        layout_season = season_layout.find_season(layout, lseason)
+        if layout_season:  # a season of the show's season layout: episodes may come from the real season(s) it was cut from
+            self.layout = layout
+            self.precache_parent(tmdb_id, layout['season'])
+            items = season_layout.layout_episode_items(self.tmdb_api, tmdb_id, layout_season)
+            season = lseason
+        else:
+            self.precache_parent(tmdb_id, season)
+            items = self.tmdb_api.get_episode_list(tmdb_id, season, get_detailed=True)
+            items = list(items) if items else []
         self.kodi_db = self.get_kodi_database('tv')
         self.container_content = convert_type('episode', 'container')
         self.plugin_category = f'{get_localized(20373)} {season}'

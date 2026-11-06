@@ -3133,7 +3133,7 @@ msgid "Sync Interval (Minutes)"
 msgstr ""
 
 msgctxt "#32566"
-msgid "How often Cross-Service Sync runs its full reconciliation pass, in minutes. Lower values pick up changes made outside Kodi sooner; higher values make fewer API calls."
+msgid "How often Cross-Service Sync runs its full reconciliation pass, in minutes, when nothing else starts it. With Run when something changes on this is only the safety net; with it off, lower values pick up changes made outside Kodi sooner and higher values make fewer API calls."
 msgstr ""
 
 msgctxt "#32567"
@@ -3911,4 +3911,48 @@ msgstr ""
 
 msgctxt "#32761"
 msgid "What Cross-Service Sync does when you remove an item on the website or in an app of one service (not in Kodi, which is copied at once). Removing from watched history deletes every play of the item on the other services, so it is a separate choice. An item is only removed after it is missing on two runs in a row; if a lot of items disappear at once nothing is removed. Watchlist and collection is the default. Also watched history adds unwatching. Log only writes what would be removed to the Kodi log and removes nothing."
+msgstr ""
+
+msgctxt "#32762"
+msgid "Show long seasons as separate seasons"
+msgstr ""
+
+msgctxt "#32763"
+msgid "When TMDb lists a show as one long season (for example The Apothecary Diaries) and TMDb has a season-style episode group that splits exactly those episodes into several seasons, show those seasons. Only the numbers and names shown change; playing, watched marks and syncing keep using TMDb's own season and episode."
+msgstr ""
+
+msgctxt "#32764"
+msgid "Run when something changes"
+msgstr ""
+
+msgctxt "#32765"
+msgid "Run Cross-Service Sync a short while after you mark something watched or change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity (checked every two to five minutes). The interval below stays as a safety net. A removal still needs to have been missing for three minutes before it is copied to the other services."
+msgstr ""
+
+msgctxt "#32766"
+msgid "Anime episodes from Simkl"
+msgstr ""
+
+msgctxt "#32767"
+msgid "Simkl numbers every anime cour from 1, so its anime episodes are matched to TMDb seasons with the Fribb anime index (an entry that needs an episode offset is only taken when the air dates agree) and copied to Trakt and MDBList. Nothing is ever sent back to Simkl or removed from it. Log only writes what would be copied to the log and changes nothing."
+msgstr ""
+
+msgctxt "#32768"
+msgid "On"
+msgstr ""
+
+msgctxt "#32769"
+msgid "Anime episodes to Simkl"
+msgstr ""
+
+msgctxt "#32770"
+msgid "Sends anime episodes you watched on Trakt to Simkl, which numbers every anime cour from 1: each episode is matched to its Simkl entry with the Fribb anime index and the AniZip air date, checked by reading it back the same way, and sent with Trakt's watch date. Entries you dropped on Simkl are left alone. Log only writes what would be sent to the log and changes nothing."
+msgstr ""
+
+msgctxt "#32771"
+msgid "Anime un-watches"
+msgstr ""
+
+msgctxt "#32772"
+msgid "Carries an anime episode you un-watch on one service over to the others. Simkl is checked by the entry and episode number it really recorded, never by TMDb numbers, so a changed mapping cannot remove anything; entries moved to dropped or plan-to-watch, or that lost every episode at once, are left alone. Works together with the removals setting and its guards. Log only writes what would be removed to the log."
 msgstr ""

@@ -124,6 +124,11 @@ def get_season_list(self, tmdb_id, special_folders=0, get_detailed=False):
             item['infoproperties']['IsSpecial'] = 'true'
             items_end.append(item)
 
+    from tmdbhelper.lib.api.tmdb import season_layout
+    layout = season_layout.get_layout(self, tmdb_id, request) if season_layout.is_enabled() else None
+    if layout:  # a lone long season TMDb lumps together is shown as the seasons a TMDb episode group splits it into
+        items = season_layout.virtual_season_items(items, layout)
+
     from tmdbhelper.lib.addon.plugin import ADDONPATH, get_localized
 
     # Episode Groups
