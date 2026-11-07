@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.55 — Complete Features & Functions Guide
+# TMDb Helper 7.0.58 — Complete Features & Functions Guide
 
-**Version:** 7.0.55 (Enhanced Fork — Personal Build)
+**Version:** 7.0.58 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.55_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.58_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.55. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.58. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -162,7 +162,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.5
 
 ### Playback started by other add-ons (7.0.13–7.0.18) and scrobbling fixes (7.0.20–7.0.23)
 
-- **Scrobble items played by other add-ons** (7.0.13). Optional and off by default: Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
+- **Scrobble items played by other add-ons** (7.0.13). On by default from 7.0.57 (it was optional and off before): Settings → Accounts, group Playback started by other add-ons. When another add-on such as Elementum plays a movie or an episode, TMDb Helper sends it to MDBList and Simkl like its own playback: the resume point while it plays or stops, and watched from 75%. Only an item whose TMDb ID is in Kodi's info for the playing video is reported; with no TMDb ID nothing is sent. A service the playing add-on reports to itself is skipped, and so is the watched mark when the service shows the add-on already reported it. Every report or skip is written to the Kodi log.
 - **Include Trakt** (7.0.13). A second switch, off by default, shown only when Trakt is enabled and usable only when the first switch is on. It sends these items to Trakt as well. Leave it off if the playing add-on reports to Trakt itself, as Elementum and Seren do: each report adds a history entry on Trakt, so a second report is a duplicate.
 - **Seren is recognised** (7.0.14, 7.0.15). Seren plays a plain stream URL, so Kodi never says which add-on started it. Seren 3.9.58 and later name themselves in a Home window property while they play, and TMDb Helper accepts that only when it matches the item that is playing. With Seren 3.9.58 or later, a service Seren reports to itself (Trakt, MDBList, Simkl, as set in Seren) is left to Seren instead of being reported twice; from 7.0.15 this covers Seren episodes as well as movies. Older Seren versions behave as before. Tested with Seren and with a stand-in player.
 - **Elementum episodes are recognised** (7.0.18). Elementum tags an episode with the show's IMDb ID only and no TMDb ID, so before 7.0.18 an episode it played was treated as unidentified and nothing was sent (a movie was fine). TMDb Helper now looks up the show's TMDb ID from that IMDb ID (a cached TMDb lookup by ID, never a title search) and reports the episode like a movie. Tested with a real Elementum play of an episode: the progress reached MDBList and Simkl. A service lists a play as in progress only once it has passed a few percent, so a very short play shows nothing there.
@@ -224,6 +224,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.5
 - **Anime episodes to Simkl** (7.0.51, 7.0.52). New setting *Anime episodes to Simkl* (Off / Log only / On; default *Log only*) sends the anime episodes you watched on Trakt to Simkl. Each episode is matched to its Simkl entry with the Fribb list and the AniZip air date, checked by reading it back through the same mapping, and sent as an anime episode with Trakt's own watch date. Entries you dropped on Simkl are skipped, what Simkl already has is not sent again (an entry Simkl holds as completed in one go counts as already watched), and everything sent is written to *bridge_anime_simkl.jsonl* in the add-on's data folder. Episodes watched before this version are included.
 - **Anime un-watches** (7.0.54, 7.0.55). New setting *Anime un-watches* (Off / Log only / On; default *Log only*): an anime episode you un-watch on Simkl is un-watched on Trakt and MDBList, and one you un-watch on Trakt or MDBList is un-watched on Simkl. Simkl is judged by the entry and episode number it really recorded, never by TMDb numbers, so a changed mapping cannot remove anything; entries moved to dropped or plan-to-watch, or that lose every episode at once, are left alone. It works on top of *Copy removals made elsewhere* (set that to *Also watched history*) and its guards. An episode played again on a service shortly after the bridge removed it there is kept and carried to the other services instead of being removed again (7.0.55).
 - **Trakt's list lags after a bulk send** (7.0.50). After the bridge sends many episodes to Trakt, Trakt's own list takes a while to show them, so they looked removed and could be sent a second time. Episodes the bridge just sent are now remembered until Trakt lists them (24 hours at most) and are neither removed nor sent again meanwhile.
+
+### Playback: one reload, skips and add-on plays (7.0.56–7.0.58)
+
+- **One reload when a play ends** (7.0.56, 7.0.58). Finishing or stopping a play reloaded the open list (Bingie's season view, for example) and the widgets up to three times: MDBList and Simkl each reloaded as soon as they had posted, and Trakt reloaded last, after its sync. TMDb Helper now reloads once, after the slowest service has finished, for plays it started itself (7.0.56) and for plays another add-on started (7.0.58). The MDBList and Simkl indicators therefore appear when that reload runs, not slightly earlier. Kodi can still refresh a list by itself when you return to it. Checked with real plays on a Kodi 22 test instance (one reload line per stop, where three were logged before); not yet checked in Bingie's season view itself.
+- **Skipping during a play updates Trakt** (7.0.56). Trakt works out the *watching* time from the last start or pause it received, so after a skip it kept showing the old time. A few seconds after the last skip TMDb Helper now sends Trakt the new position, once for a run of skips and not while the video is paused. MDBList and Simkl take a position on pause and stop only, so they are unchanged. Fast-forward and rewind (the speed buttons) are not covered.
+- **Scrobble items played by other add-ons is on by default; Kodi library items are left out** (7.0.57). The switch (Settings → Accounts → Playback started by other add-ons) is now on for new installs and for any install that never saved a value; a value you saved is kept. It covers every play an add-on started, not only Elementum. A Kodi library item that no add-on plays (a file played straight from your library) is not reported by this setting, for everyone who has it on; a library item played through an add-on's .strm file still counts. *Include Trakt* stays off by default. Turn the main switch off if you do not want these plays sent.
 
 ## 3. First-Time Setup
 
@@ -526,7 +532,7 @@ In **Settings → Accounts**, per service (defaults in the Settings Reference):
 - **Scrobble items played via TMDbHelper** — playback is recorded.
 - **Get watched indicators and episode counts (slower)** — watched marks and counts.
 - **Get resume points (experimental) (slower)** — resume bars on items.
-- **Scrobble items played by other add-ons** (optional, off by default; it has its own group, Playback started by other add-ons) — also records what other add-ons such as Elementum or Seren play; Include Trakt adds Trakt. See section 2.
+- **Scrobble items played by other add-ons** (on by default since 7.0.57; it has its own group, Playback started by other add-ons) — also records what other add-ons such as Elementum or Seren play; Include Trakt adds Trakt. See section 2.
 
 Trakt only: **Get episode types (slower)** (premiere / finale labels), **Ignore articles when sorting alphabetically**, **Cache items in custom lists you own for 24 hours**, **Random seed pool for recommendations** (how many recently watched items feed *Because You Watched* lists).
 
@@ -683,7 +689,7 @@ OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / se
 | **MDbList API** | Enable MDBList (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · MDbList API key |
 | **Simkl API** | Enable Simkl (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) |
 | **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) |
-| **Playback started by other add-ons** | Scrobble items played by other add-ons (**off**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
+| **Playback started by other add-ons** | Scrobble items played by other add-ons (**on**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
 
 ### Players
 
@@ -730,7 +736,8 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Arctic Fuse 3** | The watch-history stats route (`trakt_history_stats`) is an empty placeholder, so skin widgets that read it stay blank. The Cast row fix was tested on the 6.0.216 build and the stats route on 7.0.0; 7.0.2 itself was not run under the skin, and the TV-episode Cast case is untested. |
 | **MDBList Next Up and marks** | A show whose watched episodes MDBList lists one by one, with none left, reads as finished and is not in Next Up. Whole-show marks are ignored and whole-season marks count only for seasons with no individually watched episode (section 7). |
 | **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
-| **Playback from other add-ons** | Optional and off by default. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren, a stand-in player and a real Elementum episode (7.0.18). |
+| **Playback from other add-ons** | On by default since 7.0.57; a Kodi library item that no add-on plays is not reported. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren, a stand-in player and a real Elementum episode (7.0.18). |
+| **Trakt playing time after a skip** | A skip updates Trakt a few seconds after the last skip (7.0.56). Fast-forward and rewind (the speed buttons) do not. |
 | **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). In October 2026 tests on Kodi 22, playback that stopped crashed Kodi in 2 of 2 runs with TMDb Helper's switch on and in 0 of 2 with it off; the log pattern looks like Kodi's open reusable-invoker race (xbmc/xbmc#30038), but that is not proven. Switch it off again if Kodi starts crashing. |
 
 ---

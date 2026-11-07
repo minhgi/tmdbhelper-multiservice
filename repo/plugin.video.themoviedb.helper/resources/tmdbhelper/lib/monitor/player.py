@@ -9,6 +9,7 @@ from tmdbhelper.lib.addon.thread import SafeThread
 from tmdbhelper.lib.addon.logger import kodi_log
 
 
+SEEK_SETTLE_DELAY = 3  # seconds without another seek before the new position is posted to Trakt
 EXTERNAL_GUARD_DELAY = 12  # seconds the observer waits at the end of playback before checking whether the playing add-on already reported it
 
 # Add-ons that report their own playback, and the services each one reports to: {addon id: {service: reports(setting)}}.
@@ -65,6 +66,61 @@ def get_external_owned_services(addon_id):
             return ''
 
     return {service for service, reports in owners.items() if reports(setting)}
+
+
+class ReloadGate:
+    """ Joins the list and widget reloads of one stop of external playback into one. The services post from separate threads (Trakt's
+    refresh also syncs first), and each used to reload when it finished, so the open list and the widgets loaded up to three times.
+    Every such thread holds the gate while it runs; a reload asked for while anything is held is kept (the last one asked for wins)
+    and runs once, when the last hold is released. A hold older than STALE seconds is dropped, so a hung thread cannot block reloads. """
+    STALE = 180
+
+    def __init__(self):
+        from threading import Lock
+        self._lock = Lock()
+        self._holds = {}
+        self._count = 0
+        self._wanted = None
+
+    def _drop_stale(self):
+        from time import monotonic
+        now = monotonic()
+        for token in [t for t, at in self._holds.items() if now - at > self.STALE]:
+            del self._holds[token]
+
+    def hold(self):
+        from time import monotonic
+        with self._lock:
+            self._drop_stale()
+            self._count += 1
+            self._holds[self._count] = monotonic()
+            return self._count
+
+    def release(self, token):
+        with self._lock:
+            self._holds.pop(token, None)
+            self._drop_stale()
+            wanted = None if self._holds else self._wanted
+            if wanted:
+                self._wanted = None
+        if wanted:
+            try:  # may run on Kodi's player-callback thread: an error here must not leave scrobbler_stop
+                wanted[0](wanted[1])
+            except Exception as exc:
+                kodi_log(f'Post-stop refresh failed - {type(exc).__name__}: {exc}', 1)
+
+    def defer(self, reload, note=''):
+        """ True when something is held: the reload is kept for the last release. False: nothing is held, reload now """
+        with self._lock:
+            self._drop_stale()
+            if not self._holds:
+                self._wanted = None  # a reload left from a hold that went stale must not fire later as an extra one
+                return False
+            self._wanted = (reload, note)
+            return True
+
+
+RELOAD_GATE = ReloadGate()
 
 
 class PlayerScrobbler():
@@ -269,7 +325,7 @@ class PlayerScrobbler():
             return action()
         if not self._watched_ready:
             return
-        SafeThread(target=self._report_watched_guarded, args=(action, )).start()
+        self._start_held(self._report_watched_guarded, action)
 
     def _report_watched_guarded(self, action):
         from xbmc import Monitor
@@ -295,7 +351,7 @@ class PlayerScrobbler():
 
     def refresh_after_stop(self):
         """ Bring lists and widgets up to date once the posts for a stop are done (in the background: Trakt's sync can download the whole watched list) """
-        SafeThread(target=self._refresh_after_stop).start()
+        self._start_held(self._refresh_after_stop)
 
     def _refresh_after_stop(self):
         """ Trakt: drop the cached last activities and sync the item's watched and resume data now, then reload the visible list and the widgets.
@@ -312,7 +368,30 @@ class PlayerScrobbler():
             synced = f'failed - {type(exc).__name__}: {exc}'
         self._reload_lists(f'Trakt sync {synced}')
 
+    def _reload_after_mark(self, item):
+        """ Reload after a watched mark has been written locally. External playback has no other reload after its posts, so it asks for one here
+        (kept until the other services of the same stop are done, see ReloadGate). Playback started by TMDb Helper reloads once for all services
+        in PlayerMonitor.scrobbler_stop (after Trakt's sync): a reload here as well made the open list and the widgets load two or three times """
+        if self.external:
+            self._reload_lists('watched mark')
+
+    def _start_held(self, target, *args):
+        """ Run target in the background; reloads asked for meanwhile wait until every such thread of the same stop has finished """
+        token = RELOAD_GATE.hold()
+
+        def run():
+            try:
+                target(*args)
+            finally:
+                RELOAD_GATE.release(token)
+
+        SafeThread(target=run).start()
+
     def _reload_lists(self, note=''):
+        if not RELOAD_GATE.defer(self._reload_now, note):
+            self._reload_now(note)
+
+    def _reload_now(self, note=''):
         from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
         from xbmc import executebuiltin
         executebuiltin('Container.Refresh')
@@ -332,6 +411,44 @@ class PlayerScrobbler():
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
         self.trakt_scrobbling('pause')
+
+    _seek_stamp = 0.0
+    _seek_thread = None
+
+    @is_scrobbling
+    def seek(self, tmdb_type, tmdb_id, current_time):
+        """ Kodi jumped to another position. Trakt works out the "watching" end time from the last start or pause it received, so a skip left
+        its playing time stale. Once the skipping has settled, post start again with the new position (only Trakt has a live watching state;
+        MDBList and Simkl take a position on pause and stop only). A burst of seeks (repeated skip presses) sends one post. Kodi's fast-forward and rewind buttons change the speed instead and are not handled here. """
+        if not self.started or not self.is_match(tmdb_type, tmdb_id):
+            return
+        self.current_time = current_time
+        from time import monotonic
+        self._seek_stamp = monotonic()
+        if self._seek_thread and self._seek_thread.is_alive():
+            return
+        self._seek_thread = SafeThread(target=self._seek_post)
+        self._seek_thread.start()
+
+    def _seek_post(self):
+        from time import monotonic
+        from xbmc import Monitor
+        monitor = Monitor()
+        while True:
+            stamp = self._seek_stamp
+            while True:
+                wait = stamp + SEEK_SETTLE_DELAY - monotonic()
+                if wait <= 0:
+                    break
+                if monitor.waitForAbort(wait):
+                    return
+            if self._seek_stamp != stamp:
+                continue  # another seek arrived while waiting
+            if self.stopped or get_condvisibility('Player.Paused'):
+                return  # a pause post already holds the position; resuming posts start
+            self.trakt_scrobbling('start')
+            if self._seek_stamp == stamp:
+                return
 
     @is_scrobbling
     def stop(self, tmdb_type, tmdb_id):
@@ -578,7 +695,7 @@ class MDbListScrobbler(PlayerScrobbler):
         # Proven direct-write path for badge + hub refresh (same as v6.0.42 context menu fix)
         item.update_watched_in_db(True, force=True)
         self._clear_progress_in_db()  # item no longer in-progress
-        item.refresh_containers(force=True)
+        self._reload_after_mark(item)
 
     def _watched_stamp(self):
         try:
@@ -798,7 +915,7 @@ class SimklScrobbler(PlayerScrobbler):
         if matched:  # a mark Simkl did not take must not show as watched in the lists
             item.update_watched_in_db(True, force=True)
         self._clear_progress_in_db()
-        item.refresh_containers(force=True)
+        self._reload_after_mark(item)
 
     def _anime_entry(self):
         """({'anilist': id, 'mal': id}, episode number inside the entry) of the anime entry (cour) a TMDb episode belongs to, or
@@ -1159,6 +1276,12 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
     def onPlayBackResumed(self):
         self.scrobbler_start()
 
+    def onPlayBackSeek(self, time, seekOffset):
+        self.scrobbler_seek(time / 1000)  # Kodi gives the new position in milliseconds
+
+    def onPlayBackSeekChapter(self, chapter):
+        self.scrobbler_seek(self.getTime())
+
     def reset_player_item(self):
         self.player_item = PlayerItem(self)
 
@@ -1190,10 +1313,28 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         if self.simkl_scrobbler:
             self.simkl_scrobbler.pause(self.tmdb_type, self.tmdb_id)
 
+    def scrobbler_seek(self, current_time):
+        if not self.scrobbler:
+            return
+        for s in (self.mdb_scrobbler, self.simkl_scrobbler):
+            if s:
+                s.update_time(self.tmdb_type, self.tmdb_id, current_time)  # their pause and stop post this position
+        self.scrobbler.seek(self.tmdb_type, self.tmdb_id, current_time)
+
     def scrobbler_stop(self):
         if not self.scrobbler:
             return
         scrobblers = [s for s in (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler) if s]
+        # External playback: the three services post and reload from their own threads. Holding the gate from here keeps a quick thread's
+        # reload from running before a slower service has started, so the list and the widgets reload once, after the last one.
+        token = RELOAD_GATE.hold() if any(s.external for s in scrobblers) else None
+        try:
+            self._stop_scrobblers(scrobblers)
+        finally:
+            if token:
+                RELOAD_GATE.release(token)
+
+    def _stop_scrobblers(self, scrobblers):
         was_stopped = [s.stopped for s in scrobblers]
         self.scrobbler.stop(self.tmdb_type, self.tmdb_id)
         if self.mdb_scrobbler:
@@ -1265,21 +1406,36 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
     def get_external_origin(self, identity=None):
         """ Id of the add-on that started the playing item, '' if it is not visible: the plugin:// path Kodi shows for a
         resolved item, else a Home-property handshake from an add-on that plays a stream URL (needs the item's identity) """
-        candidates = [get_infolabel('Player.Filenameandpath'), get_infolabel('Player.Folderpath')]
-        try:
-            candidates.insert(0, self.getVideoInfoTag().getFilenameAndPath())
-        except Exception:
-            pass
-        for path in candidates:
+        for path in self.get_external_paths():
             if path and f'{path}'.startswith('plugin://'):
                 return f'{path}'[len('plugin://'):].split('/', 1)[0]
         return get_external_handshake_origin(identity) if identity else ''
 
+    def get_external_paths(self):
+        """ Paths Kodi shows for the playing item: its info tag, the file being played and the folder it came from """
+        paths = [get_infolabel('Player.Filenameandpath'), get_infolabel('Player.Folderpath')]
+        try:
+            paths.insert(0, self.getVideoInfoTag().getFilenameAndPath())
+        except Exception:
+            pass
+        return paths
+
+    def is_kodi_library_item(self):
+        """ True for a movie or episode played from the Kodi library (it has a library id). A .strm library item is not one: its file
+        holds the add-on's URL, so an add-on (Elementum, Seren) is playing it """
+        try:
+            if int(self.dbid or 0) <= 0:
+                return False
+        except (TypeError, ValueError):
+            return False
+        return not any(f'{path}'.lower().endswith('.strm') for path in self.get_external_paths() if path)
+
     def get_external_playerstrings(self):
-        """ Opt-in observer (setting scrobble_external_playback, off by default) for playback started by another add-on.
+        """ Observer (setting scrobble_external_playback, on by default) for playback started by another add-on.
         Returns the identity each scrobbler is built with, {} per service to leave it inert, or {} overall (nothing to do) when
         the setting is off, TMDb Helper's own player started the item, or it is not a movie or episode.
         - Identity comes from the info tag only. No TMDb id there means nothing is reported.
+        - A Kodi library item that no add-on is playing (no plugin origin, has a library id) is not reported.
         - A service the playing add-on reports to itself is left alone. Trakt is also off unless scrobble_external_trakt is on.
         """
         self._external_log = None
@@ -1295,6 +1451,10 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         origin = self.get_external_origin(identity)
         if not identity:
             kodi_log(f'External playback ({origin or "origin unknown"}): no TMDb id in the info tag - nothing reported', 1)
+            return {'trakt': {}, 'mdblist': {}, 'simkl': {}}
+
+        if not origin and self.is_kodi_library_item():
+            kodi_log('External playback (Kodi library item): not reported - only plays started by add-ons are observed', 1)
             return {'trakt': {}, 'mdblist': {}, 'simkl': {}}
 
         owned = get_external_owned_services(origin)

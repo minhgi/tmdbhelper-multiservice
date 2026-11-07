@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.55" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.58" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,17 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.58
+- Fixed: When another add-on such as Elementum played the item, finishing or stopping it still reloaded the open list (for example Bingie's season view) and the widgets up to three times: MDBList, Simkl and Trakt each reloaded when they were done, and Trakt's came last, after its sync. They now reload once, after the slowest of them has finished. Plays started by TMDb Helper already reloaded once.
+
+v7.0.57
+- Changed: "Scrobble items played by other add-ons" (Accounts) is now on by default, so episodes and movies played by Elementum or another add-on reach MDBList and Simkl without turning it on first. A value you already saved is kept; turn it off there if you don't want these plays sent. "Include Trakt" stays off by default.
+- Changed: Items played straight from the Kodi library are no longer reported by this setting; it observes plays started by add-ons only. A library item played through an add-on's .strm file still counts. If you relied on library plays reaching MDBList and Simkl this way, they no longer do.
+
+v7.0.56
+- Fixed: Finishing an episode or movie reloaded the open list (for example Bingie's season view) and the widgets up to three times. MDBList and Simkl each reloaded as soon as they had posted the watched mark, and one more reload followed after Trakt had synced. For a play started by TMDb Helper there is now one reload, after every service has posted. A stop below 75% already reloaded once. Plays started by other add-ons are unchanged.
+- Fixed: Skipping to another position during a play left Trakt showing the old playing time, because a position was only sent on start, pause, resume and stop. TMDb Helper now sends Trakt the new position a few seconds after the last skip, once per burst of skips, and not while paused. Fast-forward and rewind (speed changes) are not covered. MDBList and Simkl keep their positions from pause and stop.
+
 v7.0.55
 - Fix: Cross-Service Sync - an episode played again (re-watched, or re-added) on a service shortly after the bridge removed it there is kept and carried to the other services, instead of being removed again as a removal that had not shown yet.
 

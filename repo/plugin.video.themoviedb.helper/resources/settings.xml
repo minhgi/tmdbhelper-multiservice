@@ -1079,7 +1079,7 @@
             <group id="5" label="32742">
                 <setting id="scrobble_external_playback" type="boolean" label="32743" help="32744">
                     <level>0</level>
-                    <default>false</default>
+                    <default>true</default>
                     <control type="toggle"/>
                 </setting>
                 <setting id="scrobble_external_trakt" type="boolean" label="32745" help="32746" parent="scrobble_external_playback">
