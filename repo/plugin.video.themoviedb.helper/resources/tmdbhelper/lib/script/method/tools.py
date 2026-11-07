@@ -153,8 +153,33 @@ def sync_rebuild():
 
 
 def clear_cache():
-    from tmdbhelper.lib.script.method.maintenance import delete_cache
-    delete_cache('select')
+    """Clear All Cache: the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go (after one question), with no picker.
+    The search history and the Anime / Asian list caches have their own entries in this menu."""
+    from xbmcgui import Dialog
+    from tmdbhelper.lib.addon.dialog import BusyDialog
+    if not Dialog().yesno(TITLE, 'Clear all cached TMDb, Trakt, fanart.tv, OMDb and item details data?\n\nIt is rebuilt as you browse.'):
+        return
+
+    def caches():
+        from tmdbhelper.lib.items.builder import ItemBuilder
+        from tmdbhelper.lib.api.fanarttv.api import FanartTV
+        from tmdbhelper.lib.api.trakt.api import TraktAPI
+        from tmdbhelper.lib.api.tmdb.api import TMDb
+        from tmdbhelper.lib.api.omdb.api import OMDb
+        return (('TMDb', TMDb), ('Trakt', TraktAPI), ('fanart.tv', FanartTV), ('OMDb', OMDb), ('Item Details', ItemBuilder))
+
+    failed = []
+    with BusyDialog():
+        for name, make in caches():
+            try:
+                make()._cache.ret_cache()._do_delete()
+            except Exception as exc:   # one failing cache never stops the others
+                kodi_log(f'Tools: could not clear the {name} cache - {type(exc).__name__}: {exc}', 2)
+                failed.append(name)
+    if failed:
+        Dialog().notification(TITLE, f'Cache cleared, except: {", ".join(failed)}')
+    else:
+        Dialog().notification(TITLE, 'All cache cleared')
 
 
 def clear_search_history():

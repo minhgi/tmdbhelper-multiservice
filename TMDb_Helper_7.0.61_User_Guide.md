@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.59 — Complete Features & Functions Guide
+# TMDb Helper 7.0.61 — Complete Features & Functions Guide
 
-**Version:** 7.0.59 (Enhanced Fork — Personal Build)
+**Version:** 7.0.61 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.59_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.61_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.59. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.61. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -236,6 +236,10 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.5
 - **English fallback also works with "Prefer artwork from TMDb first"** (7.0.59). That setting used to stop TMDb Helper asking TMDb for English artwork, so after changing the language many clearlogos were missing and the English fallback did nothing. English is now requested whenever *Fallback to English when main language unavailable* is on (it is on by default).
 - **Logos and landscapes are picked by language** (7.0.59). Your language first, then English, then artwork without a language; the TMDb votes only decide inside each group. Before, the highest-voted one won whatever its language, so an English logo with more votes could replace one in your language. An item already built keeps its artwork until it expires (14 days) or is refreshed; changing the language starts fresh.
 
+### Tools menu: Clear All Cache (7.0.60–7.0.61)
+
+- **Clear All Cache clears all five caches** (7.0.60–7.0.61). Tools → Clear Cache Tool → Clear All Cache was called Clear Cache and opened a list where you picked one cache and confirmed each pick. It now asks once, then clears the TMDb, Trakt, fanart.tv, OMDb and item details caches together. Clear Search History and Clear Anime and Asian Lists Cache keep their own entries.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -328,7 +332,7 @@ Awards, and Genres.
 | Row | What it does |
 |---|---|
 | **Sync Tools** (shown only when Trakt, MDBList or Simkl is signed in) | *Clear last sync time*, *Force a sync*, *Rebuild Database* |
-| **Clear Cache Tool** | *Clear Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
+| **Clear Cache Tool** | *Clear All Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
 | **Open Settings Menu** | Opens the settings |
 | **Backup and Reset** | *Backup Settings*, *Restore Settings* |
 | **Changelog** | The version history |
@@ -627,7 +631,7 @@ All under **TMDb Helper → Tools** (rows described in section 4) or in Settings
 |---|---|
 | Back up settings, Trakt sync data, awards cache, widget cache and player configs to a zip | Tools → Backup and Reset → **Backup Settings**, or Settings → Expert → *Backup Settings & Data* |
 | Restore from a backup (restart Kodi afterwards) | Tools → Backup and Reset → **Restore Settings**, or *Restore Settings & Data* |
-| Clear cached TMDb, Trakt, fanart.tv, OMDb and item data | Tools → Clear Cache Tool → **Clear Cache**, or *Delete cache* |
+| Clear cached TMDb, Trakt, fanart.tv, OMDb and item data | Tools → Clear Cache Tool → **Clear All Cache** (all five at once, after one question), or *Delete cache* (one at a time) |
 | Clear saved search history | Tools → Clear Cache Tool → **Clear Search History** |
 | Clear the saved results of the Anime and Asian lists, the saved AniList to TMDb matches, the saved Simkl calendar files and the anime scores | Tools → Clear Cache Tool → **Clear Anime and Asian Lists Cache** |
 | Rebuild TMDb Helper's copy of your Kodi library details | Settings → Other → **Refresh Cached Kodi Library details** |
