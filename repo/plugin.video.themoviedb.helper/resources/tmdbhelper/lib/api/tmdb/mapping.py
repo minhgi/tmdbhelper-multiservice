@@ -246,6 +246,14 @@ class ItemMapperMethods:
     ART
     """
 
+    def sort_art_by_language(self, images):
+        """ Sort images: user language first, then English, then no language. Votes decide inside each group """
+        def sort_key(i):
+            lang = i.get('iso_639_1')
+            group = 0 if lang == self.iso_language else 1 if lang == 'en' else 2
+            return (group, -(i.get('vote_average') or 0))
+        return sorted(images, key=sort_key)
+
     def get_extra_art(self, v):
         """ Get additional artwork types from artwork list
         Fanart with language is treated as landscape because it will have text
@@ -254,12 +262,12 @@ class ItemMapperMethods:
 
         landscape = [i for i in v.get('backdrops', []) if i.get('iso_639_1') and i.get('aspect_ratio') == 1.778]
         if landscape:
-            landscape = sorted(landscape, key=lambda i: i.get('vote_average', 0), reverse=True)
+            landscape = self.sort_art_by_language(landscape)
             artwork['landscape'] = self.tmdb_imagepath.get_imagepath_thumbs(landscape[0].get('file_path'))
 
         clearlogo = [i for i in v.get('logos', []) if i.get('file_path', '')[-4:] != '.svg']
         if clearlogo:
-            clearlogo = sorted(clearlogo, key=lambda i: i.get('vote_average', 0), reverse=True)
+            clearlogo = self.sort_art_by_language(clearlogo)
             artwork['clearlogo'] = self.tmdb_imagepath.get_imagepath_clogos(clearlogo[0].get('file_path'))
 
         fanart = [i for i in v.get('backdrops', []) if not i.get('iso_639_1') and i.get('aspect_ratio') == 1.778]

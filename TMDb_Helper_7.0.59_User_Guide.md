@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.58 — Complete Features & Functions Guide
+# TMDb Helper 7.0.59 — Complete Features & Functions Guide
 
-**Version:** 7.0.58 (Enhanced Fork — Personal Build)
+**Version:** 7.0.59 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.58_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.59_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.58. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.59. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -230,6 +230,11 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.5
 - **One reload when a play ends** (7.0.56, 7.0.58). Finishing or stopping a play reloaded the open list (Bingie's season view, for example) and the widgets up to three times: MDBList and Simkl each reloaded as soon as they had posted, and Trakt reloaded last, after its sync. TMDb Helper now reloads once, after the slowest service has finished, for plays it started itself (7.0.56) and for plays another add-on started (7.0.58). The MDBList and Simkl indicators therefore appear when that reload runs, not slightly earlier. Kodi can still refresh a list by itself when you return to it. Checked with real plays on a Kodi 22 test instance (one reload line per stop, where three were logged before); not yet checked in Bingie's season view itself.
 - **Skipping during a play updates Trakt** (7.0.56). Trakt works out the *watching* time from the last start or pause it received, so after a skip it kept showing the old time. A few seconds after the last skip TMDb Helper now sends Trakt the new position, once for a run of skips and not while the video is paused. MDBList and Simkl take a position on pause and stop only, so they are unchanged. Fast-forward and rewind (the speed buttons) are not covered.
 - **Scrobble items played by other add-ons is on by default; Kodi library items are left out** (7.0.57). The switch (Settings → Accounts → Playback started by other add-ons) is now on for new installs and for any install that never saved a value; a value you saved is kept. It covers every play an add-on started, not only Elementum. A Kodi library item that no add-on plays (a file played straight from your library) is not reported by this setting, for everyone who has it on; a library item played through an add-on's .strm file still counts. *Include Trakt* stays off by default. Turn the main switch off if you do not want these plays sent.
+
+### Artwork language (7.0.59)
+
+- **English fallback also works with "Prefer artwork from TMDb first"** (7.0.59). That setting used to stop TMDb Helper asking TMDb for English artwork, so after changing the language many clearlogos were missing and the English fallback did nothing. English is now requested whenever *Fallback to English when main language unavailable* is on (it is on by default).
+- **Logos and landscapes are picked by language** (7.0.59). Your language first, then English, then artwork without a language; the TMDb votes only decide inside each group. Before, the highest-voted one won whatever its language, so an English logo with more votes could replace one in your language. An item already built keeps its artwork until it expires (14 days) or is refreshed; changing the language starts fresh.
 
 ## 3. First-Time Setup
 
@@ -738,6 +743,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
 | **Playback from other add-ons** | On by default since 7.0.57; a Kodi library item that no add-on plays is not reported. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren, a stand-in player and a real Elementum episode (7.0.18). |
 | **Trakt playing time after a skip** | A skip updates Trakt a few seconds after the last skip (7.0.56). Fast-forward and rewind (the speed buttons) do not. |
+| **Artwork of items already built** | An item keeps its logo until it expires (14 days) or is refreshed (7.0.59). Whether a fanart.tv logo replaces a TMDb one depends on *Prefer artwork from TMDb first* (off by default). |
 | **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). In October 2026 tests on Kodi 22, playback that stopped crashed Kodi in 2 of 2 runs with TMDb Helper's switch on and in 0 of 2 with it off; the log pattern looks like Kodi's open reusable-invoker race (xbmc/xbmc#30038), but that is not proven. Switch it off again if Kodi starts crashing. |
 
 ---

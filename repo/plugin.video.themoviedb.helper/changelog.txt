@@ -1,3 +1,7 @@
+v7.0.59
+- Fixed: With "Prefer artwork from TMDb first if available" on, TMDb was no longer asked for English artwork, so after changing the language many clearlogos were missing and "Fallback to English when main language unavailable" did nothing. English is now requested whenever that fallback is on. Items already built keep their artwork until they are rebuilt (they expire after 14 days) or refreshed.
+- Changed: A clearlogo or landscape is now picked from your language first, then English, then language-neutral, and TMDb votes only decide inside each group. Before, the highest-voted one won whatever its language, so an English logo with more votes could replace one in your language.
+
 v7.0.58
 - Fixed: When another add-on such as Elementum played the item, finishing or stopping it still reloaded the open list (for example Bingie's season view) and the widgets up to three times: MDBList, Simkl and Trakt each reloaded when they were done, and Trakt's came last, after its sync. They now reload once, after the slowest of them has finished. Plays started by TMDb Helper already reloaded once.
 

@@ -143,7 +143,7 @@ class TMDbAPI(RequestAPI):
 
 class TMDb(TMDbAPI, TMDbMethods):
     append_to_response = 'credits,images,release_dates,content_ratings,external_ids,movie_credits,tv_credits,keywords,reviews,videos,watch/providers'
-    artlang_fallback = True if get_setting('fanarttv_enfallback') and not get_setting('fanarttv_secondpref') else False
+    artlang_fallback = True if get_setting('fanarttv_enfallback') else False
     api_name = 'TMDb'
 
     @property
