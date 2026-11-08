@@ -1,3 +1,6 @@
+v7.0.62
+- Fixed: When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
+
 v7.0.61
 - Changed: Tools > Clear Cache Tool > Clear All Cache now clears the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go, after one yes/no question. Before, it opened a list to pick one cache and asked again for each. The search history and the Anime and Asian lists cache keep their own entries.
 

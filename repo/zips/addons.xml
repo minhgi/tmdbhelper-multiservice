@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.61" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.62" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.62
+- Fixed: When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
+
 v7.0.61
 - Changed: Tools &gt; Clear Cache Tool &gt; Clear All Cache now clears the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go, after one yes/no question. Before, it opened a list to pick one cache and asked again for each. The search history and the Anime and Asian lists cache keep their own entries.
 

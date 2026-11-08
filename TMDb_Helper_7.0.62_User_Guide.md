@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.61 — Complete Features & Functions Guide
+# TMDb Helper 7.0.62 — Complete Features & Functions Guide
 
-**Version:** 7.0.61 (Enhanced Fork — Personal Build)
+**Version:** 7.0.62 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.61_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.62_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.61. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.62. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -239,6 +239,10 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6
 ### Tools menu: Clear All Cache (7.0.60–7.0.61)
 
 - **Clear All Cache clears all five caches** (7.0.60–7.0.61). Tools → Clear Cache Tool → Clear All Cache was called Clear Cache and opened a list where you picked one cache and confirmed each pick. It now asks once, then clears the TMDb, Trakt, fanart.tv, OMDb and item details caches together. Clear Search History and Clear Anime and Asian Lists Cache keep their own entries.
+
+### Playback: no Trakt start after a stop (7.0.62)
+
+- **No Trakt start after a stop** (7.0.62). When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
 
 ## 3. First-Time Setup
 

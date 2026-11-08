@@ -1,5 +1,6 @@
 from xbmc import Player
 from json import loads
+from threading import RLock
 from jurialmunkey.parser import boolean
 from jurialmunkey.window import get_property
 from tmdbhelper.lib.monitor.images import ImageFunctions
@@ -10,6 +11,7 @@ from tmdbhelper.lib.addon.logger import kodi_log
 
 
 SEEK_SETTLE_DELAY = 3  # seconds without another seek before the new position is posted to Trakt
+SEEK_LOCK_WAIT = 5  # seconds a stop waits for a skip re-post that is being sent, so Trakt gets the stop after it
 EXTERNAL_GUARD_DELAY = 12  # seconds the observer waits at the end of playback before checking whether the playing add-on already reported it
 
 # Add-ons that report their own playback, and the services each one reports to: {addon id: {service: reports(setting)}}.
@@ -414,6 +416,8 @@ class PlayerScrobbler():
 
     _seek_stamp = 0.0
     _seek_thread = None
+    _seek_lock = RLock()  # held while a skip re-post is checked and sent, and while a stop is started (one play at a time)
+    _stopping = False  # set when a stop begins; `stopped` only follows once its posts are done
 
     @is_scrobbling
     def seek(self, tmdb_type, tmdb_id, current_time):
@@ -444,9 +448,10 @@ class PlayerScrobbler():
                     return
             if self._seek_stamp != stamp:
                 continue  # another seek arrived while waiting
-            if self.stopped or get_condvisibility('Player.Paused'):
-                return  # a pause post already holds the position; resuming posts start
-            self.trakt_scrobbling('start')
+            with self._seek_lock:  # a stop that begins now waits for this post, one that began already is seen here
+                if self.stopped or self._stopping or get_condvisibility('Player.Paused'):
+                    return  # a pause post already holds the position; resuming posts start; after a stop no start must follow
+                self.trakt_scrobbling('start')
             if self._seek_stamp == stamp:
                 return
 
@@ -454,6 +459,15 @@ class PlayerScrobbler():
     def stop(self, tmdb_type, tmdb_id):
         if not self.started:
             return
+        self._stopping = True  # a skip re-post not sent yet is dropped (see _seek_post)
+        locked = self._seek_lock.acquire(timeout=SEEK_LOCK_WAIT)  # a re-post being sent goes first, the stop follows it
+        try:
+            self._stop(tmdb_type, tmdb_id)
+        finally:
+            if locked:
+                self._seek_lock.release()
+
+    def _stop(self, tmdb_type, tmdb_id):
         if self.external:
             # Kodi marks its own library and refreshes the widgets itself; only Trakt's stop (which logs the play from 80%) is guarded
             if self.progress >= 75:
