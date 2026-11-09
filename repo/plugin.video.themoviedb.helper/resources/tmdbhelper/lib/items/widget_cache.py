@@ -48,12 +48,20 @@ def _get_settings_salt(row=False):
     When any of these settings change, the cache key changes, forcing a cache
     miss and a fresh build with the correct data. This avoids serving stale
     widget content after a settings toggle (e.g., anime enrichment on/off).
+
+    The add-on's content language is included because save_cache() stores each
+    item's fully-resolved art (clearlogo included) and label, baked in at build
+    time: without the language in the key, switching language kept serving the
+    old language's cached art and labels on every cache hit (GitHub issue #9).
+    This busts every existing widget/row cache once; later toggles are unaffected.
     """
     try:
-        from tmdbhelper.lib.addon.plugin import get_setting
+        from tmdbhelper.lib.addon.plugin import get_setting, get_language
         anime = '1' if get_setting('anime_enrichment') else '0'
+        lang = get_language()
     except Exception:
         anime = '0'
+        lang = ''
     try:
         from tmdbhelper.lib.items.globalsort import get_settings_salt
         sort = get_settings_salt()
@@ -61,12 +69,12 @@ def _get_settings_salt(row=False):
         sort = ''
     sort = f'|sort={sort}' if sort else ''  # only when a global sort is chosen, so existing caches stay valid
     if not row:
-        return f'ae={anime}{sort}'  # unchanged for widgets without a global sort, so existing widget caches stay valid
+        return f'ae={anime}|lang={lang}{sort}'
     try:
         ftv = '1' if get_setting('fanarttv_lookup') else '0'
     except Exception:
         ftv = '0'
-    return f'ae={anime}|row|ftv={ftv}{sort}'
+    return f'ae={anime}|row|ftv={ftv}|lang={lang}{sort}'
 
 
 def _get_cache_key(paramstring, row=False):

@@ -182,6 +182,13 @@ def clear_cache():
         Dialog().notification(TITLE, 'All cache cleared')
 
 
+def clear_cache_select():
+    """Clear Cache: pick one cache (TMDb, Trakt, fanart.tv, OMDb or Item Details) and clear only that one, after
+    one question. Reuses maintenance.delete_cache, unchanged since before Clear All Cache replaced it in the menu."""
+    from tmdbhelper.lib.script.method.maintenance import delete_cache
+    delete_cache('select')
+
+
 def clear_search_history():
     from xbmcgui import Dialog
     from tmdbhelper.lib.api.tmdb.search import MULTISEARCH_TYPES
@@ -239,6 +246,7 @@ ACTIONS = {
     'sync_force': sync_force,
     'sync_rebuild': sync_rebuild,
     'clear_cache': clear_cache,
+    'clear_cache_select': clear_cache_select,
     'clear_search_history': clear_search_history,
     'clear_list_caches': clear_list_caches,
     'open_settings': open_settings,

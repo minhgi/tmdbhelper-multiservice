@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.62" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.64" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.64
+- Changed: Tools &gt; Clear Cache Tool has the per-service picker back (Clear Cache: pick TMDb, Trakt, fanart.tv, OMDb or item details, confirm, clear only that one), above Clear All Cache. 7.0.60/7.0.61 replaced it with Clear All Cache only; both are now available, Clear Cache first, Clear All Cache below it (GitHub issue #10).
+
+v7.0.63
+- Fixed: widgets and the plain lists a skin shows as rows (built outside the full library window) kept showing the previous language's clearlogos and labels after the add-on's language was changed. Their disk cache did not count language as part of what made two requests the same, so a cache hit served the old language's data regardless. Language is now part of that key; every existing widget and row cache rebuilds once after updating, then stays cached as before. Lists opened in the full library window were not affected - they already rebuild per language.
+
 v7.0.62
 - Fixed: When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
 

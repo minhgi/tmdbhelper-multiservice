@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.62 — Complete Features & Functions Guide
+# TMDb Helper 7.0.64 — Complete Features & Functions Guide
 
-**Version:** 7.0.62 (Enhanced Fork — Personal Build)
+**Version:** 7.0.64 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.62_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.64_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.62. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.64. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -244,6 +244,14 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6
 
 - **No Trakt start after a stop** (7.0.62). When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
 
+### Widget cache: language is now part of the cache key (7.0.63)
+
+- **Clearlogos and other widget art could stay in the wrong language, or go missing, after a language change** (7.0.63). A widget or skin hub row caches its fully-built artwork on disk, but the cache key never included the add-on's language, so a widget built once under one language kept serving that same cached artwork forever after switching languages. The cache key now includes the language, so each language gets its own cached entry; it rebuilds the next time that widget loads. This does not cover a list opened and paged through in the full library window — that always went through a separately, correctly language-keyed cache.
+
+### Tools menu: Clear Cache restored alongside Clear All Cache (7.0.64)
+
+- **Clear Cache (the one-at-a-time picker) is back in the Tools menu, above Clear All Cache** (7.0.64). 7.0.60–7.0.61 (above) replaced it with Clear All Cache and dropped it from the menu, though the underlying picker kept working from Settings → Expert → *Delete cache*. Both are now in Tools → Clear Cache Tool: **Clear Cache** asks which of TMDb, Trakt, fanart.tv, OMDb or Item Details to clear, one at a time; **Clear All Cache** clears all five together after a single question.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -336,7 +344,7 @@ Awards, and Genres.
 | Row | What it does |
 |---|---|
 | **Sync Tools** (shown only when Trakt, MDBList or Simkl is signed in) | *Clear last sync time*, *Force a sync*, *Rebuild Database* |
-| **Clear Cache Tool** | *Clear All Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
+| **Clear Cache Tool** | *Clear Cache* (pick one: TMDb, Trakt, fanart.tv, OMDb or Item Details), *Clear All Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
 | **Open Settings Menu** | Opens the settings |
 | **Backup and Reset** | *Backup Settings*, *Restore Settings* |
 | **Changelog** | The version history |
@@ -635,7 +643,7 @@ All under **TMDb Helper → Tools** (rows described in section 4) or in Settings
 |---|---|
 | Back up settings, Trakt sync data, awards cache, widget cache and player configs to a zip | Tools → Backup and Reset → **Backup Settings**, or Settings → Expert → *Backup Settings & Data* |
 | Restore from a backup (restart Kodi afterwards) | Tools → Backup and Reset → **Restore Settings**, or *Restore Settings & Data* |
-| Clear cached TMDb, Trakt, fanart.tv, OMDb and item data | Tools → Clear Cache Tool → **Clear All Cache** (all five at once, after one question), or *Delete cache* (one at a time) |
+| Clear cached TMDb, Trakt, fanart.tv, OMDb and item data | Tools → Clear Cache Tool → **Clear All Cache** (all five at once, after one question), or **Clear Cache** (pick one, same picker as Settings → Expert → *Delete cache*) |
 | Clear saved search history | Tools → Clear Cache Tool → **Clear Search History** |
 | Clear the saved results of the Anime and Asian lists, the saved AniList to TMDb matches, the saved Simkl calendar files and the anime scores | Tools → Clear Cache Tool → **Clear Anime and Asian Lists Cache** |
 | Rebuild TMDb Helper's copy of your Kodi library details | Settings → Other → **Refresh Cached Kodi Library details** |
