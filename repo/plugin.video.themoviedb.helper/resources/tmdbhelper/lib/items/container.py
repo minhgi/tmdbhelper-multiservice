@@ -9,6 +9,9 @@ from tmdbhelper.lib.items.season_layout_display import SeasonLayoutDisplay
 # Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
 BLANK_MENUS = ('dir_mdblist_progress', 'trakt_history_stats')
 
+# In Progress lists whose shows open the seasons list, and the service whose watched data decides what that list hides
+HIDE_SOURCES = {'trakt_inprogress': 'trakt', 'mdblist_upnext': 'mdblist', 'simkl_upnext': 'simkl'}
+
 # Rows that ask for typing or act (an empty result there is a cancelled prompt or an action, not an empty list)
 EMPTY_NO_NOTICE = (
     'dir_calendar_window', 'dir_calendar_shows_window', 'dir_custom_node', 'dir_discover', 'dir_multisearch', 'dir_search', 'dir_settings', 'dir_tools_action',
@@ -94,7 +97,27 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
 
     @cached_property
     def hide_watched(self):
-        return get_setting('widgets_hidewatched') if self.is_widget else False
+        if self.is_widget:
+            return get_setting('widgets_hidewatched')
+        return bool(self.hide_source) and get_setting('widgets_hidewatched')  # a show opened from an In Progress widget row
+
+    @cached_property
+    def hide_source(self):
+        """Service named by `hidewatched=` in the path: the In Progress widget a show was opened from (its show items carry it while
+        Hide watched is on, its season items pass it on). The seasons and episodes lists then hide what THAT service has watched, not the
+        highest of all three: MDBList / Simkl whole-show marks read a show Trakt lists as unfinished as fully watched."""
+        source = (self.params.get('hidewatched') or '').lower()
+        return source if source in HIDE_SOURCES.values() else None
+
+    def _source_watched(self, li, playcounts):
+        """Whether the hide source counts this season / episode as watched. Special folders (Up Next, Specials groups) are never hidden."""
+        if li.infoproperties.get('specialseason'):
+            return False
+        count = playcounts[self.hide_source]
+        if li.infolabels.get('mediatype') == 'season':
+            total = try_int(li.infolabels.get('episode'))
+            return bool(total) and count >= total
+        return count > 0
 
     @cached_property
     def nodate_is_unaired(self):
@@ -142,7 +165,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         from tmdbhelper.lib.items.builder import ItemBuilder
         return ItemBuilder(
             tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api, tvdb_art_api=self.tvdb_art_api,
-            log_timers=self.log_timers, timer_lists=self.timer_lists)
+            log_timers=self.log_timers, timer_lists=self.timer_lists, ftv_art_forced=self.is_fanarttv == 'true')
 
     @property
     def page_length(self):
@@ -247,8 +270,17 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             li.set_playcount(playcount=playcount)
             if _info == 'mdblist_upnext' and li.infolabels.get('mediatype') == 'tvshow':
                 li.infolabels['playcount'] = 0  # In Progress lists unfinished shows by MDBList's own history; the local count (whole-show marks) can read "all watched" and Hide watched would drop the row
-            if self.hide_watched and try_int(li.infolabels.get('playcount')) != 0:
+            if self.hide_watched and self.hide_source and li.infolabels.get('mediatype') in ('season', 'episode'):
+                # opened from an In Progress row: hide by that service's own watched data; the marks shown stay the highest of all services
+                # Simkl has no episode-level watched rows of its own (TVDB numbering), so a Simkl row hides by the highest of all services
+                if self._source_watched(li, {'trakt': trakt_playcount, 'mdblist': mdb_playcount, 'simkl': max(trakt_playcount, mdb_playcount, simkl_playcount)}):
+                    li.hidden_by_source = True  # dropped in make_items, unless that would leave nothing to open
+            elif self.hide_watched and try_int(li.infolabels.get('playcount')) != 0:
                 return
+            if self.hide_watched and li.infolabels.get('mediatype') == 'tvshow' and HIDE_SOURCES.get(_info):
+                li.params['hidewatched'] = HIDE_SOURCES[_info]  # its seasons / episodes list hides watched items too
+            elif self.hide_source and li.is_folder and li.infolabels.get('mediatype') == 'season' and not li.infoproperties.get('specialseason'):
+                li.params['hidewatched'] = self.hide_source  # a season's episode list inherits it
 
             li.set_context_menu(additions=self.context_additions)  # Set the context menu items
             li.set_uids_to_info()  # Add unique ids to properties so accessible in skins
@@ -272,7 +304,21 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         from tmdbhelper.lib.addon.thread import ParallelThread
         with ParallelThread(items, self.make_item) as pt:
             item_queue = pt.queue
-        return self.sort_items_by_dbid(item_queue)
+        items = self.sort_items_by_dbid(item_queue)
+        return self._drop_hidden_by_source(items) if self.hide_source else items
+
+    @staticmethod
+    def _drop_hidden_by_source(items):
+        """Drop what the hide source has watched. If nothing real would be left (a show the service counts fully watched, e.g. one
+        kept In Progress by a paused episode) list everything instead, and do not pass the hide on to the episode lists."""
+        hidden = [li for li in items if li and getattr(li, 'hidden_by_source', False)]
+        shown = [li for li in items if li and not getattr(li, 'hidden_by_source', False)]
+        if not hidden or any(not li.infoproperties.get('specialseason') for li in shown):
+            return shown
+        for li in items:
+            if li:
+                li.params.pop('hidewatched', None)
+        return [li for li in items if li]
 
     def sort_items_by_dbid(self, items):
         if not self.sort_by_dbid:
@@ -466,7 +512,7 @@ class ContainerDirectoryItemBuilder(ContainerDirectoryCommon):
         from tmdbhelper.lib.items.builder import ItemBuilder
         return ItemBuilder(
             tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api, tvdb_art_api=self.tvdb_art_api,
-            log_timers=self.log_timers, timer_lists=self.timer_lists)
+            log_timers=self.log_timers, timer_lists=self.timer_lists, ftv_art_forced=self.is_fanarttv == 'true')
 
     def precache_parent(self, tmdb_id, season=None):
         self.ib.get_parents(tmdb_type='tv', tmdb_id=tmdb_id, season=season)

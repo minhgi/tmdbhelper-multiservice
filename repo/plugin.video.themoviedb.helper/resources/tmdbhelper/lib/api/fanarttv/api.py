@@ -59,7 +59,7 @@ class FanartTV(RequestAPI):
             self,
             api_key=None,
             client_key=None,
-            language=get_language(),
+            language=None,
             cache_only=False,
             cache_refresh=False):
         api_key = api_key or self.api_key
@@ -72,13 +72,22 @@ class FanartTV(RequestAPI):
             error_notification=False)
         self.req_api_key = f'api_key={api_key}' if api_key else self.req_api_key
         self.req_api_key = f'{self.req_api_key}&client_key={client_key}' if client_key else self.req_api_key
-        self.language = language[:2] if language else 'en'
+        self._language = language  # None = follow the add-on setting live (see TMDbAPI)
         self.cache_only = cache_only
         self.cache_refresh = cache_refresh
         self.quick_request = {'movies': {}, 'tv': {}}
         self.req_strip.append((f'&client_key={client_key}', ''))
         FanartTV.api_key = api_key
         FanartTV.client_key = client_key
+
+    @property
+    def language(self):
+        language = self._language or get_language()
+        return language[:2] if language else 'en'
+
+    @language.setter
+    def language(self, value):
+        self._language = value
 
     def get_all_artwork(self, ftv_id, ftv_type, season=None, artlist_type=None, season_type=None):
         """

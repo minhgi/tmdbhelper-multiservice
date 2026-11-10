@@ -104,6 +104,51 @@ def digest_artworks(artworks, type_ids):
     return out
 
 
+LIST_CACHE_VERSION = 'tvdbart.list.v1'  # the Artwork Manager's full list: its own cache, the gap-fill digest above is untouched
+LIST_KINDS = {'poster': 'poster', 'background': 'fanart', 'banner': 'banner', 'clearart': 'clearart', 'clearlogo': 'clearlogo'}  # TVDB type name (spaces removed, lower case) -> Artwork Manager art type. TVDB has nothing like landscape
+
+
+def resolve_list_type_ids(types, record_type):
+    """ /artwork/types rows -> {type id: art type} for 'series' or 'movie' (poster, background, banner, clearart, clearlogo).
+    Matched on recordType + name, never hard-coded. Season, episode, actor, icon and other types are left out. """
+    ids = {}
+    for i in types or []:
+        try:
+            if f'{i.get("recordType")}'.lower() != record_type:
+                continue
+            kind = LIST_KINDS.get(f'{i.get("name")}'.replace(' ', '').lower())
+            if kind:
+                ids[i['id']] = kind
+        except (AttributeError, KeyError, TypeError):
+            continue
+    return ids
+
+
+def _int(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def slim_artworks(artworks, type_kinds):
+    """ TVDB artwork list -> [[art type, image url, thumbnail url or '', language code or '', score, width, height], ...] for the types in type_kinds.
+    Only what the Artwork Manager shows is kept, so the cached list stays small (a long-running show has hundreds of records). """
+    out = []
+    for a in artworks or []:
+        try:
+            kind = type_kinds.get(a.get('type'))
+            if not kind:
+                continue
+            url = _full_url(a.get('image'))
+            if not url:
+                continue
+            out.append([kind, url, _full_url(a.get('thumbnail')) or '', f'{a.get("language") or ""}'.lower(), _score(a), _int(a.get('width')), _int(a.get('height'))])
+        except (AttributeError, KeyError, TypeError):
+            continue
+    return out
+
+
 def pick_art(digest, language):
     """ digest (from digest_artworks, cached) + Kodi language -> {'clearlogo': url, 'fanart': url} (keys only when found).
     Logo: own language, then English, then no language. Other languages are skipped.
@@ -244,23 +289,64 @@ class TVDbArtwork(RequestAPI):
         self._cache.set_cache(digest, cache_name, cache_days=CACHE_DAYS)
         return digest
 
+    def _fetch_series_artworks(self, tvdb_id):
+        status, data = self._fetch('series', tvdb_id, 'artworks')
+        return status, (data or {}).get('artworks') if isinstance(data, dict) else None
+
+    def _fetch_movie_artworks(self, imdb_id):
+        status, found = self._fetch('search', 'remoteid', imdb_id)
+        if status != 'ok':
+            return status, None
+        movie_id = next((i['movie']['id'] for i in found or [] if isinstance(i, dict) and isinstance(i.get('movie'), dict) and i['movie'].get('id')), None)
+        if not movie_id:
+            return 'missing', None
+        status, data = self._fetch('movies', movie_id, 'extended')
+        return status, (data or {}).get('artworks') if isinstance(data, dict) else None
+
     def get_series_digest(self, tvdb_id):
-        def fetch():
-            status, data = self._fetch('series', tvdb_id, 'artworks')
-            return status, (data or {}).get('artworks') if isinstance(data, dict) else None
-        return self._get_digest(f'{CACHE_VERSION}.series.{tvdb_id}', 'series', fetch)
+        return self._get_digest(f'{CACHE_VERSION}.series.{tvdb_id}', 'series', lambda: self._fetch_series_artworks(tvdb_id))
 
     def get_movie_digest(self, imdb_id):
-        def fetch():
-            status, found = self._fetch('search', 'remoteid', imdb_id)
-            if status != 'ok':
-                return status, None
-            movie_id = next((i['movie']['id'] for i in found or [] if isinstance(i, dict) and isinstance(i.get('movie'), dict) and i['movie'].get('id')), None)
-            if not movie_id:
-                return 'missing', None
-            status, data = self._fetch('movies', movie_id, 'extended')
-            return status, (data or {}).get('artworks') if isinstance(data, dict) else None
-        return self._get_digest(f'{CACHE_VERSION}.movie.{imdb_id}', 'movie', fetch)
+        return self._get_digest(f'{CACHE_VERSION}.movie.{imdb_id}', 'movie', lambda: self._fetch_movie_artworks(imdb_id))
+
+    def _get_list_type_kinds(self, record_type):
+        name = f'{LIST_CACHE_VERSION}.types.{record_type}'
+        cached = self._cache.get_cache(name)
+        if cached is not None or self.cache_only:
+            return {int(k): v for k, v in (cached or {}).items()}
+        status, rows = self._fetch('artwork', 'types')
+        if status != 'ok' or not isinstance(rows, list):
+            return {}
+        kinds = resolve_list_type_ids(rows, record_type)
+        if kinds:  # an unresolved table is not cached, so a changed API gets picked up without waiting
+            self._cache.set_cache({str(k): v for k, v in kinds.items()}, name, cache_days=CACHE_DAYS_TYPES)
+        return kinds
+
+    def get_artwork_list(self, tmdb_type, unique_ids):
+        """ Every poster, background (fanart), banner, clearart and clearlogo TVDB holds for a movie (by IMDb id) or a show (by TVDB id), for the
+        Artwork Manager: [[art type, image, thumbnail, language, score, width, height], ...] (possibly empty), or None when TVDB could not be
+        reached / nothing is cached in cache_only mode. Season art is not included: the answer does not say which season a record belongs to. """
+        if tmdb_type == 'tv':
+            record_type, key, fetch = 'series', (unique_ids or {}).get('tvdb'), self._fetch_series_artworks
+        elif tmdb_type == 'movie':
+            record_type, key, fetch = 'movie', (unique_ids or {}).get('imdb'), self._fetch_movie_artworks
+        else:
+            return []
+        if not key:
+            return []
+        name = f'{LIST_CACHE_VERSION}.{record_type}.{key}'
+        cached = None if self.cache_refresh else self._cache.get_cache(name)
+        if cached is not None or self.cache_only:
+            return cached
+        type_kinds = self._get_list_type_kinds(record_type)
+        if not type_kinds:
+            return
+        status, artworks = fetch(key)
+        if status == 'fail':
+            return
+        result = slim_artworks(artworks if status == 'ok' else [], type_kinds)  # 'missing' caches an empty list
+        self._cache.set_cache(result, name, cache_days=CACHE_DAYS)
+        return result
 
     def get_artwork(self, tmdb_type, unique_ids, language):
         """ Returns {'clearlogo': .., 'fanart': ..} (possibly empty) when TVDB answered (or the cache has it),

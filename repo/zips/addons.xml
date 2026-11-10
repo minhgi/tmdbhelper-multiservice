@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.73" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.81" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,42 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.81
+- New: the Artwork Manager now also lists TheTVDB artwork (posters, fanart, banners, clearart and clearlogos for movies and shows) when "Fill missing clearlogos and fanart from TheTVDB" is on. It is asked once per movie or show and kept for 30 days. TheTVDB has nothing like landscape, and no season artwork.
+- New: every artwork row shows its source, language, size and score, and the list starts with a "Sort by" row: source (TMDb, fanart.tv, TheTVDB) then language, or language then source. Inside each, larger images come first (fanart.tv does not give a size, so those go last). The same row switches between your language, English and no language, and every language. Your last choice is remembered.
+- Changed: the list used to start with fanart.tv and then TMDb; it now starts with TMDb, then fanart.tv, then TheTVDB.
+- Fixed: language codes of the three sources are matched properly (TheTVDB writes "deu" where TMDb writes "de"), so the language filter and sort treat them alike.
+
+v7.0.80
+- Fixed: after you changed the language, widgets could stay in the old language, even after restarting Kodi. The background service kept using the language it started with and could save widgets in the old language under the new language's name. It now follows the language setting at once.
+- Fixed: changing the language, "Fallback to English", "Prefer artwork from TMDb first", the fanart.tv lookups or TheTVDB now makes the skin reload its widgets by itself.
+- Changed: with none of the three fanart.tv lookup options on, only TMDb artwork is shown, whatever fanart.tv art was stored earlier. "Prefer artwork from TMDb first" now only matters (and can only be changed) when a fanart.tv lookup is on. Artwork you picked by hand is kept. Widgets and rows rebuild once after this update.
+- Changed: the Artwork Manager lists only artwork in your language, without a language and (with Fallback to English) in English. If there is none of those you get every language. Fanart backgrounds are unchanged.
+
+v7.0.79
+- Fixed: the Unwatched seasons / episodes entries disappeared when Cross-Service Sync was off. An entry now only needs its own service switched on and signed in; Cross-Service Sync only decides whether the other services are changed too.
+- Fixed: if the service you picked fails (for example a rate limit), nothing is sent to the other services, so they are never left half changed.
+- Changed: the lists are no longer read when the menu opens. Picking an entry refreshes that service first, so a season marked moments ago is always listed. If nothing is watched you get a short message.
+- New: a show held as one whole-show mark (no season detail) gets a "Whole show (marked as one block)" row that removes it on that service only (it is not mirrored).
+- Safer: a season is only changed on Simkl, or mirrored from Simkl, when Simkl numbers the show's seasons like TMDb does. Otherwise that service is skipped and the result dialog says so.
+
+v7.0.78
+- Fixed: the Unwatched seasons / episodes result dialog said "MDBList: done" instead of a count, because MDBList answers with a "removed" count where Trakt and Simkl use "deleted". It now shows the number removed.
+
+v7.0.77
+- Reverted: the 7.0.76 change to Trakt options and MDBList options (a lone entry shows the list). They run a single available action at once again, as in 7.0.75; Simkl options keep their own 7.0.29 rule.
+- New: Trakt options, MDBList options and Simkl options get "Unwatched seasons" (and Trakt / MDBList also "Unwatched episodes"), placed right after Mark as unwatched. "Unwatched seasons" lists the seasons that service has watched for the show ("Season 2 (24 watched)"), "Unwatched episodes" lists the watched episodes ("2x05. Title"); tick any, press OK, and they are unwatched with one request per service, then mirrored to the other two services like Mark as unwatched. Simkl keeps no episode rows, so it only offers seasons. The entry only appears when that service has something watched for the show.
+
+v7.0.76
+- Fixed: Trakt options and MDBList options in the context menu ran the action the moment they were picked when only one entry applied, so on a season Trakt options simply marked it watched with no list to cancel. They now show the list like Simkl options does; a skin button that names one action still runs it at once.
+
+v7.0.75
+- Fixed: In Progress rows (MDBList, Simkl): a show the row's own service counts as fully watched (for example one kept In Progress by a paused episode) opened an empty seasons list. When hiding watched items would leave nothing to open, the list now shows everything and the episode lists are not hidden either.
+- Fixed: Simkl In Progress rows hid nothing, because Simkl holds no per-episode watched marks of its own. A Simkl row now hides what any service has watched.
+
+v7.0.74
+- Changed: Trakt In Progress (TV shows): a show now opens its Seasons list, like a show in MDBList and Simkl In Progress, instead of its Up Next episode list (Flatten seasons still applies). With Settings &gt; Widgets &gt; Hide watched on, the seasons and episodes opened from an In Progress row also hide what is already watched, judged by the same service as the row (Trakt for Trakt In Progress, MDBList / Simkl for theirs), so a whole-show mark on another service cannot empty the list. The marks shown are unchanged. Up Next is still on the show page and the Play next button, and lists opened any other way are unchanged.
+
 v7.0.73
 - Fixed: Kodi's log was filled with deprecation warnings every time a cached widget or row was shown: "resumetime" / "totaltime" in ListItem.setProperty() is deprecated, and "Passing None where a string is expected is deprecated". A cached item set its resume and total time twice (as the resume point, which is right, and again as the old properties) and passed None for a cast member's missing thumbnail or role and for the default unique ID of every item. The old properties are no longer set from the cache, as a freshly built item already did not set them, and a cast member's empty fields are left out and an empty string is passed as the default ID, which is what Kodi uses itself. Nothing visible changes. A few similar warnings remain at startup from the service; they are harmless.
 

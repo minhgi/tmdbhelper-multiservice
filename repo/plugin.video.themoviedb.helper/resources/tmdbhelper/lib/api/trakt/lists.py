@@ -352,17 +352,14 @@ class ListInProgress(ListOnDeck):
         if tmdb_type != 'tv':
             return self.get_ondeck_movies(page=page, sort_by=sort_by, sort_how=sort_how, anime_only=anime_only, asian_only=asian_only, other_only=other_only, **kwargs)
 
-        params = {
-            'info': 'trakt_upnext',
-            'tmdb_type': 'tv',
-            'tmdb_id': '{tmdb_id}'}
-
+        # No path override: a show opens the way every other show does (the seasons list, or the episodes list with Flatten seasons);
+        # the old override opened its Up Next episode list. Up Next stays on the show page and Bingie's Play next button.
         self.kodi_db = self.get_kodi_database(tmdb_type)
         self.container_content = convert_type(tmdb_type, 'container')
         self.plugin_category = f'{get_localized(32196)} {convert_type(tmdb_type, "plural")}'
         sort_by, sort_how = self._global_sort('inprogress', 'show', sort_by, sort_how)
         return self.get_list_items(
-            sync_type='inprogress', item_type='show', page=page, sort_by=sort_by, sort_how=sort_how, params=params,
+            sync_type='inprogress', item_type='show', page=page, sort_by=sort_by, sort_how=sort_how,
             scope=_get_scope(anime_only, asian_only, other_only))
 
 

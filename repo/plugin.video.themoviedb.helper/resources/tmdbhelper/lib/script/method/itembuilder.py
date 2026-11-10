@@ -27,7 +27,7 @@ def manage_artwork(tmdb_id=None, tmdb_type=None, season=None, **kwargs):
 def select_artwork(tmdb_id=None, tmdb_type=None, season=None, **kwargs):
     from tmdbhelper.lib.items.builder import ItemBuilder
     from tmdbhelper.lib.api.tmdb.season_layout import script_layout_season
-    ItemBuilder().select_artwork(
+    ItemBuilder(tvdb_art_api=_tvdb_art_api()).select_artwork(
         tmdb_id=tmdb_id, tmdb_type=tmdb_type, season=season, layout_season=script_layout_season(tmdb_type, tmdb_id, season, kwargs))
 
 

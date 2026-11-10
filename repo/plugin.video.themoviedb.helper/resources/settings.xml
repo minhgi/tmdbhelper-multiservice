@@ -516,6 +516,15 @@
                 <setting id="fanarttv_secondpref" type="boolean" label="32408" help="32642">
                     <level>0</level>
                     <default>false</default>
+                    <dependencies>
+                        <dependency type="enable">
+                            <or>
+                                <condition operator="is" setting="fanarttv_lookup">True</condition>
+                                <condition operator="is" setting="widget_fanarttv_lookup">True</condition>
+                                <condition operator="is" setting="service_fanarttv_lookup">True</condition>
+                            </or>
+                        </dependency>
+                    </dependencies>
                     <control type="toggle"/>
                 </setting>
                 <setting id="fanarttv_enfallback" type="boolean" label="32399" help="32643">
@@ -547,6 +556,26 @@
                     </control>
                 </setting>
                 <setting id="tvdb_token_access" type="boolean" label="32483" help="32637" parent="">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                    <visible>false</visible>
+                    <enable>false</enable>
+                </setting>
+                <setting id="artmgr_sort" type="integer" label="32781" help="">
+                    <level>0</level>
+                    <default>0</default>
+                    <constraints>
+                        <minimum>0</minimum>
+                        <maximum>1</maximum>
+                    </constraints>
+                    <control type="edit" format="integer">
+                        <heading>32781</heading>
+                    </control>
+                    <visible>false</visible>
+                    <enable>false</enable>
+                </setting>
+                <setting id="artmgr_alllang" type="boolean" label="32781" help="">
                     <level>0</level>
                     <default>false</default>
                     <control type="toggle"/>

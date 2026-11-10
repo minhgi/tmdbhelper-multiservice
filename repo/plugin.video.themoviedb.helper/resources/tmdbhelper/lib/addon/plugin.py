@@ -41,6 +41,12 @@ def get_language():
     return 'en-US'
 
 
+def fanarttv_art_enabled():
+    """True if any fanart.tv lookup option is on (list/library, widget or service). Read live, never cached: a long-running service must follow a settings change.
+    When none is on, TMDb artwork is all that is shown (GitHub issue #9)."""
+    return bool(get_setting('fanarttv_lookup') or get_setting('widget_fanarttv_lookup') or get_setting('service_fanarttv_lookup'))
+
+
 def get_mpaa_prefix():
     if ADDON.getSettingString('mpaa_prefix'):
         return f'{ADDON.getSettingString("mpaa_prefix")} '

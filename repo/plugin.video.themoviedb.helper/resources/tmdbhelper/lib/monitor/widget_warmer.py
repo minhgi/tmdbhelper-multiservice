@@ -71,7 +71,7 @@ class WidgetWarmer(SafeThread):
     def _warm_widgets(self):
         import time
         from tmdbhelper.lib.items.widget_cache import (
-            read_index, needs_warm, save_cache, forget, get_last_invalidated, rowcache_enabled, INDEX_MAX_AGE)
+            read_index, reconcile_index, needs_warm, save_cache, forget, get_last_invalidated, rowcache_enabled, INDEX_MAX_AGE)
         from tmdbhelper.lib.addon.logger import kodi_log
         last = get_last_invalidated()
         if last and time.time() - last < WARMER_QUIET_TIME:
@@ -79,7 +79,7 @@ class WidgetWarmer(SafeThread):
         now = time.time()
         rows_on = rowcache_enabled()
         due = [
-            (key, entry) for key, entry in (read_index() or {}).items()
+            (key, entry) for key, entry in (reconcile_index(read_index()) or {}).items()
             if (rows_on or not entry.get('row'))
             and now - entry.get('used', 0) < INDEX_MAX_AGE
             and self._attempts.get(key, 0) < WARMER_MAX_ATTEMPTS

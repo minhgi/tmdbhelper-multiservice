@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.72 — Complete Features & Functions Guide
+# TMDb Helper 7.0.81 — Complete Features & Functions Guide
 
-**Version:** 7.0.72 (Enhanced Fork — Personal Build)
+**Version:** 7.0.81 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.72_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.81_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.72. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.81. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -269,6 +269,35 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.7
 
 - **The background service no longer stops after one failed startup job** (7.0.71). At startup the Trakt login check, the MDBList sync and the Simkl sync could all make their first `import requests` at the same moment; Python then reported an import deadlock in one of them, and the error ended the add-on's whole background thread. Until Kodi was restarted, the watched-status sync, the library auto-update check, the Trakt token refresh, the widget cache cleanup, the bridge sync and the anime index update then never ran. `requests` is now loaded once before those threads start, and every startup and poll job runs on its own, so a job that fails is logged and skipped instead of stopping the others.
 - **The cause of that import deadlock is removed** (7.0.72). The fanart.tv module imported `requests.utils` in a form that races with another thread's plain `import requests`. It now uses the plain form like every other part of the add-on. Reproduced with real threads: the old form failed in every one of 60 runs, the new form in none.
+
+### Quieter Kodi log (7.0.73)
+
+- **Deprecation warnings removed from the Kodi log** (7.0.73). Kodi 22's log filled with warnings that the add-on handed Kodi a resume time, a total time or an empty value through calls Kodi has deprecated, in a burst each time a cached widget loaded. A cached item no longer sets the resume and total time twice, empty cast fields are dropped, and the empty default unique id is passed the way Kodi expects. Nothing you see changes. In a measured startup the resume-time and total-time warnings went from about 150 each to none, and the empty-value warnings from 160 to 3.
+
+### In Progress rows open the Seasons list (7.0.74–7.0.75)
+
+- **A show on Trakt In Progress opens its Seasons list, and Hide watched works inside it** (7.0.74). Before, a show on the Trakt In Progress row opened the Up Next episode list; the MDBList and Simkl In Progress rows already opened the Seasons list. Trakt now does the same. With *Hide watched items* (Settings → Widgets) on, the seasons and episodes you have already watched are hidden inside that list, using the watched count of the service the row comes from (Trakt, MDBList or Simkl), so a whole-show mark on one service cannot empty a list from another. Only lists opened from an In Progress row are affected; Specials and the Up Next folder are never hidden, and the same show opened from anywhere else lists everything.
+- **No empty list, and Simkl rows hide by the highest count** (7.0.75). If hiding watched items would leave nothing to show (a show a service lists as in progress but counts as fully watched), the whole list is shown instead of an empty one. A Simkl In Progress show used to hide nothing, because Simkl keeps no episode rows of its own; it now hides by the highest count of the three services. A show laid out as separate seasons follows the same rules.
+
+### Unwatched seasons and Unwatched episodes (7.0.77–7.0.79)
+
+- **New entries in the Trakt, MDBList and Simkl options of a TV show** (7.0.77). In a show's *Trakt options* and *MDBList options*, directly after the existing unwatch entries, there are **Unwatched seasons** and **Unwatched episodes**; *Simkl options* has **Unwatched seasons** (Simkl keeps season rows, no episode rows). Each opens a list of what that service has recorded as watched for the show, for example `Season 2 (24 watched)` or `2x05`, with the episode title where the service has one. Tick what you want to unwatch: it is removed on that service and then on the other two, where those are signed in and Cross-Service Sync is on. A result dialog lists one line per service (`Trakt: 24 removed, MDBList: 24 removed, Simkl: 24 removed`). A season marked watched through its episodes, which the plain *Mark as unwatched* toggle did not offer to undo, can be removed this way.
+- **MDBList shows a count in the result dialog** (7.0.78). The dialog said `MDBList: done` instead of a number, because MDBList reports removals under a different name than Trakt and Simkl. The removal itself had worked; the dialog now shows MDBList's episode count.
+- **Safer unwatching** (7.0.79). The entries no longer need Cross-Service Sync switched on; they appear whenever the service is on and signed in, and only the mirroring to the other services needs Cross-Service Sync. If the service you picked fails, nothing is sent to the others. Simkl numbers some seasons differently from TMDb (Friends seasons 4, 5, 6 and 10 differ by one episode because Simkl splits a double episode), so before Simkl is used as a target or origin the season lengths are compared; if they disagree, or cannot be checked, Simkl is skipped and the dialog says so. A show a service holds as one whole-show mark gets a **Whole show (marked as one block)** row, removed on that service only. The list is built from a fresh sync of that show when you pick the entry, not when the menu opens, so it is current; when nothing is marked the dialog says `Nothing is marked as watched on <service> for this show.`
+
+### Language, widgets and artwork source (7.0.80)
+
+- **A language change reaches the widgets, also after a restart (GitHub issue #9)** (7.0.80). The background service read the language once when Kodi started. After you changed it, the service kept building widgets in the old language and stored them under the new language's name, and a restart loaded those stored widgets. The service now follows the language setting at once.
+- **The skin reloads its widgets after a relevant setting change** (7.0.80). Changing the language, *Fallback to English*, *Prefer artwork from TMDb first*, the fanart.tv options or the TheTVDB option now makes the skin reload its widgets by itself. After any of these changes the service could also rebuild the same widgets again and again for a while; that is fixed.
+- **TMDb artwork only when no fanart.tv option is on** (7.0.80). fanart.tv artwork stored earlier (for example while something played) was still shown with all three fanart.tv switches off. When none of *Use fanart.tv for plugin / widget / service monitor artwork* is on, only TMDb artwork is shown. *Prefer artwork from TMDb first* only matters when one of them is on and is greyed out otherwise. Artwork you picked by hand is kept. Widgets rebuild once after the update.
+- **The Artwork Manager lists your language first** (7.0.80). By default the Artwork Manager lists artwork in your language, artwork without a language and, if *Fallback to English* is on, English; if there is none of those it shows every language so the list is never empty. Fanart backgrounds are not filtered.
+
+### Artwork Manager: TheTVDB, sorting and every language (7.0.81)
+
+- **TheTVDB rows in the Artwork Manager** (7.0.81). With *Fill missing clearlogos and fanart from TheTVDB* on, the Artwork Manager also lists TheTVDB posters, fanart, banners, clearart and clearlogos for movies and shows (not for seasons or landscape; a movie needs an IMDb id). TheTVDB is asked once per title and the answer is kept for 30 days; the first open takes a few seconds.
+- **Every row shows where the picture comes from** (7.0.81). A row reads, for example, `TMDb | EN | 4332x6064 | 1.2 (4 votes)`: source, language, size and score.
+- **A Sort by row, remembered** (7.0.81). The list starts with a **Sort by** row. Choose *Source (TMDb, fanart.tv, TheTVDB), then language* or *Language, then source*, and switch between *Show only your language, English and no language* and *Show every language*. Your language comes first, then English, then no language, then the others by code. Inside each group larger images come first (fanart.tv gives no size, so those go last). Your last choice is kept, also after a restart.
+- **The Artwork Manager can show every TMDb language** (7.0.81). Its TMDb request used to ask TMDb only for your language, so other languages could never appear. It now asks without that limit.
 
 ## 3. First-Time Setup
 
@@ -516,11 +545,11 @@ Right-click (or long-press) an item to see these TMDb Helper entries. Each can b
 | Entry | What it does |
 |---|---|
 | **Browse lists** | Opens related lists for the item |
-| **Trakt options** | Watched / unwatched, watchlist, collection, rating, lists, dropped and more |
-| **MDBList options** | Watched / unwatched, watchlist, collection, rating, add or remove from a list, drop show, reset resume position |
-| **Simkl options** | Mark watched / unwatched, plan to watch, hold, drop, set as watching, rating |
+| **Trakt options** | Watched / unwatched, unwatched seasons and episodes (shows, 7.0.77), watchlist, collection, rating, lists, dropped and more |
+| **MDBList options** | Watched / unwatched, unwatched seasons and episodes (shows, 7.0.77), watchlist, collection, rating, add or remove from a list, drop show, reset resume position |
+| **Simkl options** | Mark watched / unwatched, unwatched seasons (shows, 7.0.77), plan to watch, hold, drop, set as watching, rating |
 | **TMDb user options** | Your TMDb favourites, watchlist, rating and lists |
-| **Manage artwork** | Choose artwork for the item |
+| **Manage artwork** | Choose artwork for the item from TMDb, fanart.tv and TheTVDB, sorted by source or language, with an option to show every language (7.0.81) |
 | **Refresh details** | Reload the item's details |
 | **Add to library** | Save the item to your Kodi library (section 13) |
 | **Add/Remove as Custom Node** | Save a list as a *Nodes* entry |
@@ -718,7 +747,7 @@ See section 13. Defaults: update after adding **on**, daily auto-update **off**.
 
 ### API Keys
 
-OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / service monitor artwork*, all off; *Prefer artwork from TMDb first* off; *Fallback to English* on; *Fill missing clearlogos and fanart from TheTVDB* off, 7.0.67), TVDb token, TMDb user token. Each has **Allow 3rd party plugin access to API key/token** (off by default), which lets a skin or player reuse the key instead of asking you again.
+OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / service monitor artwork*, all off; *Prefer artwork from TMDb first* off, used only when one of them is on (7.0.80); *Fallback to English* on; *Fill missing clearlogos and fanart from TheTVDB* off, 7.0.67), TVDb token, TMDb user token. Each has **Allow 3rd party plugin access to API key/token** (off by default), which lets a skin or player reuse the key instead of asking you again.
 
 ### Accounts
 
@@ -779,6 +808,8 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Trakt playing time after a skip** | A skip updates Trakt a few seconds after the last skip (7.0.56). Fast-forward and rewind (the speed buttons) do not. |
 | **Artwork of items already built** | An item keeps its logo until it expires (14 days) or is refreshed (7.0.59). Whether a fanart.tv logo replaces a TMDb one depends on *Prefer artwork from TMDb first* (off by default). The same holds for artwork from TheTVDB (7.0.67–7.0.70): items already built keep what they have until rebuilt, refreshed or cleared with Clear All Cache. |
 | **TheTVDB artwork** | Optional and off by default; it only fills a missing clearlogo or fanart, using the add-on's own TheTVDB login. At fanart quality High or Medium, and at Original, the full 1920 px TheTVDB image is used, so on a slow device keep the setting off or choose Low quality. Where the fanart.tv lookups are off it reads only answers already stored. The widget, row and item caches were tested live on a PC Kodi 22 only; the Shield/Android was not tested with it. |
+| **Artwork Manager** | Lists TMDb, fanart.tv and TheTVDB artwork (7.0.81); TheTVDB rows need the TheTVDB setting on and exist for movies and shows only, not seasons or landscape, and a movie needs an IMDb id. Tested live on a PC Kodi 22 for opening the list, both sort orders, every language and the remembered choice; saving a picked image reuses the older, unchanged code, season pages were not opened, and Android was not tested. In Titan Bingie Mod the long *Sort by* row scrolls instead of fitting. |
+| **Unwatched seasons / episodes** | The lists come from each service's locally stored sync data refreshed when you pick the entry, so a season marked a moment ago can be missing once. An episodes-only removal never reaches Simkl, which keeps season rows only; MDBList episodes have no titles; the entries show even when nothing is watched. Kodi's own *Show: Unwatched* filter hides watched seasons and episodes of any add-on list. Tested live on a PC Kodi 22 with one show; not tested on Android. |
 | **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). In October 2026 tests on Kodi 22, playback that stopped crashed Kodi in 2 of 2 runs with TMDb Helper's switch on and in 0 of 2 with it off; the log pattern looks like Kodi's open reusable-invoker race (xbmc/xbmc#30038), but that is not proven. Switch it off again if Kodi starts crashing. |
 
 ---

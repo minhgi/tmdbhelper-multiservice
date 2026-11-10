@@ -12,6 +12,9 @@ from tmdbhelper.lib.script.sync.mdblist_sync import (
 from tmdbhelper.lib.script.sync.simkl_sync import (
     ItemSimklWatched, ItemSimklUnwatched, ItemSimklWatching, ItemSimklPlanToWatch, ItemSimklHold, ItemSimklDrop,
     ItemSimklClearProgress, ItemSimklRating)
+from tmdbhelper.lib.script.sync.unwatch_lists import (
+    ItemTraktUnwatchedSeasons, ItemTraktUnwatchedEpisodes, ItemMDbListUnwatchedSeasons, ItemMDbListUnwatchedEpisodes,
+    ItemSimklUnwatchedSeasons)
 from xbmcgui import Dialog
 
 
@@ -52,6 +55,8 @@ class Menu(MenuAttributes):
     items = {
         'watched': ItemWatched,
         'unwatched': ItemUnwatched,
+        'unwatched_seasons': ItemTraktUnwatchedSeasons,
+        'unwatched_episodes': ItemTraktUnwatchedEpisodes,
         'watchlist': ItemWatchlist,
         'collection': ItemCollection,
         'favorites': ItemFavorites,
@@ -93,6 +98,8 @@ class MDbListMenu(MenuAttributes):
     items = {
         'mdblist_watched': ItemMDbListWatched,
         'mdblist_unwatched': ItemMDbListUnwatched,
+        'mdblist_unwatched_seasons': ItemMDbListUnwatchedSeasons,
+        'mdblist_unwatched_episodes': ItemMDbListUnwatchedEpisodes,
         'mdblist_watchlist': ItemMDbListWatchlist,
         'mdblist_collection': ItemMDbListCollection,
         'mdblist_list': ItemMDbList,
@@ -133,6 +140,7 @@ class SimklMenu(MenuAttributes):
     items = {
         'simkl_watched': ItemSimklWatched,
         'simkl_unwatched': ItemSimklUnwatched,
+        'simkl_unwatched_seasons': ItemSimklUnwatchedSeasons,
         'simkl_watching': ItemSimklWatching,
         'simkl_plantowatch': ItemSimklPlanToWatch,
         'simkl_hold': ItemSimklHold,

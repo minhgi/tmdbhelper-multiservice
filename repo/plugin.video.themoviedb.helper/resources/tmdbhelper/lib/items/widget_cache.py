@@ -56,7 +56,7 @@ def _get_settings_salt(row=False):
     This busts every existing widget/row cache once; later toggles are unaffected.
     """
     try:
-        from tmdbhelper.lib.addon.plugin import get_setting, get_language
+        from tmdbhelper.lib.addon.plugin import get_setting, get_language, fanarttv_art_enabled
         anime = '1' if get_setting('anime_enrichment') else '0'
         lang = get_language()
     except Exception:
@@ -73,6 +73,8 @@ def _get_settings_salt(row=False):
         # fanart.tv / artwork options that change what a built widget holds (GitHub issue #9): each added only when it differs from the default
         sort += '' if get_setting('fanarttv_enfallback') else '|enfb=0'  # default on
         sort += '|2nd=1' if get_setting('fanarttv_secondpref') else ''  # default off
+        sort += '|fa=1' if fanarttv_art_enabled() else '|fa=0'  # fanart.tv art is shown only while a fanart.tv lookup option is on (7.0.80); always present, so every cache built before it is rebuilt once
+        sort += '|hw=1' if get_setting('widgets_hidewatched') else '|hw=0'  # In Progress show paths changed in 7.0.74 and carry this setting; always present, so every cache built before it is rebuilt once
         sort += '|wftv=1' if not row and get_setting('widget_fanarttv_lookup') else ''  # default off (rows already carry the lookup setting below)
     except Exception:
         pass
@@ -85,7 +87,7 @@ def _get_settings_salt(row=False):
     return f'ae={anime}|row|ftv={ftv}|lang={lang}{sort}'
 
 
-def _get_cache_key(paramstring, row=False):
+def _get_cache_key(paramstring, row=False, salt=None):
     """Generate a stable cache key from paramstring, excluding reload= value.
 
     Incorporates a settings salt so that toggling settings that affect widget
@@ -93,7 +95,7 @@ def _get_cache_key(paramstring, row=False):
     """
     # rows: the skin may list one path with and without reload=, both must share one cache (widget keys stay as they were)
     clean = strip_reload(paramstring) if row else re.sub(r'reload=[^&]*', 'reload=_', paramstring)
-    salt = _get_settings_salt(row)
+    salt = _get_settings_salt(row) if salt is None else salt
     return hashlib.md5(f'{clean}|{salt}'.encode('utf-8')).hexdigest()[:16]
 
 
@@ -229,6 +231,46 @@ def note_used(paramstring, row=False):
         _write_atomic(_index_path(), json_dumps(index))
     except Exception as exc:
         kodi_log(f'WidgetCache: index update failed: {exc}', 1)
+
+
+def reconcile_index(index):
+    """The index holds each widget under the key it had when it was opened. A change of the settings the key is salted with
+    (language, artwork options) gives the same widget a new key, so its old entry pointed at a file nobody reads any more and
+    needed_warm() stayed True for it: the service kept rebuilding it (saved under the new key) and nudging the skins, round after
+    round, until the entry aged out. Move each entry to its current key and drop the old file. Returns the index to use."""
+    from json import dumps as json_dumps
+    if not index:
+        return index
+    salts = {}
+    fresh = {}
+    stale = []
+    for key, entry in index.items():
+        paramstring = entry.get('ps') if isinstance(entry, dict) else None
+        if not paramstring:
+            fresh.setdefault(key, entry)
+            continue
+        row = bool(entry.get('row'))
+        if row not in salts:
+            salts[row] = _get_settings_salt(row)
+        current = _get_cache_key(paramstring, row, salt=salts[row])
+        if current != key:
+            stale.append(key)
+        known = fresh.get(current)
+        if not known or entry.get('used', 0) > known.get('used', 0):
+            fresh[current] = entry
+    if not stale:
+        return index
+    for key in stale:
+        if key not in fresh:  # an old key that is again the current one of another entry keeps its file
+            try:
+                os.remove(_get_cache_path(key))
+            except OSError:
+                pass
+    try:
+        _write_atomic(_index_path(), json_dumps(fresh))
+    except Exception as exc:
+        kodi_log(f'WidgetCache: index update failed: {exc}', 1)
+    return fresh
 
 
 def needs_warm(key, entry):

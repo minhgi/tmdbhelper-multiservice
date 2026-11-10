@@ -73,13 +73,20 @@ class SeasonLayoutDisplay:
             return season_layout.get_layout(self.tmdb_api, tmdb_id)
         return None
 
-    def _watched_count(self, tmdb_id, season):
-        """Episodes of a layout season that count as watched: the highest of Trakt, MDBList and Simkl per episode, as the list does."""
+    def _watched_count(self, tmdb_id, season, source=None):
+        """Episodes of a layout season that count as watched: the highest of Trakt, MDBList and Simkl per episode, as the list does,
+        or only those of `source` ('trakt', 'mdblist' or 'simkl') when a list opened from an In Progress row decides what to hide."""
+        playdata = {'trakt': self.trakt_playdata, 'mdblist': self.mdblist_playdata, 'simkl': self.simkl_playdata}
+        source = None if source == 'simkl' else source  # Simkl has no episode rows of its own: highest of all services
         count = 0
         for real_season, real_episode in season['episodes']:
             episode = _EpisodeKey(tmdb_id, real_season, real_episode)
-            if max(self.trakt_playdata.get_playcount(episode) or 0, self.mdblist_playdata.get_playcount(episode) or 0,
-                   self.simkl_playdata.get_playcount(episode) or 0) > 0:
+            if source:
+                watched = playdata[source].get_playcount(episode) or 0
+            else:
+                watched = max(self.trakt_playdata.get_playcount(episode) or 0, self.mdblist_playdata.get_playcount(episode) or 0,
+                              self.simkl_playdata.get_playcount(episode) or 0)
+            if watched > 0:
                 count += 1
         return count
 
@@ -108,8 +115,16 @@ class SeasonLayoutDisplay:
             li.infolabels['title'] = li.label = season['name'] or f"{get_localized(20373)} {season['number']}"
             li.set_playcount(self._watched_count(li.unique_ids.get('tvshow.tmdb'), season))  # counts, progress, playcount of THIS season
             self._own_artwork(li, season['number'])
-            if self.hide_watched and li.infolabels.get('playcount'):
-                return False  # fully watched layout season: hidden like a watched season
+            if self.hide_watched:
+                if self.hide_source:  # opened from an In Progress row: that service's own watched episodes decide
+                    total = len(season['episodes'])
+                    watched = bool(total) and self._watched_count(li.unique_ids.get('tvshow.tmdb'), season, self.hide_source) >= total
+                else:
+                    watched = li.infolabels.get('playcount')
+                if watched and self.hide_source:
+                    li.hidden_by_source = True  # dropped in make_items, unless that would leave nothing to open
+                elif watched:
+                    return False  # fully watched layout season: hidden like a watched season
         elif mediatype == 'episode':
             position = season_layout.episode_position(layout, li.infolabels.get('season'), li.infolabels.get('episode'))
             if not position:

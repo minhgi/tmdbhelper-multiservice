@@ -1,6 +1,6 @@
 import re
 from tmdbhelper.lib.items.artselect import _ArtworkSelector
-from tmdbhelper.lib.addon.plugin import get_setting
+from tmdbhelper.lib.addon.plugin import get_setting, fanarttv_art_enabled
 from tmdbhelper.lib.items.listitem import ListItem
 from tmdbhelper.lib.files.bcache import BasicCache, BasicCacheService
 from tmdbhelper.lib.api.tmdb.api import TMDb
@@ -58,7 +58,8 @@ TVDB_USE_THUMB = {
 class ItemBuilder(_ArtworkSelector):
     _basic_cache_cls = BasicCache
 
-    def __init__(self, tmdb_api=None, ftv_api=None, trakt_api=None, cache_only=False, log_timers=False, timer_lists: dict = None, tvdb_art_api=None):
+    def __init__(self, tmdb_api=None, ftv_api=None, trakt_api=None, cache_only=False, log_timers=False, timer_lists: dict = None, tvdb_art_api=None, ftv_art_forced=False):
+        self.ftv_art_forced = ftv_art_forced  # the skin path says fanarttv=true: fanart.tv art is wanted whatever the settings
         self.parent_tv = {}
         self.parent_season = {}
         self.tmdb_api = tmdb_api or TMDb()
@@ -293,7 +294,9 @@ class ItemBuilder(_ArtworkSelector):
                 art_dict[k] = v
         art_dict = {} if art_dict is None else art_dict
         tmdb_art = artwork.get(ARTWORK_QUALITY) or self.map_artwork(artwork.get('tmdb', {}))
-        if get_setting('fanarttv_secondpref'):  # read now, not at import: a long-running service must follow a settings change
+        if not (self.ftv_art_forced or fanarttv_art_enabled()):  # no fanart.tv option is on: TMDb art only (GitHub issue #9); the saved value of "Prefer TMDb first" does not matter then
+            set_artwork(tmdb_art)
+        elif get_setting('fanarttv_secondpref'):  # read now, not at import: a long-running service must follow a settings change
             set_artwork(artwork.get('fanarttv'))
             set_artwork(tmdb_art, blacklist=['landscape'] if is_season else [])
         else:

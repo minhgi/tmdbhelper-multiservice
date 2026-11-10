@@ -20,8 +20,8 @@ class TMDbAPI(RequestAPI):
     def __init__(
             self,
             api_key=None,
-            language=get_language(),
-            mpaa_prefix=get_mpaa_prefix(),
+            language=None,
+            mpaa_prefix=None,
             page_length=1):
         api_key = api_key or self.api_key
         api_url = self.api_url
@@ -31,10 +31,26 @@ class TMDbAPI(RequestAPI):
             req_api_name=api_name,
             req_api_url=api_url,
             req_api_key=f'api_key={api_key}')
-        self.language = language
-        self.mpaa_prefix = mpaa_prefix
+        self._language = language  # None = follow the add-on setting live (GitHub issue #9: a default read at import left the service building in the old language)
+        self._mpaa_prefix = mpaa_prefix
         self.page_length = max(get_setting('pagemulti_tmdb', 'int'), page_length)
         TMDb.api_key = api_key
+
+    @property
+    def language(self):
+        return self._language or get_language()
+
+    @language.setter
+    def language(self, value):
+        self._language = value
+
+    @property
+    def mpaa_prefix(self):
+        return get_mpaa_prefix() if self._mpaa_prefix is None else self._mpaa_prefix
+
+    @mpaa_prefix.setter
+    def mpaa_prefix(self, value):
+        self._mpaa_prefix = value
 
     @property
     def req_strip(self):
@@ -75,11 +91,15 @@ class TMDbAPI(RequestAPI):
 
     @property
     def mapper(self):
+        key = (self.language, self.mpaa_prefix)
         try:
-            return self._mapper
+            if self._mapper_key == key:
+                return self._mapper
         except AttributeError:
-            self._mapper = ItemMapper(self.language, self.mpaa_prefix, self.genres)
-            return self._mapper
+            pass
+        self._mapper = ItemMapper(self.language, self.mpaa_prefix, self.genres)
+        self._mapper_key = key  # a long-lived object (the service) must follow a language change
+        return self._mapper
 
     @staticmethod
     def get_url_separator(separator=None):
@@ -151,12 +171,15 @@ class TMDb(TMDbAPI, TMDbMethods):
 
     @property
     def genres(self):
+        cache_name = f'GenreLookup.{self.language}'
         try:
-            return self._genres
+            if self._genres_name == cache_name:
+                return self._genres
         except AttributeError:
-            cache_name = f'GenreLookup.{self.language}'
-            self._genres = self.get_special_cache('TMDbGenres.db').use_cache(self.get_genres, cache_name=cache_name)
-            return self._genres
+            pass
+        self._genres = self.get_special_cache('TMDbGenres.db').use_cache(self.get_genres, cache_name=cache_name)
+        self._genres_name = cache_name  # per language, like the cache entry itself
+        return self._genres
 
     @property
     def iso_region(self):

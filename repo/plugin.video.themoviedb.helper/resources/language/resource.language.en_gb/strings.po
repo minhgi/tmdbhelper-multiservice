@@ -3433,7 +3433,7 @@ msgid "Uses fanart.tv artwork for the service monitor that supplies details to s
 msgstr ""
 
 msgctxt "#32642"
-msgid "Uses TMDb artwork when it has some and only turns to fanart.tv when it does not."
+msgid "Uses TMDb artwork when it has some and only turns to fanart.tv when it does not. Only used while a fanart.tv lookup option is on; with none on, only TMDb artwork is shown."
 msgstr ""
 
 msgctxt "#32643"
@@ -3963,4 +3963,36 @@ msgstr ""
 
 msgctxt "#32774"
 msgid "Off by default. Only asks TheTVDB when TMDb and fanart.tv gave no clearlogo or no fanart, and never replaces artwork they found. Used wherever the fanart.tv lookups above are on (lists, widgets, service); where they are off it only reads what was already looked up. Requests time out after 4 seconds, an answer is kept for 30 days (including 'nothing found'), and a failed request pauses TheTVDB for a few minutes, so a slow TheTVDB does not hold lists up for long. Items already built keep their artwork until they are rebuilt or refreshed."
+msgstr ""
+
+msgctxt "#32775"
+msgid "Sort by: {}"
+msgstr ""
+
+msgctxt "#32776"
+msgid "Source (TMDb, fanart.tv, TheTVDB), then language"
+msgstr ""
+
+msgctxt "#32777"
+msgid "Language, then source"
+msgstr ""
+
+msgctxt "#32779"
+msgid "Showing your language, English and no language. Select to change the sort or show every language"
+msgstr ""
+
+msgctxt "#32780"
+msgid "Showing every language. Select to change the sort or show only your language, English and no language"
+msgstr ""
+
+msgctxt "#32781"
+msgid "Sort by"
+msgstr ""
+
+msgctxt "#32782"
+msgid "Show every language"
+msgstr ""
+
+msgctxt "#32783"
+msgid "Show only your language, English and no language"
 msgstr ""
