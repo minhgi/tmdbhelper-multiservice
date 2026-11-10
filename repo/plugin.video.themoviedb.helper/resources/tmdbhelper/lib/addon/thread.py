@@ -10,6 +10,16 @@ import jurialmunkey.thread as jurialmunkey_thread
 SafeThread = jurialmunkey_thread.SafeThread
 
 
+def preload_requests():
+    """ Import `requests` once, from the calling thread, before several threads try their first import at the same moment.
+    Two threads importing it together can make Python report an import deadlock (_DeadlockError on 'requests.utils') in one
+    of them, and the jurialmunkey request classes do exactly that on their first request. Safe to call any number of times. """
+    try:
+        import requests  # noqa: F401
+    except Exception as exc:
+        kodi_log(f'Could not preload requests: {exc}', 1)
+
+
 def has_property_lock(property_name, timeout=5, polling=0.05):
     """ Checks for a window property lock and wait for it to be cleared before continuing
     Returns True after property clears if was locked

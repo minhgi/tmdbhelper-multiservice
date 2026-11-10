@@ -34,6 +34,7 @@ def delete_cache(delete_cache, **kwargs):
     from xbmcgui import Dialog
     from tmdbhelper.lib.items.builder import ItemBuilder
     from tmdbhelper.lib.api.fanarttv.api import FanartTV
+    from tmdbhelper.lib.api.tvdb.artwork import TVDbArtwork
     from tmdbhelper.lib.api.trakt.api import TraktAPI
     from tmdbhelper.lib.api.tmdb.api import TMDb
     from tmdbhelper.lib.api.omdb.api import OMDb
@@ -43,6 +44,7 @@ def delete_cache(delete_cache, **kwargs):
         'TMDb': lambda: TMDb(),
         'Trakt': lambda: TraktAPI(),
         'FanartTV': lambda: FanartTV(),
+        'TheTVDB': lambda: TVDbArtwork(),  # TVDb.db: artwork answers plus the TVDB list/genre caches; the client does no login or request when built
         'OMDb': lambda: OMDb(),
         'Item Details': lambda: ItemBuilder()}
     if delete_cache == 'select':

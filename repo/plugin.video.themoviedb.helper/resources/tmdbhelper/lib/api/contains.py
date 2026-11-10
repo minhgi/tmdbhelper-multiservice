@@ -43,6 +43,20 @@ class CommonContainerAPIs():
             return self._ftv_api
 
     @property
+    def tvdb_art_api(self):
+        """ TheTVDB artwork gap-fill source: None when the setting is off. Follows the fanart.tv rule: no network where fanart.tv is cache only. """
+        try:
+            return self._tvdb_art_api
+        except AttributeError:
+            from tmdbhelper.lib.addon.plugin import get_setting
+            if get_setting('tvdb_artwork'):
+                from tmdbhelper.lib.api.tvdb.artwork import TVDbArtwork
+                self._tvdb_art_api = TVDbArtwork(cache_only=self.ftv_is_cache_only)
+            else:
+                self._tvdb_art_api = None
+            return self._tvdb_art_api
+
+    @property
     def tvdb_api(self):
         try:
             return self._tvdb_api

@@ -523,6 +523,11 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="tvdb_artwork" type="boolean" label="32773" help="32774">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
             <group id="4" label="32484">
                 <visible>false</visible>

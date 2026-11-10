@@ -3956,3 +3956,11 @@ msgstr ""
 msgctxt "#32772"
 msgid "Carries an anime episode you un-watch on one service over to the others. Simkl is checked by the entry and episode number it really recorded, never by TMDb numbers, so a changed mapping cannot remove anything; entries moved to dropped or plan-to-watch, or that lost every episode at once, are left alone. Works together with the removals setting and its guards. Log only writes what would be removed to the log."
 msgstr ""
+
+msgctxt "#32773"
+msgid "Fill missing clearlogos and fanart from TheTVDB"
+msgstr ""
+
+msgctxt "#32774"
+msgid "Off by default. Only asks TheTVDB when TMDb and fanart.tv gave no clearlogo or no fanart, and never replaces artwork they found. Used wherever the fanart.tv lookups above are on (lists, widgets, service); where they are off it only reads what was already looked up. Requests time out after 4 seconds, an answer is kept for 30 days (including 'nothing found'), and a failed request pauses TheTVDB for a few minutes, so a slow TheTVDB does not hold lists up for long. Items already built keep their artwork until they are rebuilt or refreshed."
+msgstr ""

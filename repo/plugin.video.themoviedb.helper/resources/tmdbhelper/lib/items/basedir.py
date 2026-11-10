@@ -1729,8 +1729,8 @@ def _get_basedir_tools_sync():
 
 def _get_basedir_tools_cache():
     return _build_basedir(None, [
-        _tools_action('Clear Cache', 'Pick one cache (TMDb, Trakt, fanart.tv, OMDb or item details) to clear', 'default.png', 'clear_cache_select'),
-        _tools_action('Clear All Cache', 'Clear the cached TMDb, Trakt, fanart.tv, OMDb and item details data', 'default.png', 'clear_cache'),
+        _tools_action('Clear Cache', 'Pick one cache (TMDb, Trakt, fanart.tv, TheTVDB, OMDb or item details) to clear', 'default.png', 'clear_cache_select'),
+        _tools_action('Clear All Cache', 'Clear the cached TMDb, Trakt, fanart.tv, TheTVDB, OMDb and item details data', 'default.png', 'clear_cache'),
         _tools_action('Clear Search History', 'Clear the saved search history', 'search.png', 'clear_search_history'),
         _tools_action('Clear Anime and Asian Lists Cache', 'Clear the saved results of the Anime and Asian lists', 'default.png', 'clear_list_caches')])
 

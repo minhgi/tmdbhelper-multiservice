@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.64"
+version="7.0.73"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,35 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.73
+- Fixed: Kodi's log was filled with deprecation warnings every time a cached widget or row was shown: "resumetime" / "totaltime" in ListItem.setProperty() is deprecated, and "Passing None where a string is expected is deprecated". A cached item set its resume and total time twice (as the resume point, which is right, and again as the old properties) and passed None for a cast member's missing thumbnail or role and for the default unique ID of every item. The old properties are no longer set from the cache, as a freshly built item already did not set them, and a cast member's empty fields are left out and an empty string is passed as the default ID, which is what Kodi uses itself. Nothing visible changes. A few similar warnings remain at startup from the service; they are harmless.
+
+v7.0.72
+- Fixed: the cause of the startup `requests` import deadlock (fixed in 7.0.71 only by loading `requests` early) is removed: the fanart.tv module imported `requests.utils` with `from requests.utils import ...` while other threads imported `requests` itself, which makes Python report an import deadlock; it now uses a plain `import requests`, like every other part of the add-on. Measured with real threads: the old form failed in every one of 60 test runs, the new form in none.
+
+v7.0.71
+- Fixed: the service's background thread no longer stops for the rest of the Kodi session when one of its startup jobs fails. At startup the Trakt login check, the MDBList and Simkl syncs could all make their first `import requests` at the same moment; Python then reported an import deadlock in one of them, and the error ended the whole background thread (the Trakt/MDBList/Simkl watched-status sync, the library auto-update check, the Trakt token refresh, the widget cache cleanup, the bridge sync and the anime index update then never ran until Kodi was restarted). Two changes: `requests` is now loaded once before those threads start (in the service, and in lists that start the Trakt/MDBList/Simkl sync threads), and every startup and poll job now runs on its own, so a job that fails is logged and skipped instead of stopping the others.
+
+v7.0.70
+- Changed: clearlogos and fanart from TheTVDB now follow the artwork quality setting, like TMDb art does. TheTVDB only has the full image (fanart 1920 px, logo 800 px) and a smaller thumbnail (fanart 640 px, logo 400 px), so the thumbnail is used when it is at least 80% of the TMDb size for your quality: logos at quality 1 to 3, fanart only at the lowest quality (3). Original quality, and fanart at quality 1 and 2, keep the full image, because the thumbnail would be much smaller than TMDb's. Items built before this version keep their full-size TheTVDB image until they are rebuilt or refreshed; nothing is asked from TheTVDB again because of this update, except items not yet stored.
+
+v7.0.69
+- Added: TheTVDB is now in the Clear Cache picker and in Clear All Cache (Tools > Clear Cache Tool, and Settings > Delete cache), listed right after fanart.tv. It clears the stored TheTVDB answers (clearlogo/fanart found or "nothing found", kept 30 days) and the TheTVDB list and genre caches, and makes no TheTVDB request. Items already built keep their artwork until they are rebuilt: for an immediate effect use Clear All Cache (it clears item details too) or Manage artwork > Refresh all artwork, which now asks TheTVDB again (before, it reused the stored answer).
+
+v7.0.68
+- Fixed: changing "Fallback to English when main language unavailable", "Prefer artwork from TMDb first if available" or the widget fanart.tv lookup setting now refreshes the artwork, the way a language change does (GitHub issue #9). Before, items and widgets already built kept their old artwork. Turning Fallback to English off rebuilds items as you browse them (they are stored under a separate name only while it is off, so nothing changes while it stays on; artwork you picked by hand is carried over); the other two rebuild widgets and rows. A running service now reads these options each time instead of once at start, so it follows a change without restarting Kodi.
+
+v7.0.67
+- Added: optional TheTVDB source for clearlogos and fanart (Settings > fanart.tv group > "Fill missing clearlogos and fanart from TheTVDB", off by default). It only fills gaps: TheTVDB is asked only when TMDb and fanart.tv gave no clearlogo or no fanart, and never replaces what they found or what you picked by hand. Clearlogo order: your language, English, no language. Fanart order: textless, then your language. Where the fanart.tv lookups (lists, widgets, service) are off it only reads answers already stored, so it adds no network work there. To keep slow devices responsive: 4 second timeout, answers kept 30 days (also "nothing found"), and TheTVDB is left alone for a few minutes after a failed login or request. Shows and seasons use the show's artwork; movies are found through their IMDb id. Turning the setting on or off rebuilds widgets once; items already built keep their artwork until rebuilt or refreshed.
+
+v7.0.66
+- Fixed: the rating window property (TMDbHelper.ListItem.Rating) is now shown to one decimal place, e.g. 7.8 instead of 7.789. Taken from upstream TMDb Helper (issue #1815).
+- Fixed: Next Up after a Trakt reset (rewatch) now continues after the furthest episode you have watched since the reset. Before, it offered the first episode you had not rewatched yet, so episodes skipped during the rewatch came back as Next Up. If the last aired episode has been watched since the reset, the show no longer appears in Next Up, even when earlier episodes were skipped (before, the first skipped one was offered). The change applies the next time Trakt reports new watch activity (cached Next Up entries are not recomputed before that). Taken from upstream TMDb Helper.
+- Fixed: a Trakt show with an episode marked completed but no watch date could be missing from Next Up after a reset.
+
+v7.0.65
+- Fixed: fanart.tv artwork URLs are now fully encoded. Before, only spaces were replaced, so a URL with any other character that needs encoding could fail to load its image. Taken from upstream TMDb Helper (fanart.tv URL fix, upstream issues #1971 and #1972).
+
 v7.0.64
 - Changed: Tools > Clear Cache Tool has the per-service picker back (Clear Cache: pick TMDb, Trakt, fanart.tv, OMDb or item details, confirm, clear only that one), above Clear All Cache. 7.0.60/7.0.61 replaced it with Clear All Cache only; both are now available, Clear Cache first, Clear All Cache below it (GitHub issue #10).
 

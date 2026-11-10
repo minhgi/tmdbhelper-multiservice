@@ -479,11 +479,33 @@ class SyncNextEpisodes(SyncAllNextEpisodes):
     last_activities_key = 'watched_at'
     method = 'nextup'
 
+    def get_rewatch_next_episode(self, response, tmdb_id):
+        """ After a reset: the first unwatched episode after the furthest one watched since the reset, so episodes skipped
+        during the rewatch are not offered again (upstream 5f9b1f8). Same watched test as get_all_next_episodes. """
+        from tmdbhelper.lib.addon.tmdate import convert_timestamp
+        reset_at = convert_timestamp(response['reset_at'])
+
+        def is_incomplete(episode):
+            if not episode.get('completed'):
+                return True
+            last_watched_at = convert_timestamp(episode.get('last_watched_at'))
+            return bool(reset_at and last_watched_at and last_watched_at < reset_at)
+
+        progress = [
+            ((season['number'], episode['number']), is_incomplete(episode))
+            for season in response.get('seasons', []) for episode in season.get('episodes', [])]
+        position = max((number for number, incomplete in progress if not incomplete), default=(-1, -1))
+        next_number = min((number for number, incomplete in progress if incomplete and number > position), default=None)
+        if next_number is not None:
+            return f'tv.{tmdb_id}.{next_number[0]}.{next_number[1]}'
+
     def get_next_episode(self, tmdb_id, trakt_id):
         response = self.get_next_episodes_response(trakt_id)
         if not response:
             return
-        if not response.get('reset_at') and response.get('next_episode'):
+        if response.get('reset_at'):
+            return self.get_rewatch_next_episode(response, tmdb_id)
+        if response.get('next_episode'):
             return f'tv.{tmdb_id}.{response["next_episode"]["season"]}.{response["next_episode"]["number"]}'
 
         # Get a next item generator to only check for one next episode not all

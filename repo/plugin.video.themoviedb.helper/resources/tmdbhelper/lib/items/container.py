@@ -141,7 +141,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
     def ib(self):
         from tmdbhelper.lib.items.builder import ItemBuilder
         return ItemBuilder(
-            tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api,
+            tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api, tvdb_art_api=self.tvdb_art_api,
             log_timers=self.log_timers, timer_lists=self.timer_lists)
 
     @property
@@ -415,6 +415,9 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                     return
 
         with TimerList(self.timer_lists, 'total', logging=self.log_timers):
+            if get_setting('service_trakt') or get_setting('service_mdblist') or get_setting('service_simkl'):
+                from tmdbhelper.lib.addon.thread import preload_requests
+                preload_requests()  # the sync threads below must not make the first `import requests` at the same moment
             self.trakt_playdata.pre_sync_start(**self.params)
             self.mdblist_playdata.pre_sync_start(**self.params)
             self.simkl_playdata.pre_sync_start(**self.params)
@@ -462,7 +465,7 @@ class ContainerDirectoryItemBuilder(ContainerDirectoryCommon):
     def ib(self):
         from tmdbhelper.lib.items.builder import ItemBuilder
         return ItemBuilder(
-            tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api,
+            tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api, tvdb_art_api=self.tvdb_art_api,
             log_timers=self.log_timers, timer_lists=self.timer_lists)
 
     def precache_parent(self, tmdb_id, season=None):

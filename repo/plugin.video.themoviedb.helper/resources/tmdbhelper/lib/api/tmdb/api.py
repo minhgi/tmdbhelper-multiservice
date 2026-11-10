@@ -143,8 +143,11 @@ class TMDbAPI(RequestAPI):
 
 class TMDb(TMDbAPI, TMDbMethods):
     append_to_response = 'credits,images,release_dates,content_ratings,external_ids,movie_credits,tv_credits,keywords,reviews,videos,watch/providers'
-    artlang_fallback = True if get_setting('fanarttv_enfallback') else False
     api_name = 'TMDb'
+
+    @property
+    def artlang_fallback(self):
+        return True if get_setting('fanarttv_enfallback') else False  # live, not at import: the item cache name and the TMDb request both depend on it
 
     @property
     def genres(self):

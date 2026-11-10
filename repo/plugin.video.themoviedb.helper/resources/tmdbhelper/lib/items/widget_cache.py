@@ -68,6 +68,14 @@ def _get_settings_salt(row=False):
     except Exception:
         sort = ''
     sort = f'|sort={sort}' if sort else ''  # only when a global sort is chosen, so existing caches stay valid
+    try:
+        sort += '|tvdbart=1' if get_setting('tvdb_artwork') else ''  # only when on, so existing caches stay valid
+        # fanart.tv / artwork options that change what a built widget holds (GitHub issue #9): each added only when it differs from the default
+        sort += '' if get_setting('fanarttv_enfallback') else '|enfb=0'  # default on
+        sort += '|2nd=1' if get_setting('fanarttv_secondpref') else ''  # default off
+        sort += '|wftv=1' if not row and get_setting('widget_fanarttv_lookup') else ''  # default off (rows already carry the lookup setting below)
+    except Exception:
+        pass
     if not row:
         return f'ae={anime}|lang={lang}{sort}'
     try:
@@ -317,12 +325,12 @@ def load_cache(paramstring, handle, row=False):
         li.setArt(ci.get('art', {}))
         li.setProperties({
             str(k): str(v) for k, v in ci.get('infoproperties', {}).items()
-            if v is not None and not (trim and (k in _TRIM_PROPS or k.startswith(_TRIM_PREFIXES)))})
+            if v is not None and k not in ('ResumeTime', 'TotalTime') and not (trim and (k in _TRIM_PROPS or k.startswith(_TRIM_PREFIXES)))})  # the two times are set below with set_resume_point, as a fresh build does (the old property route is deprecated in Kodi)
 
         info_tag = ListItemInfoTag(li)
         info_tag.set_info(ci.get('infolabels', {}))
-        info_tag.set_unique_ids(ci.get('unique_ids', {}))
-        info_tag.set_cast(ci.get('cast', []))
+        info_tag.set_unique_ids(ci.get('unique_ids', {}), default_id='')  # '' is Kodi's own default; the infotagger's None default makes Kodi log a deprecation warning
+        info_tag.set_cast([{k: v for k, v in i.items() if v is not None} for i in ci.get('cast', [])])  # older caches hold None thumbnails/roles; Kodi warns when an Actor gets None
         info_tag.set_stream_details(ci.get('stream_details', {}))
 
         # set_resume_point expects float values for ResumeTime/TotalTime

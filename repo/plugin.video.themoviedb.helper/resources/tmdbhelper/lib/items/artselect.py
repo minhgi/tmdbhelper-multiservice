@@ -109,6 +109,10 @@ class _ArtworkSelector():
     def refresh_all_artwork(self, tmdb_type, tmdb_id, ok_dialog=True, container_refresh=True, season=None):
         old_cache_refresh = self.ftv_api.cache_refresh
         self.ftv_api.cache_refresh = True
+        tvdb_api = getattr(self, 'tvdb_art_api', None)  # TheTVDB (when on) is asked again too, like fanart.tv, instead of reusing its stored answer
+        old_tvdb_refresh = tvdb_api.cache_refresh if tvdb_api else False
+        if tvdb_api:
+            tvdb_api.cache_refresh = True
 
         with BusyDialog():
             item = self.get_item(tmdb_type, tmdb_id, season, cache_refresh=True)
@@ -128,6 +132,8 @@ class _ArtworkSelector():
             executebuiltin('Container.Refresh')
             reload_widgets(bridge=False)
         self.ftv_api.cache_refresh = old_cache_refresh  # Set it back to previous setting
+        if tvdb_api:
+            tvdb_api.cache_refresh = old_tvdb_refresh
 
     def manage_artwork(self, tmdb_id=None, tmdb_type=None, season=None, layout_season=None):
         if not tmdb_id or not tmdb_type:

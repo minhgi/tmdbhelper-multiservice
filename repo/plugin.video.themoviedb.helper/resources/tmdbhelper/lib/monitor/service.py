@@ -7,7 +7,7 @@ from tmdbhelper.lib.monitor.player import PlayerMonitor
 from tmdbhelper.lib.monitor.update import UpdateMonitor
 from tmdbhelper.lib.monitor.imgmon import ImagesMonitor
 from tmdbhelper.lib.monitor.poller import Poller, POLL_MIN_INCREMENT, POLL_MID_INCREMENT
-from tmdbhelper.lib.addon.thread import SafeThread
+from tmdbhelper.lib.addon.thread import SafeThread, preload_requests
 from threading import Lock
 
 
@@ -21,6 +21,8 @@ class ServiceMonitor(Poller):
         sync_reuselanguageinvoker()
 
         self.mutex_lock = Lock()
+
+        preload_requests()  # before the threads below start: their first requests must not import it at the same moment
 
         self.update_monitor = UpdateMonitor()
         self.player_monitor = PlayerMonitor()

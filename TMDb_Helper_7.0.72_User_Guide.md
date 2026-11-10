@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.64 — Complete Features & Functions Guide
+# TMDb Helper 7.0.72 — Complete Features & Functions Guide
 
-**Version:** 7.0.64 (Enhanced Fork — Personal Build)
+**Version:** 7.0.72 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.64_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.72_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.64. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.72. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -238,7 +238,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6
 
 ### Tools menu: Clear All Cache (7.0.60–7.0.61)
 
-- **Clear All Cache clears all five caches** (7.0.60–7.0.61). Tools → Clear Cache Tool → Clear All Cache was called Clear Cache and opened a list where you picked one cache and confirmed each pick. It now asks once, then clears the TMDb, Trakt, fanart.tv, OMDb and item details caches together. Clear Search History and Clear Anime and Asian Lists Cache keep their own entries.
+- **Clear All Cache clears all the caches** (7.0.60–7.0.61; TheTVDB added in 7.0.69). Tools → Clear Cache Tool → Clear All Cache was called Clear Cache and opened a list where you picked one cache and confirmed each pick. It now asks once, then clears the TMDb, Trakt, fanart.tv, TheTVDB, OMDb and item details caches together (TheTVDB since 7.0.69). Clear Search History and Clear Anime and Asian Lists Cache keep their own entries.
 
 ### Playback: no Trakt start after a stop (7.0.62)
 
@@ -250,7 +250,25 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.6
 
 ### Tools menu: Clear Cache restored alongside Clear All Cache (7.0.64)
 
-- **Clear Cache (the one-at-a-time picker) is back in the Tools menu, above Clear All Cache** (7.0.64). 7.0.60–7.0.61 (above) replaced it with Clear All Cache and dropped it from the menu, though the underlying picker kept working from Settings → Expert → *Delete cache*. Both are now in Tools → Clear Cache Tool: **Clear Cache** asks which of TMDb, Trakt, fanart.tv, OMDb or Item Details to clear, one at a time; **Clear All Cache** clears all five together after a single question.
+- **Clear Cache (the one-at-a-time picker) is back in the Tools menu, above Clear All Cache** (7.0.64). 7.0.60–7.0.61 (above) replaced it with Clear All Cache and dropped it from the menu, though the underlying picker kept working from Settings → Expert → *Delete cache*. Both are now in Tools → Clear Cache Tool: **Clear Cache** asks which of TMDb, Trakt, fanart.tv, TheTVDB (since 7.0.69), OMDb or Item Details to clear, one at a time; **Clear All Cache** clears all six together after a single question.
+
+### Fixes taken from upstream (7.0.65–7.0.66)
+
+- **fanart.tv artwork URLs are fully encoded** (7.0.65). Only spaces used to be replaced in a fanart.tv image address, so an address with any other character that needs encoding could fail to load its image. All of them are encoded now. Taken from upstream TMDb Helper.
+- **The rating property shows one decimal place** (7.0.66). The rating window property (`TMDbHelper.ListItem.Rating`) shows 7.8 instead of 7.789. Taken from upstream TMDb Helper.
+- **Next Up after a Trakt reset (rewatch) continues after your furthest episode** (7.0.66). After you reset a show on Trakt and rewatch it, Next Up offered the first episode you had not rewatched yet, so episodes you skipped came back again and again. It now continues after the furthest episode you have watched since the reset, and a show whose last aired episode you have watched since the reset no longer appears in Next Up. A Trakt show with an episode marked completed but no watch date could also be missing from Next Up after a reset; that is fixed too. The change applies the next time Trakt reports new watch activity; Next Up entries already cached are not recomputed before that.
+
+### Artwork from TheTVDB (7.0.67–7.0.70)
+
+- **Optional TheTVDB source for clearlogos and fanart** (7.0.67). Settings → fanart.tv group → *Fill missing clearlogos and fanart from TheTVDB* (**off by default**). It only fills gaps: TheTVDB is asked only when TMDb and fanart.tv gave no clearlogo or no fanart, and it never replaces what they found or what you picked by hand. Clearlogo order: your language, English, no language. Fanart order: textless, then your language. Where the fanart.tv lookups (lists, widgets, service) are off, it only reads answers already stored, so it adds no network work there. To keep slow devices responsive it has a 4 second timeout, keeps its answers 30 days (also "nothing found") and is left alone for a few minutes after a failed login or request. Shows and seasons use the show's artwork; movies are found through their IMDb id. Turning the setting on or off rebuilds widgets once; items already built keep their artwork until rebuilt or refreshed. It uses the add-on's own TheTVDB login, so no key has to be entered.
+- **Changing the artwork-language options refreshes the artwork (GitHub issue #9)** (7.0.68). Changing *Fallback to English when main language unavailable*, *Prefer artwork from TMDb first* or the widget fanart.tv lookup setting now refreshes artwork the way a language change does; before, items and widgets already built kept their old artwork. Turning Fallback to English off rebuilds items as you browse them (they are stored under a separate name only while it is off, so nothing changes while it stays on, and artwork you picked by hand is carried over); the other two rebuild widgets and rows. A running service now reads these options each time instead of once at start, so it follows a change without a Kodi restart.
+- **TheTVDB is in the Clear Cache picker and in Clear All Cache** (7.0.69). Tools → Clear Cache Tool and Settings → Expert → *Delete cache* list TheTVDB right after fanart.tv. It clears the stored TheTVDB answers (clearlogo or fanart found, or "nothing found") and the TVDb list and genre caches, and makes no TheTVDB request. Items already built keep their artwork until they are rebuilt: use **Clear All Cache** (it also clears item details) or Settings → Manage artwork → **Refresh all artwork**, which now asks TheTVDB again (before, it reused the stored answer).
+- **TheTVDB artwork follows the artwork quality setting** (7.0.70). TheTVDB only has the full image (fanart 1920 px, logo 800 px) and a smaller thumbnail (fanart 640 px, logo 400 px). The thumbnail is used when it is at least 80% of the TMDb size for your *TMDb artwork quality*: logos at quality High, Medium and Low, fanart only at Low. At Original, and for fanart at High and Medium, the full image is kept, because the thumbnail would be much smaller than TMDb's. Items built before this version keep their full-size TheTVDB image until they are rebuilt or refreshed.
+
+### Startup reliability (7.0.71–7.0.72)
+
+- **The background service no longer stops after one failed startup job** (7.0.71). At startup the Trakt login check, the MDBList sync and the Simkl sync could all make their first `import requests` at the same moment; Python then reported an import deadlock in one of them, and the error ended the add-on's whole background thread. Until Kodi was restarted, the watched-status sync, the library auto-update check, the Trakt token refresh, the widget cache cleanup, the bridge sync and the anime index update then never ran. `requests` is now loaded once before those threads start, and every startup and poll job runs on its own, so a job that fails is logged and skipped instead of stopping the others.
+- **The cause of that import deadlock is removed** (7.0.72). The fanart.tv module imported `requests.utils` in a form that races with another thread's plain `import requests`. It now uses the plain form like every other part of the add-on. Reproduced with real threads: the old form failed in every one of 60 runs, the new form in none.
 
 ## 3. First-Time Setup
 
@@ -344,7 +362,7 @@ Awards, and Genres.
 | Row | What it does |
 |---|---|
 | **Sync Tools** (shown only when Trakt, MDBList or Simkl is signed in) | *Clear last sync time*, *Force a sync*, *Rebuild Database* |
-| **Clear Cache Tool** | *Clear Cache* (pick one: TMDb, Trakt, fanart.tv, OMDb or Item Details), *Clear All Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
+| **Clear Cache Tool** | *Clear Cache* (pick one: TMDb, Trakt, fanart.tv, TheTVDB, OMDb or Item Details), *Clear All Cache*, *Clear Search History*, *Clear Anime and Asian Lists Cache* |
 | **Open Settings Menu** | Opens the settings |
 | **Backup and Reset** | *Backup Settings*, *Restore Settings* |
 | **Changelog** | The version history |
@@ -643,7 +661,7 @@ All under **TMDb Helper → Tools** (rows described in section 4) or in Settings
 |---|---|
 | Back up settings, Trakt sync data, awards cache, widget cache and player configs to a zip | Tools → Backup and Reset → **Backup Settings**, or Settings → Expert → *Backup Settings & Data* |
 | Restore from a backup (restart Kodi afterwards) | Tools → Backup and Reset → **Restore Settings**, or *Restore Settings & Data* |
-| Clear cached TMDb, Trakt, fanart.tv, OMDb and item data | Tools → Clear Cache Tool → **Clear All Cache** (all five at once, after one question), or **Clear Cache** (pick one, same picker as Settings → Expert → *Delete cache*) |
+| Clear cached TMDb, Trakt, fanart.tv, TheTVDB, OMDb and item data | Tools → Clear Cache Tool → **Clear All Cache** (all six at once, after one question), or **Clear Cache** (pick one, same picker as Settings → Expert → *Delete cache*) |
 | Clear saved search history | Tools → Clear Cache Tool → **Clear Search History** |
 | Clear the saved results of the Anime and Asian lists, the saved AniList to TMDb matches, the saved Simkl calendar files and the anime scores | Tools → Clear Cache Tool → **Clear Anime and Asian Lists Cache** |
 | Rebuild TMDb Helper's copy of your Kodi library details | Settings → Other → **Refresh Cached Kodi Library details** |
@@ -700,7 +718,7 @@ See section 13. Defaults: update after adding **on**, daily auto-update **off**.
 
 ### API Keys
 
-OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / service monitor artwork*, all off; *Prefer artwork from TMDb first* off; *Fallback to English* on), TVDb token, TMDb user token. Each has **Allow 3rd party plugin access to API key/token** (off by default), which lets a skin or player reuse the key instead of asking you again.
+OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / service monitor artwork*, all off; *Prefer artwork from TMDb first* off; *Fallback to English* on; *Fill missing clearlogos and fanart from TheTVDB* off, 7.0.67), TVDb token, TMDb user token. Each has **Allow 3rd party plugin access to API key/token** (off by default), which lets a skin or player reuse the key instead of asking you again.
 
 ### Accounts
 
@@ -759,7 +777,8 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Simkl anime In-Progress** | The Simkl anime In-Progress list was empty in a 2026-10-19 check of the author's account and has not been investigated. |
 | **Playback from other add-ons** | On by default since 7.0.57; a Kodi library item that no add-on plays is not reported. Only an item whose TMDb ID is in Kodi's info for the playing video is reported, and an add-on that plays a bare stream URL is recognised only if it says so: Seren 3.9.58 or later does. Trakt is sent only with Include Trakt. Tested with Seren, a stand-in player and a real Elementum episode (7.0.18). |
 | **Trakt playing time after a skip** | A skip updates Trakt a few seconds after the last skip (7.0.56). Fast-forward and rewind (the speed buttons) do not. |
-| **Artwork of items already built** | An item keeps its logo until it expires (14 days) or is refreshed (7.0.59). Whether a fanart.tv logo replaces a TMDb one depends on *Prefer artwork from TMDb first* (off by default). |
+| **Artwork of items already built** | An item keeps its logo until it expires (14 days) or is refreshed (7.0.59). Whether a fanart.tv logo replaces a TMDb one depends on *Prefer artwork from TMDb first* (off by default). The same holds for artwork from TheTVDB (7.0.67–7.0.70): items already built keep what they have until rebuilt, refreshed or cleared with Clear All Cache. |
+| **TheTVDB artwork** | Optional and off by default; it only fills a missing clearlogo or fanart, using the add-on's own TheTVDB login. At fanart quality High or Medium, and at Original, the full 1920 px TheTVDB image is used, so on a slow device keep the setting off or choose Low quality. Where the fanart.tv lookups are off it reads only answers already stored. The widget, row and item caches were tested live on a PC Kodi 22 only; the Shield/Android was not tested with it. |
 | **Re-Use Language Invoker** | Off by default. With it on, Kodi 22 RC1 crashed in some of the author's test runs on a PC and in none with it off; the numbers are small and the cause is not known (it may be Kodi's own). In October 2026 tests on Kodi 22, playback that stopped crashed Kodi in 2 of 2 runs with TMDb Helper's switch on and in 0 of 2 with it off; the log pattern looks like Kodi's open reusable-invoker race (xbmc/xbmc#30038), but that is not proven. Switch it off again if Kodi starts crashing. |
 
 ---

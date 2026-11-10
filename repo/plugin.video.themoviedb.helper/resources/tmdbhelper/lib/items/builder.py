@@ -10,7 +10,6 @@ from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER, IMAGEPATH_QUAL
 from tmdbhelper.lib.addon.thread import ParallelThread
 from tmdbhelper.lib.addon.logger import TimerList, kodi_log
 
-FTV_SECOND_PREF = get_setting('fanarttv_secondpref')
 ARTWORK_QUALITY = get_setting('artwork_quality', 'int')
 ARTWORK_QUALITY_FANART = IMAGEPATH_QUALITY_FANART[ARTWORK_QUALITY]
 ARTWORK_QUALITY_THUMBS = IMAGEPATH_QUALITY_THUMBS[ARTWORK_QUALITY]
@@ -36,16 +35,37 @@ IMAGEPATH_MAP = {
 CACHE_DAYS = 10000
 BACKFILL_BLACKLIST = ['poster']
 
+# TheTVDB art follows the same artwork quality setting as TMDb. TVDB only has the full image (fanart 1920 px, logo 800 px)
+# and a thumbnail, so the thumbnail is used when it is at least TVDB_THUMB_MIN_SHARE of the TMDb size for the chosen quality
+# (quality 0 = original: always the full image). Thumbnail widths are not in the TVDB answer (thumbnailWidth is 0), so
+# these are measured values (fanart 1920x1080 -> 640x360, logo 800x310 -> 400x155).
+TVDB_THUMB_SUFFIX = '.thumb'  # same key suffix api/tvdb/artwork.py stores the thumbnail under ('fanart.thumb')
+TVDB_THUMB_WIDTH = {'clearlogo': 400, 'fanart': 640}
+TVDB_THUMB_MIN_SHARE = 0.8
+
+
+def _tvdb_thumb_fits(tmdb_imagepath, kind):
+    match = re.search(r'/w(\d+)$', tmdb_imagepath)  # '.../original' has no width: full image
+    return bool(match) and TVDB_THUMB_WIDTH[kind] >= TVDB_THUMB_MIN_SHARE * int(match.group(1))
+
+
+TVDB_USE_THUMB = {
+    'clearlogo': _tvdb_thumb_fits(ARTWORK_QUALITY_CLOGOS, 'clearlogo'),
+    'fanart': _tvdb_thumb_fits(ARTWORK_QUALITY_FANART, 'fanart'),
+}
+
 
 class ItemBuilder(_ArtworkSelector):
     _basic_cache_cls = BasicCache
 
-    def __init__(self, tmdb_api=None, ftv_api=None, trakt_api=None, cache_only=False, log_timers=False, timer_lists: dict = None):
+    def __init__(self, tmdb_api=None, ftv_api=None, trakt_api=None, cache_only=False, log_timers=False, timer_lists: dict = None, tvdb_art_api=None):
         self.parent_tv = {}
         self.parent_season = {}
         self.tmdb_api = tmdb_api or TMDb()
         self.ftv_api = ftv_api or FanartTV()
         self.trakt_api = trakt_api
+        self.tvdb_art_api = tvdb_art_api  # optional TheTVDB clearlogo/fanart gap-fill: lookups happen only when this is set
+        self.tvdb_art_enabled = get_setting('tvdb_artwork')  # cached TVDB art is shown only while the setting is on
         self._cache = self._basic_cache_cls(filename='ItemBuilder.db')
         self._regex = re.compile(r'({})'.format('|'.join(IMAGEPATH_ALL)))
         self.parent_params = None
@@ -116,6 +136,18 @@ class ItemBuilder(_ArtworkSelector):
             artwork = self.ftv_api.get_all_artwork(ftv_id, ftv_type, season)
         return artwork
 
+    def _get_tvdb_artwork(self, tmdb_type, item, art, ftv_art):
+        """ Gap-fill from TheTVDB. Only asked when TMDb and fanart.tv gave no clearlogo or no fanart.
+        Returns {} when nothing is needed or TVDB has nothing, None when TVDB could not be reached (retried later). """
+        with TimerList(self.timer_lists, 'item_tvdb', log_threshold=0.05, logging=self.log_timers):
+            ftv_art = ftv_art or {}
+            if all(art.get(k) or ftv_art.get(k) for k in ('clearlogo', 'fanart')):
+                return {}
+            return self.tvdb_art_api.get_artwork(tmdb_type, item['listitem'].get('unique_ids', {}), self.tmdb_api.language)
+
+    def _needs_tvdb(self, item):
+        return bool(self.tvdb_art_api) and not self.tvdb_art_api.cache_only and 'tvdb' not in item['artwork']  # cache-only TVDB cannot fetch, so an up-to-date item is not rebuilt for it
+
     def _get_tmdb_artwork(self, item):
         if not item or 'artwork' not in item:
             return {}
@@ -139,6 +171,16 @@ class ItemBuilder(_ArtworkSelector):
         item['artwork']['fanarttv'] = ftv_art
         if base_item and 'artwork' in base_item:
             self.join_base_artwork(base_item['artwork'].get('fanarttv', {}), ftv_art, prefix=prefix, backfill=True)
+
+        # TheTVDB gap-fill (optional). Movies and shows ask TVDB; seasons and episodes inherit the show's TVDB art
+        if self.tvdb_art_api and 'tvdb' not in item['artwork']:
+            if season is None and episode is None:
+                tvdb_art = self._get_tvdb_artwork(tmdb_type, item, item_artwork, ftv_art)
+            else:
+                base_tvdb = base_item['artwork'].get('tvdb') if base_item and 'artwork' in base_item else {}  # None = the show has not been asked yet
+                tvdb_art = None if base_tvdb is None else self.join_base_artwork(base_tvdb, {}, prefix=prefix, backfill=True)
+            if tvdb_art is not None:  # None = TVDB unreachable: leave unset so a later build tries again
+                item['artwork']['tvdb'] = tvdb_art
         return item
 
     def get_tmdb_item(
@@ -167,9 +209,12 @@ class ItemBuilder(_ArtworkSelector):
             item['listitem']['art'] = {}
         return item
 
-    def get_cache_name(self, tmdb_type, tmdb_id, season=None, episode=None):
+    def get_cache_name(self, tmdb_type, tmdb_id, season=None, episode=None, salted=True):
         language = self.tmdb_api.language
-        return f'v2.{language}.{tmdb_type}.{tmdb_id}.{season}.{episode}'
+        # Fallback to English decides which TMDb images are requested and which fanart.tv art is picked, both baked into the stored item.
+        # Added to the name only when OFF (the default is on), like the language: existing caches stay valid, a change starts a fresh build.
+        fallback = '' if not salted or getattr(self.tmdb_api, 'artlang_fallback', True) else '.nofb'
+        return f'v2.{language}{fallback}.{tmdb_type}.{tmdb_id}.{season}.{episode}'
 
     def get_item(self, tmdb_type, tmdb_id, season=None, episode=None, cache_refresh=False):
         if not tmdb_type or not tmdb_id:
@@ -197,7 +242,7 @@ class ItemBuilder(_ArtworkSelector):
             if not base_item or self._timeint(base_item['expires']) <= self._timeint(item['expires']):  # No new details in parent item
                 # Check that we aren't missing any artwork or need to remap artwork quality
                 if not self.ftv_api or item['artwork'].get('fanarttv'):  # We have fanarttv artwork (or user disabled fanarttv)
-                    if item['artwork'].get(ARTWORK_QUALITY):  # We also have artwork at the correct quality level
+                    if item['artwork'].get(ARTWORK_QUALITY) and not self._needs_tvdb(item):  # We also have artwork at the correct quality level (and TVDB, if on, has been asked)
                         return item  # Our item is up-to-date so we return it
                 # Else we've got current item details but we need to grab some artwork or remap quality
                 prefix = 'tvshow.' if season is not None and episode is None else ''  # Seasons should map tvshow art with prefix
@@ -206,7 +251,9 @@ class ItemBuilder(_ArtworkSelector):
 
         # Item isn't current so it needs a refresh but let's make sure we keep manually set artwork
         prefix = ''
-        manual_art = item['artwork'].get('manual', {}) if item and episode is None else {}  # Episodes inherit season/tvshow art so don't have their own manual art
+        plain_name = self.get_cache_name(tmdb_type, tmdb_id, season, episode, salted=False)
+        previous = item or (self._cache.get_cache(plain_name) if plain_name != name else None)  # after a Fallback to English change the item is new: carry over the art picked by hand
+        manual_art = previous['artwork'].get('manual', {}) if previous and episode is None else {}  # Episodes inherit season/tvshow art so don't have their own manual art
         manual_art = {k: v for k, v in manual_art.items() if v and '.' not in k}  # Only get main art and filter out parent prefixed items
         if season is not None:
             prefix = 'tvshow.' if episode is None else prefix  # Seasons should prefix tvshow parent art to avoid mixing
@@ -246,12 +293,21 @@ class ItemBuilder(_ArtworkSelector):
                 art_dict[k] = v
         art_dict = {} if art_dict is None else art_dict
         tmdb_art = artwork.get(ARTWORK_QUALITY) or self.map_artwork(artwork.get('tmdb', {}))
-        if FTV_SECOND_PREF:
+        if get_setting('fanarttv_secondpref'):  # read now, not at import: a long-running service must follow a settings change
             set_artwork(artwork.get('fanarttv'))
             set_artwork(tmdb_art, blacklist=['landscape'] if is_season else [])
         else:
             set_artwork(tmdb_art)
             set_artwork(artwork.get('fanarttv'), blacklist=ARTWORK_BLACKLIST[ARTWORK_QUALITY])
+        if self.tvdb_art_enabled:  # gap-fill only: never replaces TMDb, fanart.tv or manual art. Read-time gate so turning the setting off takes effect at once
+            tvdb_art = artwork.get('tvdb') or {}
+            for k, v in tvdb_art.items():
+                if k.endswith(TVDB_THUMB_SUFFIX):  # the smaller image of the key before it, picked below
+                    continue
+                if TVDB_USE_THUMB.get(k.rsplit('.', 1)[-1]):  # items built before 7.0.70 have no thumbnail: they keep the full image
+                    v = tvdb_art.get(f'{k}{TVDB_THUMB_SUFFIX}') or v
+                if v and not art_dict.get(k):
+                    art_dict[k] = v
         set_artwork(artwork.get('manual'))
         return art_dict
 

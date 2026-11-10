@@ -15,21 +15,36 @@ class CronJobMonitor(SafeThread):
         self.update_hour = update_hour
         self.update_monitor = parent.update_monitor
 
+    @staticmethod
+    def _run_steps(steps, when):
+        """ Run each step on its own: a step that raises is logged and skipped, it must never end this thread
+        (it holds the poll loop, so an uncaught error in one startup step used to stop every later job until Kodi restarted). """
+        for step in steps:
+            try:
+                step()
+            except Exception as exc:
+                from tmdbhelper.lib.addon.logger import kodi_log
+                kodi_log(f'CronJob {when}: {step.__name__} failed and was skipped: {exc!r}', 1)
+
     def _on_startup(self):
-        self._do_delete_old_databases()
-        self._do_recache_kodidb()
-        self._do_trakt_authorization()
-        self._do_bridge_sync_startup()
-        self._do_anime_fribb_update()
+        self._run_steps((
+            self._do_delete_old_databases,
+            self._do_recache_kodidb,
+            self._do_trakt_authorization,
+            self._do_bridge_sync_startup,
+            self._do_anime_fribb_update,
+        ), 'startup')
 
     def _on_poll(self):
-        self._do_library_update_check()
-        self._do_reset_trakt_lastactivities()
-        self._do_trakt_token_refresh_check()
-        self._do_cleanup_widget_cache()   # Item 5: delete widget_cache/*.json older than 24h
-        self._do_cleanup_image_cache()    # Item 4: prune blur_v2/crop_v2/desaturate_v2 dirs
-        self._do_bridge_sync()
-        self._do_anime_fribb_update()
+        self._run_steps((
+            self._do_library_update_check,
+            self._do_reset_trakt_lastactivities,
+            self._do_trakt_token_refresh_check,
+            self._do_cleanup_widget_cache,   # Item 5: delete widget_cache/*.json older than 24h
+            self._do_cleanup_image_cache,    # Item 4: prune blur_v2/crop_v2/desaturate_v2 dirs
+            self._do_bridge_sync,
+            self._do_anime_fribb_update,
+        ), 'poll')
 
     def _do_anime_fribb_update(self):
         """Keep the offline AniList to TMDb id index (api/anilist/fribb.py) fresh: built weekly, and only once the anime id

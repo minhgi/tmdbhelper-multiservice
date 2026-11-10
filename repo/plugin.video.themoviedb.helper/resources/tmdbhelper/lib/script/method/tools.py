@@ -153,20 +153,21 @@ def sync_rebuild():
 
 
 def clear_cache():
-    """Clear All Cache: the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go (after one question), with no picker.
+    """Clear All Cache: the TMDb, Trakt, fanart.tv, TheTVDB, OMDb and item details caches in one go (after one question), with no picker.
     The search history and the Anime / Asian list caches have their own entries in this menu."""
     from xbmcgui import Dialog
     from tmdbhelper.lib.addon.dialog import BusyDialog
-    if not Dialog().yesno(TITLE, 'Clear all cached TMDb, Trakt, fanart.tv, OMDb and item details data?\n\nIt is rebuilt as you browse.'):
+    if not Dialog().yesno(TITLE, 'Clear all cached TMDb, Trakt, fanart.tv, TheTVDB, OMDb and item details data?\n\nIt is rebuilt as you browse.'):
         return
 
     def caches():
         from tmdbhelper.lib.items.builder import ItemBuilder
         from tmdbhelper.lib.api.fanarttv.api import FanartTV
+        from tmdbhelper.lib.api.tvdb.artwork import TVDbArtwork
         from tmdbhelper.lib.api.trakt.api import TraktAPI
         from tmdbhelper.lib.api.tmdb.api import TMDb
         from tmdbhelper.lib.api.omdb.api import OMDb
-        return (('TMDb', TMDb), ('Trakt', TraktAPI), ('fanart.tv', FanartTV), ('OMDb', OMDb), ('Item Details', ItemBuilder))
+        return (('TMDb', TMDb), ('Trakt', TraktAPI), ('fanart.tv', FanartTV), ('TheTVDB', TVDbArtwork), ('OMDb', OMDb), ('Item Details', ItemBuilder))
 
     failed = []
     with BusyDialog():
@@ -183,7 +184,7 @@ def clear_cache():
 
 
 def clear_cache_select():
-    """Clear Cache: pick one cache (TMDb, Trakt, fanart.tv, OMDb or Item Details) and clear only that one, after
+    """Clear Cache: pick one cache (TMDb, Trakt, fanart.tv, TheTVDB, OMDb or Item Details) and clear only that one, after
     one question. Reuses maintenance.delete_cache, unchanged since before Clear All Cache replaced it in the menu."""
     from tmdbhelper.lib.script.method.maintenance import delete_cache
     delete_cache('select')

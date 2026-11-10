@@ -224,8 +224,8 @@ class _ListItem(object):
         if self.library != 'pictures':
             info_tag = ListItemInfoTag(listitem)
             info_tag.set_info(self.infolabels)
-            info_tag.set_unique_ids(self.unique_ids)
-            info_tag.set_cast(self.cast)
+            info_tag.set_unique_ids(self.unique_ids, default_id='')  # '' is what Kodi's own default is; the infotagger's None default makes Kodi log a deprecation warning
+            info_tag.set_cast([{k: v for k, v in i.items() if v is not None} for i in self.cast])  # Kodi warns when an Actor gets None (no thumbnail / no role)
             info_tag.set_stream_details(self.stream_details)
             info_tag.set_resume_point(self.infoproperties)
 

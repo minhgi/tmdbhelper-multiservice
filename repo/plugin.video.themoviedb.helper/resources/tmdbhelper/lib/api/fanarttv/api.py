@@ -1,10 +1,10 @@
+import requests  # not `from requests.utils import ...`: that form importing next to another thread's `import requests` makes Python report an import deadlock on 'requests.utils'
 from tmdbhelper.lib.addon.plugin import get_language, get_setting
 from jurialmunkey.parser import try_int, del_empty_keys
 from tmdbhelper.lib.addon.consts import CACHE_EXTENDED, ITER_PROPS_MAX
 from tmdbhelper.lib.api.request import RequestAPI
 from tmdbhelper.lib.api.api_keys.fanarttv import API_KEY, CLIENT_KEY
 
-EN_FALLBACK = get_setting('fanarttv_enfallback')
 API_URL = 'https://webservice.fanart.tv/v3'
 NO_LANGUAGE = ['keyart', 'fanart']
 ARTWORK_TYPES = {
@@ -39,7 +39,7 @@ ARTWORK_TYPES = {
 
 def get_encoded_url(d):
     url = d.get('url') or ''
-    return url.replace(' ', '%20')  # Ugly hack to replace unencoded spaces returned by API
+    return requests.utils.requote_uri(url)  # Encodes spaces and any other unsafe characters in the URLs the API returns (as upstream 6.20.x does)
 
 
 def add_extra_art(source, output=None):
@@ -102,7 +102,7 @@ class FanartTV(RequestAPI):
             except StopIteration:
                 if isinstance(get_lang, str):
                     return
-                if not get_lang and (key in NO_LANGUAGE or not EN_FALLBACK):
+                if not get_lang and (key in NO_LANGUAGE or not en_fallback):
                     return
             return get_best_artwork(key, False if get_lang else 'en')  # Try again with no language OR all languages
 
@@ -111,6 +111,7 @@ class FanartTV(RequestAPI):
             return func(key, get_lang)
 
         # __main__
+        en_fallback = get_setting('fanarttv_enfallback')  # read now, not at import: a long-running service must follow a settings change
         if not ftv_type or not ftv_id:
             return {}
         request = self.quick_request[ftv_type].get(ftv_id)

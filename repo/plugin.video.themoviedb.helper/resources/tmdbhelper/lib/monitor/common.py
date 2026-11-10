@@ -112,6 +112,7 @@ class CommonMonitorDetails(CommonContainerAPIs):
             from tmdbhelper.lib.items.builder import ItemBuilderService
             self._ib = ItemBuilderService(tmdb_api=self.tmdb_api, ftv_api=self.ftv_api, trakt_api=self.trakt_api)
             self._ib.ftv_api = self.ftv_api if get_setting('service_fanarttv_lookup') else None
+            self._ib.tvdb_art_api = self.tvdb_art_api if get_setting('service_fanarttv_lookup') else None  # TheTVDB gap-fill follows the service fanart.tv lookup setting
             return self._ib
 
     def use_item_memory_cache(self, cache_name, func, *args, **kwargs):
@@ -388,6 +389,15 @@ class CommonMonitorFunctions(WindowPropertySetter, CommonMonitorDetails):
         self.set_property('Premiered_Custom', date_obj.strftime(get_infolabel('Skin.String(TMDbHelper.Date.Format)') or '%d %b %Y'))
         self.properties.update(['Premiered', 'Premiered_Long', 'Premiered_Custom'])
 
+    def set_rating_property(self, rating):
+        """ Window property rating to one decimal place (infolabels keep the float for Kodi's own ListItem.Rating) """
+        try:
+            rating = f'{float(rating):.1f}'
+        except (TypeError, ValueError):
+            return
+        self.properties.add('rating')
+        self.set_property('rating', rating)
+
     def set_properties(self, item, baseitem_properties=None):
         cast = item.get('cast', [])
         infolabels = item.get('infolabels', {})
@@ -395,6 +405,7 @@ class CommonMonitorFunctions(WindowPropertySetter, CommonMonitorDetails):
         baseitem_properties = baseitem_properties or set()
         self.set_iter_properties(item, SETMAIN)
         self.set_iter_properties(infolabels, SETINFO)
+        self.set_rating_property(infolabels.get('rating'))  # After SETINFO so the one-decimal value replaces the raw float (upstream #1815)
         self.set_iter_properties(infoproperties, SETPROP.union(baseitem_properties))
         self.set_time_properties(infolabels.get('duration', 0))
         self.set_date_properties(infolabels.get('premiered'))
