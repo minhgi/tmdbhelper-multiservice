@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <addons><addon id="plugin.video.themoviedb.helper"
-version="7.0.86"
+version="7.0.87"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.87
+- Added: two new settings under Artwork, "TMDb poster quality" and "TMDb fanart quality", to pick the image size of posters and of fanart separately from the "TMDb artwork quality" (ported from the upstream add-on). Both start on Default, which follows the TMDb artwork quality, so nothing changes until you set one. Landscape, thumbnails and logos keep following the TMDb artwork quality. Changing either setting rebuilds the lists and widgets that hold artwork, like the TMDb artwork quality does.
+
 v7.0.86
 - Changed: the English plot fallback now also covers the plot (biography) of people, such as cast members, and the plots of the seasons in a show's season list (GitHub issue #11). It still only applies when "English plot fallback" is on and your language is not English, and only for items that have no plot in your language. The season list needs one extra small request per show, kept in the cache. Lists and widgets rebuild once after this update when the setting is on.
 

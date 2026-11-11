@@ -2,7 +2,7 @@ import re
 import xbmc
 import jurialmunkey.plugin
 import jurialmunkey.parser
-from tmdbhelper.lib.addon.consts import LANGUAGES
+from tmdbhelper.lib.addon.consts import LANGUAGES, IMAGEPATH_QUALITY_POSTER
 """ Top level module only import constants """
 
 
@@ -39,6 +39,29 @@ def get_language():
     if ADDON.getSettingInt('language'):
         return LANGUAGES[ADDON.getSettingInt('language')]
     return 'en-US'
+
+
+def get_artwork_quality(kind=None):
+    """Image quality level (0 original ... 3 low), read live and never at import: a long-running process (the service) must follow a change (GitHub issue #9).
+    kind=None is the Image quality setting; kind='poster' / 'fanart' is that type's own setting, which falls back to the default one when it is on Default (-1)
+    or out of range. The one place that decides, so the image paths and the cached artwork can never disagree."""
+    levels = len(IMAGEPATH_QUALITY_POSTER)
+    quality = get_setting('artwork_quality', 'int')
+    quality = quality if 0 <= quality < levels else 0
+    if kind:
+        override = get_setting(f'artwork_quality_{kind}', 'int')
+        if 0 <= override < levels:
+            return override
+    return quality
+
+
+def get_artwork_quality_key():
+    """What the saved artwork depends on: the default level alone (an int, exactly what 7.0.86 used) while the poster and fanart overrides add nothing,
+    else 'default.poster.fanart'. So nobody who does not use the overrides has a list or widget cache rebuilt for them."""
+    default, poster, fanart = get_artwork_quality(), get_artwork_quality('poster'), get_artwork_quality('fanart')
+    if poster == default and fanart == default:
+        return default
+    return f'{default}.{poster}.{fanart}'
 
 
 def fanarttv_art_enabled():

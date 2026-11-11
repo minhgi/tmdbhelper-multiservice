@@ -1,12 +1,12 @@
 import re
 from tmdbhelper.lib.items.artselect import _ArtworkSelector
-from tmdbhelper.lib.addon.plugin import get_setting, fanarttv_art_enabled
+from tmdbhelper.lib.addon.plugin import get_setting, fanarttv_art_enabled, get_artwork_quality, get_artwork_quality_key
 from tmdbhelper.lib.items.listitem import ListItem
 from tmdbhelper.lib.files.bcache import BasicCache, BasicCacheService
 from tmdbhelper.lib.api.tmdb.api import TMDb
 from tmdbhelper.lib.api.fanarttv.api import FanartTV
 from tmdbhelper.lib.addon.tmdate import set_timestamp, get_timestamp
-from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER, IMAGEPATH_QUALITY_FANART, IMAGEPATH_QUALITY_THUMBS, IMAGEPATH_QUALITY_CLOGOS, IMAGEPATH_ALL, ARTWORK_BLACKLIST
+from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER, IMAGEPATH_QUALITY_FANART, IMAGEPATH_QUALITY_THUMBS, IMAGEPATH_QUALITY_CLOGOS, IMAGEPATH_ALL, ARTWORK_BLACKLIST_POSTER, ARTWORK_BLACKLIST_FANART
 from tmdbhelper.lib.addon.thread import ParallelThread
 from tmdbhelper.lib.addon.logger import TimerList, kodi_log
 
@@ -29,15 +29,18 @@ IMAGEPATH_KEYS = {  # art key -> which of the quality tables it follows
 }
 
 
-def get_artwork_quality():
-    """The Artwork quality setting, read live and never at import: a long-running process (the service) must follow a change (GitHub issue #9)."""
-    quality = get_setting('artwork_quality', 'int')
-    return quality if 0 <= quality < len(IMAGEPATH_QUALITY_POSTER) else 0
+def get_imagepath_map(quality, poster=None, fanart=None):
+    """Art key -> image path for a quality (0 original ... 3 low). The poster and fanart tables can follow their own level (the Poster / Fanart image quality settings);
+    landscape, thumb and clearlogo always follow the default quality."""
+    levels = {id(IMAGEPATH_QUALITY_POSTER): quality if poster is None else poster, id(IMAGEPATH_QUALITY_FANART): quality if fanart is None else fanart}
+    return {k: table[levels.get(id(table), quality)] for k, table in IMAGEPATH_KEYS.items()}
 
 
-def get_imagepath_map(quality):
-    """Art key -> image path for a quality (0 original ... 3 low)."""
-    return {k: table[quality] for k, table in IMAGEPATH_KEYS.items()}
+def get_artwork_blacklist(poster, fanart):
+    """Art keys fanart.tv may not replace TMDb's for (the TMDb image is the right size). With no override this equals ARTWORK_BLACKLIST[quality]."""
+    return (ARTWORK_BLACKLIST_FANART if fanart >= 2 else []) + (ARTWORK_BLACKLIST_POSTER if poster >= 1 else [])
+
+
 CACHE_DAYS = 10000
 BACKFILL_BLACKLIST = ['poster']
 
@@ -55,10 +58,10 @@ def _tvdb_thumb_fits(tmdb_imagepath, kind):
     return bool(match) and TVDB_THUMB_WIDTH[kind] >= TVDB_THUMB_MIN_SHARE * int(match.group(1))
 
 
-def get_tvdb_use_thumb(quality):
+def get_tvdb_use_thumb(quality, fanart=None):
     return {
         'clearlogo': _tvdb_thumb_fits(IMAGEPATH_QUALITY_CLOGOS[quality], 'clearlogo'),
-        'fanart': _tvdb_thumb_fits(IMAGEPATH_QUALITY_FANART[quality], 'fanart'),
+        'fanart': _tvdb_thumb_fits(IMAGEPATH_QUALITY_FANART[quality if fanart is None else fanart], 'fanart'),
     }
 
 
@@ -98,7 +101,7 @@ class ItemBuilder(_ArtworkSelector):
 
     def map_artwork(self, artwork):
         """ Remaps artwork from TMDb to expected quality """
-        imagepath_map = get_imagepath_map(get_artwork_quality())
+        imagepath_map = get_imagepath_map(get_artwork_quality(), get_artwork_quality('poster'), get_artwork_quality('fanart'))
         return {k: self._regex.sub(imagepath_map[k], v) for k, v in artwork.items() if v and k in imagepath_map}
 
     def join_base_artwork(self, base_artwork, base_items, prefix='', backfill=False):
@@ -160,7 +163,7 @@ class ItemBuilder(_ArtworkSelector):
     def _get_tmdb_artwork(self, item):
         if not item or 'artwork' not in item:
             return {}
-        return item['artwork'].setdefault(get_artwork_quality(), self.map_artwork(item['artwork'].get('tmdb')) or {})
+        return item['artwork'].setdefault(get_artwork_quality_key(), self.map_artwork(item['artwork'].get('tmdb')) or {})
 
     def get_artwork(self, item, tmdb_type, season=None, episode=None, base_item=None, prefix='', ftv_art=None):
         if not item:
@@ -169,7 +172,7 @@ class ItemBuilder(_ArtworkSelector):
         # TMDb Artwork reconfigure quality and merge base_item
         item_artwork = self._get_tmdb_artwork(item)
         item_artwork = self.join_base_artwork(self._get_tmdb_artwork(base_item), item_artwork, prefix=prefix, backfill=True)
-        item['artwork'][get_artwork_quality()] = item_artwork
+        item['artwork'][get_artwork_quality_key()] = item_artwork
 
         # FanartTV retrieve artwork and merge base_item
         ftv_art = ftv_art or item['artwork'].setdefault('fanarttv', {})
@@ -212,7 +215,7 @@ class ItemBuilder(_ArtworkSelector):
                     base_is_season=base_is_season),
                 'expires': self._timestamp(),
                 'artwork': {}}
-            item['artwork']['tmdb'] = item['artwork'][get_artwork_quality()] = item['listitem'].pop('art')
+            item['artwork']['tmdb'] = item['artwork'][get_artwork_quality_key()] = item['listitem'].pop('art')
             if manual_art:
                 item['artwork']['manual'] = manual_art
             item['listitem']['art'] = {}
@@ -255,7 +258,7 @@ class ItemBuilder(_ArtworkSelector):
             if not base_item or self._timeint(base_item['expires']) <= self._timeint(item['expires']):  # No new details in parent item
                 # Check that we aren't missing any artwork or need to remap artwork quality
                 if not self.ftv_api or item['artwork'].get('fanarttv'):  # We have fanarttv artwork (or user disabled fanarttv)
-                    if item['artwork'].get(get_artwork_quality()) and not self._needs_tvdb(item):  # We also have artwork at the correct quality level (and TVDB, if on, has been asked)
+                    if item['artwork'].get(get_artwork_quality_key()) and not self._needs_tvdb(item):  # We also have artwork at the correct quality level (and TVDB, if on, has been asked)
                         return item  # Our item is up-to-date so we return it
                 # Else we've got current item details but we need to grab some artwork or remap quality
                 prefix = 'tvshow.' if season is not None and episode is None else ''  # Seasons should map tvshow art with prefix
@@ -305,8 +308,8 @@ class ItemBuilder(_ArtworkSelector):
                     continue
                 art_dict[k] = v
         art_dict = {} if art_dict is None else art_dict
-        quality = get_artwork_quality()
-        tmdb_art = artwork.get(quality) or self.map_artwork(artwork.get('tmdb', {}))
+        quality, poster_quality, fanart_quality = get_artwork_quality(), get_artwork_quality('poster'), get_artwork_quality('fanart')
+        tmdb_art = artwork.get(get_artwork_quality_key()) or self.map_artwork(artwork.get('tmdb', {}))
         if not (self.ftv_art_forced or fanarttv_art_enabled()):  # no fanart.tv option is on: TMDb art only (GitHub issue #9); the saved value of "Prefer TMDb first" does not matter then
             set_artwork(tmdb_art)
         elif get_setting('fanarttv_secondpref'):  # read now, not at import: a long-running service must follow a settings change
@@ -314,9 +317,9 @@ class ItemBuilder(_ArtworkSelector):
             set_artwork(tmdb_art, blacklist=['landscape'] if is_season else [])
         else:
             set_artwork(tmdb_art)
-            set_artwork(artwork.get('fanarttv'), blacklist=ARTWORK_BLACKLIST[quality])
+            set_artwork(artwork.get('fanarttv'), blacklist=get_artwork_blacklist(poster_quality, fanart_quality))
         if self.tvdb_art_enabled:  # gap-fill only: never replaces TMDb, fanart.tv or manual art. Read-time gate so turning the setting off takes effect at once
-            tvdb_use_thumb = get_tvdb_use_thumb(quality)
+            tvdb_use_thumb = get_tvdb_use_thumb(quality, fanart_quality)
             tvdb_art = artwork.get('tvdb') or {}
             for k, v in tvdb_art.items():
                 if k.endswith(TVDB_THUMB_SUFFIX):  # the smaller image of the key before it, picked below

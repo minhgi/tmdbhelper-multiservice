@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.86 — Complete Features & Functions Guide
+# TMDb Helper 7.0.87 — Complete Features & Functions Guide
 
-**Version:** 7.0.86 (Enhanced Fork — Personal Build)
+**Version:** 7.0.87 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.86_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.87_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.86. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.87. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -321,6 +321,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 
 - **The English plot fallback now also covers the season list and a person's biography** (7.0.86). With *English plot fallback* on and a language other than English, a season in a show's season list that has no plot in your language shows its own English plot when TMDb has one (before, it showed the show's plot). A person with no biography in your language gets the English biography wherever TMDb Helper loads that person's details (GitHub issue #11). The season list costs one extra small request per show (the show's English data, which lists every season's plot), kept in the cache; a season that has no English plot either keeps showing the show's plot. Lists and widgets rebuild once after this update when the setting is on.
 - **Cast lists and biographies** (7.0.86). A cast list shows a biography only for some of the people, even in English; that is unchanged. The fallback applies to the people whose details TMDb Helper loads, such as the person you open.
+
+### Poster and fanart quality settings (7.0.87)
+
+- **Two new settings: TMDb poster quality and TMDb fanart quality** (7.0.87). They sit directly below *TMDb artwork quality* (Settings, General, *TMDb detailed information*). Each can be Default, Original, High, Medium or Low. Default follows *TMDb artwork quality*, so nothing changes until you pick a level. Poster quality sets the size of posters (movie, show and season posters, and the actor portraits drawn with them); fanart quality sets the size of fanart (movie, show and season fanart). Landscape images, thumbnails and logos always follow *TMDb artwork quality*.
+- **Image sizes** (7.0.87). Posters: Original is 780 px wide (TMDb Helper's largest poster size), High and Medium 500 px, Low 342 px. Fanart: Original is the full original image, High and Medium 1280 px, Low 780 px. For example poster Original with fanart Low gives large sharp posters and smaller, lighter fanart on a slow device.
+- **Changing them refreshes lists and widgets** (7.0.87). Like *TMDb artwork quality*, changing either setting makes widgets reload and rebuild with the new sizes. Leaving both on Default rebuilds nothing, also right after this update. Artwork that is saved with an item once (actor portraits already stored, set posters and set fanart, extra fanart) can keep its old size until that item expires or is refreshed. Tested live on a PC Kodi 22 with poster Original and fanart Low: posters and actor portraits came in at 780 px, fanart at 780 px, logos unchanged. Ported from the upstream add-on.
 
 ## 3. First-Time Setup
 
@@ -737,6 +743,8 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 | Get additional details from the local Kodi library database | off | Adds watched state and local files for items also in your library |
 | Get additional details and artwork from TMDb | off | Extra details and artwork; off is faster but shows less |
 | TMDb artwork quality | Original | Size of artwork downloaded from TMDb (Original, High, Medium, Low); changing it refreshes lists, widgets and the skin (7.0.85) |
+| TMDb poster quality | Default | Size of posters and actor portraits downloaded from TMDb (Default, Original, High, Medium, Low); Default follows TMDb artwork quality; changing it refreshes lists, widgets and the skin (7.0.87) |
+| TMDb fanart quality | Default | Size of fanart downloaded from TMDb (Default, Original, High, Medium, Low); Default follows TMDb artwork quality; changing it refreshes lists, widgets and the skin (7.0.87) |
 
 ### Navigation
 

@@ -7,18 +7,20 @@ class TMDbImagePath:
 
     @property
     def artwork_quality(self):
-        from tmdbhelper.lib.addon.plugin import get_setting
-        return get_setting('artwork_quality', 'int')
+        from tmdbhelper.lib.addon.plugin import get_artwork_quality
+        return get_artwork_quality()
 
     @property
-    def artwork_quality_poster(self):
+    def artwork_quality_poster(self):  # poster (and the actor portraits drawn with it) follows the Poster image quality, else the default
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER
-        return IMAGEPATH_QUALITY_POSTER[self.artwork_quality]
+        from tmdbhelper.lib.addon.plugin import get_artwork_quality
+        return IMAGEPATH_QUALITY_POSTER[get_artwork_quality('poster')]
 
     @property
-    def artwork_quality_fanart(self):
+    def artwork_quality_fanart(self):  # fanart follows the Fanart image quality, else the default
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_FANART
-        return IMAGEPATH_QUALITY_FANART[self.artwork_quality]
+        from tmdbhelper.lib.addon.plugin import get_artwork_quality
+        return IMAGEPATH_QUALITY_FANART[get_artwork_quality('fanart')]
 
     @property
     def artwork_quality_thumbs(self):

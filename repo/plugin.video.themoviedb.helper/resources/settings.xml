@@ -129,6 +129,34 @@
                     </constraints>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting id="artwork_quality_poster" type="integer" label="32786" help="32789">
+                    <level>0</level>
+                    <default>-1</default>
+                    <constraints>
+                        <options>
+                            <option label="32788">-1</option>
+                            <option label="32397">0</option>
+                            <option label="419">1</option>
+                            <option label="32398">2</option>
+                            <option label="418">3</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="artwork_quality_fanart" type="integer" label="32787" help="32790">
+                    <level>0</level>
+                    <default>-1</default>
+                    <constraints>
+                        <options>
+                            <option label="32788">-1</option>
+                            <option label="32397">0</option>
+                            <option label="419">1</option>
+                            <option label="32398">2</option>
+                            <option label="418">3</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
             </group>
         </category>
         <category id="navigation" label="32088" help="32602">

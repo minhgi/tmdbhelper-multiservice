@@ -44,11 +44,13 @@ IMAGEPATH_QUALITY_POSTER = [IMAGEPATH_LARGEPOSTER, IMAGEPATH_BASICPOSTER, IMAGEP
 IMAGEPATH_QUALITY_FANART = [IMAGEPATH_ORIGINAL, IMAGEPATH_LARGEFANART, IMAGEPATH_LARGEFANART, IAMGEPATH_SMALLFANART]
 IMAGEPATH_QUALITY_THUMBS = [IMAGEPATH_ORIGINAL, IMAGEPATH_LARGEFANART, IAMGEPATH_SMALLFANART, IAMGEPATH_SMALLFANART]
 IMAGEPATH_QUALITY_CLOGOS = [IMAGEPATH_ORIGINAL, IMAGEPATH_LARGELOGO, IMAGEPATH_LARGELOGO, IMAGEPATH_SMALLLOGO]
-ARTWORK_BLACKLIST = [
+ARTWORK_BLACKLIST_POSTER = ['poster', 'season.poster', 'tvshow.poster']  # fanart.tv posters are not allowed to replace TMDb's from poster quality 1 on
+ARTWORK_BLACKLIST_FANART = ['fanart', 'season.fanart', 'tvshow.fanart']  # fanart.tv fanart is not allowed to replace TMDb's from fanart quality 2 on
+ARTWORK_BLACKLIST = [  # per default quality, i.e. with no poster/fanart override
     [],
-    ['poster', 'season.poster', 'tvshow.poster'],
-    ['fanart', 'season.fanart', 'tvshow.fanart', 'poster', 'season.poster', 'tvshow.poster'],
-    ['fanart', 'season.fanart', 'tvshow.fanart', 'poster', 'season.poster', 'tvshow.poster']]
+    ARTWORK_BLACKLIST_POSTER,
+    ARTWORK_BLACKLIST_FANART + ARTWORK_BLACKLIST_POSTER,
+    ARTWORK_BLACKLIST_FANART + ARTWORK_BLACKLIST_POSTER]
 
 PLAYERS_URLENCODE = [
     'name', 'showname', 'clearname', 'tvshowtitle', 'title', 'thumbnail', 'poster', 'fanart',
