@@ -74,6 +74,7 @@ def _get_settings_salt(row=False):
         sort += '' if get_setting('fanarttv_enfallback') else '|enfb=0'  # default on
         sort += '|2nd=1' if get_setting('fanarttv_secondpref') else ''  # default off
         sort += '|enplot=1' if get_setting('force_english_plot_fallback') and lang[:2] != 'en' else ''  # default off; English plot fallback (GitHub issue #11), only for a language other than English
+        sort += f"|aq={get_setting('artwork_quality', 'int')}"  # the saved art holds the Artwork quality's image sizes (GitHub issue #9); always present, so every cache built before it (which held whatever quality was set then) is rebuilt once
         sort += '|fa=1' if fanarttv_art_enabled() else '|fa=0'  # fanart.tv art is shown only while a fanart.tv lookup option is on (7.0.80); always present, so every cache built before it is rebuilt once
         sort += '|hw=1' if get_setting('widgets_hidewatched') else '|hw=0'  # In Progress show paths changed in 7.0.74 and carry this setting; always present, so every cache built before it is rebuilt once
         sort += '|wftv=1' if not row and get_setting('widget_fanarttv_lookup') else ''  # default off (rows already carry the lookup setting below)

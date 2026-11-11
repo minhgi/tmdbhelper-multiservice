@@ -11,6 +11,8 @@ from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
 SORT_MODES = (32776, 32777)  # Source, Language (the string ids); the chosen index is remembered in the hidden setting artmgr_sort
 SOURCE_RANK = {'tmdb': 0, 'fanarttv': 1, 'tvdb': 2}  # the order the sources are listed in
 SOURCE_NAMES = {'tmdb': 'TMDb', 'fanarttv': 'fanart.tv', 'tvdb': 'TheTVDB'}
+TMDB_ART_TYPES = ('poster', 'fanart', 'landscape', 'clearlogo')  # what get_tmdb_art() can list
+TVDB_ART_TYPES = ('poster', 'fanart', 'banner', 'clearart', 'clearlogo')  # what get_tvdb_art() can list (api/tvdb/artwork.py LIST_KINDS)
 NO_LANGUAGE_CODES = ('', '00', 'null', 'none', 'xx')
 TMDB_TIER = re.compile(r'/t/p/(\w+)/')  # the size tier TMDbImagePath baked into the url, e.g. 'w500' or 'original'
 
@@ -203,10 +205,22 @@ class _ArtworkSelector():
                 continue
             return shown[choice - 1]['url']
 
+    def get_art_types(self, ftv_type):
+        """The artwork types the picker offers: the ones at least one source that is on can give, by the same conditions get_art_records() uses, so the
+        picker and the list never disagree. TMDb is always asked; fanart.tv (every type it has) only while a fanart.tv option is on; TheTVDB (movies and
+        shows only, not seasons) only while its setting is on (GitHub issue #9). The whole list if that would leave nothing."""
+        every = list(ARTWORK_TYPES.get(ftv_type, []))
+        if fanarttv_art_enabled():
+            return every
+        offered = set(TMDB_ART_TYPES)
+        if getattr(self, 'tvdb_art_api', None) and ftv_type in ('movies', 'tv'):
+            offered |= set(TVDB_ART_TYPES)
+        return [i for i in every if i in offered] or every
+
     def select_type(self, ftv_type, blacklist=None, item_artwork=None):
         if blacklist is None:
             blacklist = []
-        artwork_types = [i for i in ARTWORK_TYPES.get(ftv_type, []) if i not in blacklist]  # Remove types that we previously looked for
+        artwork_types = [i for i in self.get_art_types(ftv_type) if i not in blacklist]  # Remove types that we previously looked for
         ditems = [ListItem(label=i, art={'thumb': item_artwork.get(i)}).get_listitem() for i in artwork_types] if item_artwork else artwork_types
         choice = Dialog().select(get_localized(13511), ditems, useDetails=True if item_artwork else False)
         if choice == -1:

@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.84 — Complete Features & Functions Guide
+# TMDb Helper 7.0.85 — Complete Features & Functions Guide
 
-**Version:** 7.0.84 (Enhanced Fork — Personal Build)
+**Version:** 7.0.85 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.84_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.85_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.84. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.85. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -305,12 +305,17 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 
 ### Artwork Manager hides fanart.tv when no fanart.tv option is on (7.0.83)
 
-- **fanart.tv is listed in the Artwork Manager only while a fanart.tv option is on** (7.0.83). The Artwork Manager no longer lists fanart.tv artwork, and no longer asks fanart.tv for it, while all three fanart.tv options (lists and library, widgets, service) are off - the same way TheTVDB needs its own setting (GitHub issue #9). Turn on any one of them and fanart.tv is listed again, between TMDb and TheTVDB. The artwork type picker still offers the types only fanart.tv has (for movies: banner, clearart and discart), so picking one while fanart.tv is hidden, and TheTVDB is off or does not have that type, says that nothing was found.
+- **fanart.tv is listed in the Artwork Manager only while a fanart.tv option is on** (7.0.83). The Artwork Manager no longer lists fanart.tv artwork, and no longer asks fanart.tv for it, while all three fanart.tv options (lists and library, widgets, service) are off - the same way TheTVDB needs its own setting (GitHub issue #9). Turn on any one of them and fanart.tv is listed again, between TMDb and TheTVDB. From 7.0.85 the artwork type picker also hides the types that no active source can supply (see below).
 
 ### English plot fallback (7.0.84)
 
 - **English plot when your language has none** (7.0.84). Settings → General, right under *Language and country*: *English plot fallback* (**off by default**). When TMDb has no plot in your language, the English plot is shown instead of an empty space (GitHub issue #11). It only applies to a language other than English, and it only asks for the English plot for an item that has no plot in your language: one small extra request (no cast, images or other extras), kept like the rest of the TMDb data - about 0.1 seconds and 2 KB per item on a PC, once. Items that already have a plot cost nothing extra.
 - **Where it works, and what changes** (7.0.84). In lists and widgets it works where TMDb Helper looks up the item's details, which needs *Get additional details and artwork from TMDb* (or a fanart.tv option) to be on; with those off, rows keep the plot the list gave them. Turning the setting on or off makes lists and widgets rebuild once; items already built keep their empty plot until then. An episode with no plot in your language used to show the show's plot in your language; with this setting on it shows the episode's own English plot, so a list can mix English episode plots into your language. Only the plot is replaced - titles, taglines and other details stay in your language.
+
+### Artwork quality refresh and Artwork Manager type list (7.0.85)
+
+- **Changing the artwork quality now refreshes everything** (7.0.85). Lists, widgets, the skin and the background service used to keep the old *TMDb artwork quality* until their saved data expired or Kodi restarted. They now follow the setting as soon as you change it: widgets reload by themselves and the image sizes switch (GitHub issue #9). Widgets rebuild once after this update, because the saved widget data is now keyed by the quality.
+- **The Artwork Manager only offers artwork types a source can supply** (7.0.85). The type list in *Select artwork* shows only the types one of your active sources can give. TMDb always gives poster, fanart, landscape and clearlogo. fanart.tv adds its own types (for movies: banner, clearart, discart and keyart) only while one of its options is on. TheTVDB, when its setting is on, adds poster, fanart, banner, clearart and clearlogo for movies and shows (not seasons). So with the fanart.tv options off and TheTVDB on, a movie offers poster, fanart, landscape, banner, clearart and clearlogo; with fanart.tv on, the full list is offered as before.
 
 ## 3. First-Time Setup
 
@@ -726,7 +731,7 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 | Ignore region release filter | off | Lists are not limited to releases in your country |
 | Get additional details from the local Kodi library database | off | Adds watched state and local files for items also in your library |
 | Get additional details and artwork from TMDb | off | Extra details and artwork; off is faster but shows less |
-| TMDb artwork quality | Original | Size of artwork downloaded from TMDb (Original, High, Medium, Low) |
+| TMDb artwork quality | Original | Size of artwork downloaded from TMDb (Original, High, Medium, Low); changing it refreshes lists, widgets and the skin (7.0.85) |
 
 ### Navigation
 

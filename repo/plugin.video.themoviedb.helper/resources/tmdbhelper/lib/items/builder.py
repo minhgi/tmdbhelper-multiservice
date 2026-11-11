@@ -10,28 +10,34 @@ from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER, IMAGEPATH_QUAL
 from tmdbhelper.lib.addon.thread import ParallelThread
 from tmdbhelper.lib.addon.logger import TimerList, kodi_log
 
-ARTWORK_QUALITY = get_setting('artwork_quality', 'int')
-ARTWORK_QUALITY_FANART = IMAGEPATH_QUALITY_FANART[ARTWORK_QUALITY]
-ARTWORK_QUALITY_THUMBS = IMAGEPATH_QUALITY_THUMBS[ARTWORK_QUALITY]
-ARTWORK_QUALITY_CLOGOS = IMAGEPATH_QUALITY_CLOGOS[ARTWORK_QUALITY]
-ARTWORK_QUALITY_POSTER = IMAGEPATH_QUALITY_POSTER[ARTWORK_QUALITY]
-IMAGEPATH_MAP = {
-    "fanart": ARTWORK_QUALITY_FANART,
-    "tvshow.fanart": ARTWORK_QUALITY_FANART,
-    "season.fanart": ARTWORK_QUALITY_FANART,
-    "landscape": ARTWORK_QUALITY_THUMBS,
-    "tvshow.landscape": ARTWORK_QUALITY_THUMBS,
-    "season.landscape": ARTWORK_QUALITY_THUMBS,
-    "clearlogo": ARTWORK_QUALITY_CLOGOS,
-    "tvshow.clearlogo": ARTWORK_QUALITY_CLOGOS,
-    "season.clearlogo": ARTWORK_QUALITY_CLOGOS,
-    "thumb": ARTWORK_QUALITY_THUMBS,
-    "tvshow.thumb": ARTWORK_QUALITY_THUMBS,
-    "season.thumb": ARTWORK_QUALITY_THUMBS,
-    "poster": ARTWORK_QUALITY_POSTER,
-    "tvshow.poster": ARTWORK_QUALITY_POSTER,
-    "season.poster": ARTWORK_QUALITY_POSTER
+IMAGEPATH_KEYS = {  # art key -> which of the quality tables it follows
+    "fanart": IMAGEPATH_QUALITY_FANART,
+    "tvshow.fanart": IMAGEPATH_QUALITY_FANART,
+    "season.fanart": IMAGEPATH_QUALITY_FANART,
+    "landscape": IMAGEPATH_QUALITY_THUMBS,
+    "tvshow.landscape": IMAGEPATH_QUALITY_THUMBS,
+    "season.landscape": IMAGEPATH_QUALITY_THUMBS,
+    "clearlogo": IMAGEPATH_QUALITY_CLOGOS,
+    "tvshow.clearlogo": IMAGEPATH_QUALITY_CLOGOS,
+    "season.clearlogo": IMAGEPATH_QUALITY_CLOGOS,
+    "thumb": IMAGEPATH_QUALITY_THUMBS,
+    "tvshow.thumb": IMAGEPATH_QUALITY_THUMBS,
+    "season.thumb": IMAGEPATH_QUALITY_THUMBS,
+    "poster": IMAGEPATH_QUALITY_POSTER,
+    "tvshow.poster": IMAGEPATH_QUALITY_POSTER,
+    "season.poster": IMAGEPATH_QUALITY_POSTER
 }
+
+
+def get_artwork_quality():
+    """The Artwork quality setting, read live and never at import: a long-running process (the service) must follow a change (GitHub issue #9)."""
+    quality = get_setting('artwork_quality', 'int')
+    return quality if 0 <= quality < len(IMAGEPATH_QUALITY_POSTER) else 0
+
+
+def get_imagepath_map(quality):
+    """Art key -> image path for a quality (0 original ... 3 low)."""
+    return {k: table[quality] for k, table in IMAGEPATH_KEYS.items()}
 CACHE_DAYS = 10000
 BACKFILL_BLACKLIST = ['poster']
 
@@ -49,10 +55,11 @@ def _tvdb_thumb_fits(tmdb_imagepath, kind):
     return bool(match) and TVDB_THUMB_WIDTH[kind] >= TVDB_THUMB_MIN_SHARE * int(match.group(1))
 
 
-TVDB_USE_THUMB = {
-    'clearlogo': _tvdb_thumb_fits(ARTWORK_QUALITY_CLOGOS, 'clearlogo'),
-    'fanart': _tvdb_thumb_fits(ARTWORK_QUALITY_FANART, 'fanart'),
-}
+def get_tvdb_use_thumb(quality):
+    return {
+        'clearlogo': _tvdb_thumb_fits(IMAGEPATH_QUALITY_CLOGOS[quality], 'clearlogo'),
+        'fanart': _tvdb_thumb_fits(IMAGEPATH_QUALITY_FANART[quality], 'fanart'),
+    }
 
 
 class ItemBuilder(_ArtworkSelector):
@@ -91,7 +98,8 @@ class ItemBuilder(_ArtworkSelector):
 
     def map_artwork(self, artwork):
         """ Remaps artwork from TMDb to expected quality """
-        return {k: self._regex.sub(IMAGEPATH_MAP[k], v) for k, v in artwork.items() if v and k in IMAGEPATH_MAP}
+        imagepath_map = get_imagepath_map(get_artwork_quality())
+        return {k: self._regex.sub(imagepath_map[k], v) for k, v in artwork.items() if v and k in imagepath_map}
 
     def join_base_artwork(self, base_artwork, base_items, prefix='', backfill=False):
         for k, v in base_artwork.items():
@@ -152,7 +160,7 @@ class ItemBuilder(_ArtworkSelector):
     def _get_tmdb_artwork(self, item):
         if not item or 'artwork' not in item:
             return {}
-        return item['artwork'].setdefault(ARTWORK_QUALITY, self.map_artwork(item['artwork'].get('tmdb')) or {})
+        return item['artwork'].setdefault(get_artwork_quality(), self.map_artwork(item['artwork'].get('tmdb')) or {})
 
     def get_artwork(self, item, tmdb_type, season=None, episode=None, base_item=None, prefix='', ftv_art=None):
         if not item:
@@ -161,7 +169,7 @@ class ItemBuilder(_ArtworkSelector):
         # TMDb Artwork reconfigure quality and merge base_item
         item_artwork = self._get_tmdb_artwork(item)
         item_artwork = self.join_base_artwork(self._get_tmdb_artwork(base_item), item_artwork, prefix=prefix, backfill=True)
-        item['artwork'][ARTWORK_QUALITY] = item_artwork
+        item['artwork'][get_artwork_quality()] = item_artwork
 
         # FanartTV retrieve artwork and merge base_item
         ftv_art = ftv_art or item['artwork'].setdefault('fanarttv', {})
@@ -204,7 +212,7 @@ class ItemBuilder(_ArtworkSelector):
                     base_is_season=base_is_season),
                 'expires': self._timestamp(),
                 'artwork': {}}
-            item['artwork']['tmdb'] = item['artwork'][ARTWORK_QUALITY] = item['listitem'].pop('art')
+            item['artwork']['tmdb'] = item['artwork'][get_artwork_quality()] = item['listitem'].pop('art')
             if manual_art:
                 item['artwork']['manual'] = manual_art
             item['listitem']['art'] = {}
@@ -247,7 +255,7 @@ class ItemBuilder(_ArtworkSelector):
             if not base_item or self._timeint(base_item['expires']) <= self._timeint(item['expires']):  # No new details in parent item
                 # Check that we aren't missing any artwork or need to remap artwork quality
                 if not self.ftv_api or item['artwork'].get('fanarttv'):  # We have fanarttv artwork (or user disabled fanarttv)
-                    if item['artwork'].get(ARTWORK_QUALITY) and not self._needs_tvdb(item):  # We also have artwork at the correct quality level (and TVDB, if on, has been asked)
+                    if item['artwork'].get(get_artwork_quality()) and not self._needs_tvdb(item):  # We also have artwork at the correct quality level (and TVDB, if on, has been asked)
                         return item  # Our item is up-to-date so we return it
                 # Else we've got current item details but we need to grab some artwork or remap quality
                 prefix = 'tvshow.' if season is not None and episode is None else ''  # Seasons should map tvshow art with prefix
@@ -297,7 +305,8 @@ class ItemBuilder(_ArtworkSelector):
                     continue
                 art_dict[k] = v
         art_dict = {} if art_dict is None else art_dict
-        tmdb_art = artwork.get(ARTWORK_QUALITY) or self.map_artwork(artwork.get('tmdb', {}))
+        quality = get_artwork_quality()
+        tmdb_art = artwork.get(quality) or self.map_artwork(artwork.get('tmdb', {}))
         if not (self.ftv_art_forced or fanarttv_art_enabled()):  # no fanart.tv option is on: TMDb art only (GitHub issue #9); the saved value of "Prefer TMDb first" does not matter then
             set_artwork(tmdb_art)
         elif get_setting('fanarttv_secondpref'):  # read now, not at import: a long-running service must follow a settings change
@@ -305,13 +314,14 @@ class ItemBuilder(_ArtworkSelector):
             set_artwork(tmdb_art, blacklist=['landscape'] if is_season else [])
         else:
             set_artwork(tmdb_art)
-            set_artwork(artwork.get('fanarttv'), blacklist=ARTWORK_BLACKLIST[ARTWORK_QUALITY])
+            set_artwork(artwork.get('fanarttv'), blacklist=ARTWORK_BLACKLIST[quality])
         if self.tvdb_art_enabled:  # gap-fill only: never replaces TMDb, fanart.tv or manual art. Read-time gate so turning the setting off takes effect at once
+            tvdb_use_thumb = get_tvdb_use_thumb(quality)
             tvdb_art = artwork.get('tvdb') or {}
             for k, v in tvdb_art.items():
                 if k.endswith(TVDB_THUMB_SUFFIX):  # the smaller image of the key before it, picked below
                     continue
-                if TVDB_USE_THUMB.get(k.rsplit('.', 1)[-1]):  # items built before 7.0.70 have no thumbnail: they keep the full image
+                if tvdb_use_thumb.get(k.rsplit('.', 1)[-1]):  # items built before 7.0.70 have no thumbnail: they keep the full image
                     v = tvdb_art.get(f'{k}{TVDB_THUMB_SUFFIX}') or v
                 if v and not art_dict.get(k):
                     art_dict[k] = v

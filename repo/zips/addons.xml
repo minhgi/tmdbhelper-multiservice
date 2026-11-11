@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <addons><addon id="plugin.video.themoviedb.helper"
-version="7.0.84"
+version="7.0.85"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.85
+- Fixed: changing the artwork quality in the settings now refreshes the artwork (GitHub issue #9). Widgets are saved per quality and the skin reloads its widgets when the quality changes, and the background service follows the setting at once instead of keeping the quality it started with. Widgets rebuild once after this update.
+- Changed: the Artwork Manager only offers the artwork types that one of your sources can give. TMDb always gives poster, fanart, landscape and clearlogo; banner, clearart, discart, keyart and character art need a fanart.tv option on (clearart and banner also come from TheTVDB when its setting is on, for movies and shows).
+
 v7.0.84
 - New: "English plot fallback" (Settings > General, right under Language; off by default). When TMDb has no plot in your language, the English plot is shown instead of an empty space. It is only asked for items that have no plot in your language, so everything else loads as before. It works where TMDb Helper looks up an item's details: in lists and widgets that needs "Get additional details and artwork from TMDb" (or a fanart.tv lookup) turned on. Turning it on or off rebuilds lists and widgets.
 

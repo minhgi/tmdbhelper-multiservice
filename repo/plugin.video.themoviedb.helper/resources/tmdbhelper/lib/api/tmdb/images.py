@@ -2,28 +2,30 @@ from tmdbhelper.lib.files.ftools import cached_property
 
 
 class TMDbImagePath:
+    """ The quality-dependent paths are read live (plain properties, not cached): one instance lives as long as its mapper, and a long-running
+    process (the service) must follow a change of the Artwork quality setting (GitHub issue #9). """
 
-    @cached_property
+    @property
     def artwork_quality(self):
         from tmdbhelper.lib.addon.plugin import get_setting
         return get_setting('artwork_quality', 'int')
 
-    @cached_property
+    @property
     def artwork_quality_poster(self):
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_POSTER
         return IMAGEPATH_QUALITY_POSTER[self.artwork_quality]
 
-    @cached_property
+    @property
     def artwork_quality_fanart(self):
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_FANART
         return IMAGEPATH_QUALITY_FANART[self.artwork_quality]
 
-    @cached_property
+    @property
     def artwork_quality_thumbs(self):
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_THUMBS
         return IMAGEPATH_QUALITY_THUMBS[self.artwork_quality]
 
-    @cached_property
+    @property
     def artwork_quality_clogos(self):
         from tmdbhelper.lib.addon.consts import IMAGEPATH_QUALITY_CLOGOS
         return IMAGEPATH_QUALITY_CLOGOS[self.artwork_quality]

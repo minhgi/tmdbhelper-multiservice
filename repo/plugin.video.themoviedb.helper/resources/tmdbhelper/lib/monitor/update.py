@@ -9,7 +9,8 @@ WIDGET_SETTINGS = (
 
 def get_widget_settings_state():
     from tmdbhelper.lib.addon.plugin import get_setting, get_language
-    return (get_language(),) + tuple(bool(get_setting(i)) for i in WIDGET_SETTINGS)
+    # artwork_quality is a number (0-3): its own element, because bool() would not tell 1, 2 and 3 apart
+    return (get_language(),) + tuple(bool(get_setting(i)) for i in WIDGET_SETTINGS) + (get_setting('artwork_quality', 'int'),)
 
 
 class UpdateMonitor(xbmc.Monitor):
