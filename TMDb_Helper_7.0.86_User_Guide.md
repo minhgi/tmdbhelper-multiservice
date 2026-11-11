@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.85 — Complete Features & Functions Guide
+# TMDb Helper 7.0.86 — Complete Features & Functions Guide
 
-**Version:** 7.0.85 (Enhanced Fork — Personal Build)
+**Version:** 7.0.86 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.85_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.86_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.85. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.86. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -316,6 +316,11 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 
 - **Changing the artwork quality now refreshes everything** (7.0.85). Lists, widgets, the skin and the background service used to keep the old *TMDb artwork quality* until their saved data expired or Kodi restarted. They now follow the setting as soon as you change it: widgets reload by themselves and the image sizes switch (GitHub issue #9). Widgets rebuild once after this update, because the saved widget data is now keyed by the quality.
 - **The Artwork Manager only offers artwork types a source can supply** (7.0.85). The type list in *Select artwork* shows only the types one of your active sources can give. TMDb always gives poster, fanart, landscape and clearlogo. fanart.tv adds its own types (for movies: banner, clearart, discart and keyart) only while one of its options is on. TheTVDB, when its setting is on, adds poster, fanart, banner, clearart and clearlogo for movies and shows (not seasons). So with the fanart.tv options off and TheTVDB on, a movie offers poster, fanart, landscape, banner, clearart and clearlogo; with fanart.tv on, the full list is offered as before.
+
+### English plot fallback for seasons and people (7.0.86)
+
+- **The English plot fallback now also covers the season list and a person's biography** (7.0.86). With *English plot fallback* on and a language other than English, a season in a show's season list that has no plot in your language shows its own English plot when TMDb has one (before, it showed the show's plot). A person with no biography in your language gets the English biography wherever TMDb Helper loads that person's details (GitHub issue #11). The season list costs one extra small request per show (the show's English data, which lists every season's plot), kept in the cache; a season that has no English plot either keeps showing the show's plot. Lists and widgets rebuild once after this update when the setting is on.
+- **Cast lists and biographies** (7.0.86). A cast list shows a biography only for some of the people, even in English; that is unchanged. The fallback applies to the people whose details TMDb Helper loads, such as the person you open.
 
 ## 3. First-Time Setup
 
@@ -727,7 +732,7 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 |---|---|---|
 | MPAA rating prefix | `Rated` | Text added before the rating (PG → "Rated PG"); cached items need a refresh |
 | Language and country | English (US) | Language and country used for TMDb and Trakt lookups |
-| English plot fallback | off | When TMDb has no plot in your language, shows the English plot instead (7.0.84); in lists and widgets it needs *Get additional details and artwork from TMDb* on |
+| English plot fallback | off | When TMDb has no plot in your language, shows the English plot instead (7.0.84; also for the seasons in a season list and for a person's biography, 7.0.86); in lists and widgets it needs *Get additional details and artwork from TMDb* on |
 | Ignore region release filter | off | Lists are not limited to releases in your country |
 | Get additional details from the local Kodi library database | off | Adds watched state and local files for items also in your library |
 | Get additional details and artwork from TMDb | off | Extra details and artwork; off is faster but shows less |

@@ -224,9 +224,9 @@ class ItemBuilder(_ArtworkSelector):
         # Added to the name only when OFF (the default is on), like the language: existing caches stay valid, a change starts a fresh build.
         fallback = '' if not salted or getattr(self.tmdb_api, 'artlang_fallback', True) else '.nofb'
         # English plot fallback (GitHub issue #11) is baked into the stored plot: added only when ON (the default is off) and only for a language other
-        # than English, so existing caches stay valid and a change starts a fresh build
+        # than English, so existing caches stay valid and a change starts a fresh build (2 = since 7.0.86, which also fills person biographies)
         if salted and language[:2] != 'en' and get_setting('force_english_plot_fallback'):
-            fallback += '.enplot'
+            fallback += '.enplot2'
         return f'v2.{language}{fallback}.{tmdb_type}.{tmdb_id}.{season}.{episode}'
 
     def get_item(self, tmdb_type, tmdb_id, season=None, episode=None, cache_refresh=False):

@@ -116,7 +116,8 @@ def get_season_list(self, tmdb_id, special_folders=0, get_detailed=False):
         return []
     base_item = self.mapper.get_info(request, 'tv')
     items, items_end = [], []
-    for i in request.get('seasons', []):
+    from tmdbhelper.lib.api.tmdb.methods.details import get_seasons_plot_fallback
+    for i in get_seasons_plot_fallback(self, tmdb_id, request.get('seasons', [])):  # English plot fallback (GitHub issue #11), only when that setting is on
         item = self.mapper.get_info(i, 'season', base_item, definition=TMDB_PARAMS_SEASONS, tmdb_id=tmdb_id)
         if i.get('season_number') != 0:
             items.append(item)

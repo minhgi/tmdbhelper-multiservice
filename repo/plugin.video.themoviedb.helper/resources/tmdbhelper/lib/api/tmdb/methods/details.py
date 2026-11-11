@@ -199,7 +199,8 @@ def get_details_request(self, tmdb_type, tmdb_id, season=None, episode=None, cac
         tmdb_type, tmdb_id, *path_affix,
         append_to_response=self.append_to_response, cache_refresh=cache_refresh
     ) or {}
-    if not plot_fallback or not details or (details.get('overview') or '').strip():
+    text_key = 'biography' if tmdb_type == 'person' else 'overview'  # a person's "plot" is the biography (GitHub issue #11)
+    if not plot_fallback or not details or (details.get(text_key) or '').strip():
         return details
     # English plot fallback (GitHub issue #11; setting "force_english_plot_fallback", off by default): TMDb answers an untranslated plot with an empty one.
     # Only then, and only for a language other than English, ask TMDb once more for the plain English details (no append_to_response, so the answer is small).
@@ -211,8 +212,24 @@ def get_details_request(self, tmdb_type, tmdb_id, season=None, episode=None, cac
         tmdb_type, tmdb_id, *path_affix,
         language='en-US', cache_days=CACHE_MEDIUM, cache_refresh=cache_refresh
     ) or {}
-    plot = (english.get('overview') or '').strip()
-    return {**details, 'overview': plot} if plot else details  # a new dict: the cached answer in the request cache is left as TMDb sent it
+    plot = (english.get(text_key) or '').strip()
+    return {**details, text_key: plot} if plot else details  # a new dict: the cached answer in the request cache is left as TMDb sent it
+
+
+def get_seasons_plot_fallback(self, tmdb_id, seasons):
+    """ English plot fallback for the rows of a seasons list (GitHub issue #11; same setting and rules as get_details_request).
+    A show's response lists its seasons with their plots, so ONE English request for the show fills every season that has none in the
+    user's language. Returns a new list when something was filled, otherwise the list it was given. """
+    if not seasons or self.iso_language == 'en' or not get_setting('force_english_plot_fallback'):
+        return seasons
+    if all((i.get('overview') or '').strip() for i in seasons):
+        return seasons
+    english = self.get_request('tv', tmdb_id, language='en-US', cache_days=CACHE_MEDIUM) or {}
+    plots = {i.get('season_number'): (i.get('overview') or '').strip() for i in english.get('seasons') or []}
+    return [
+        {**i, 'overview': plots[i.get('season_number')]}
+        if not (i.get('overview') or '').strip() and plots.get(i.get('season_number')) else i
+        for i in seasons]
 
 
 def get_details(self, tmdb_type, tmdb_id, season=None, episode=None, **kwargs):

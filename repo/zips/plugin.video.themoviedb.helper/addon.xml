@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.85"
+version="7.0.86"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.86
+- Changed: the English plot fallback now also covers the plot (biography) of people, such as cast members, and the plots of the seasons in a show's season list (GitHub issue #11). It still only applies when "English plot fallback" is on and your language is not English, and only for items that have no plot in your language. The season list needs one extra small request per show, kept in the cache. Lists and widgets rebuild once after this update when the setting is on.
+
 v7.0.85
 - Fixed: changing the artwork quality in the settings now refreshes the artwork (GitHub issue #9). Widgets are saved per quality and the skin reloads its widgets when the quality changes, and the background service follows the setting at once instead of keeping the quality it started with. Widgets rebuild once after this update.
 - Changed: the Artwork Manager only offers the artwork types that one of your sources can give. TMDb always gives poster, fanart, landscape and clearlogo; banner, clearart, discart, keyart and character art need a fanart.tv option on (clearart and banner also come from TheTVDB when its setting is on, for movies and shows).
