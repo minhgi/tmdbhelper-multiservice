@@ -128,7 +128,7 @@ def _confirm(tmdb_api, media, record):
         return None
     movie_first = media.get('format') == 'MOVIE' or record.get('media') == 'MOVIE'
     for position, tmdb_type in enumerate(('movie', 'tv') if movie_first else ('tv', 'movie')):
-        details = tmdb_api.get_details_request(tmdb_type, tmdb_id)
+        details = tmdb_api.get_details_request(tmdb_type, tmdb_id, plot_fallback=False)  # only ids and the year are read here
         if not details or _first_int(details.get('id')) != tmdb_id:
             continue   # not an id of this kind: try the other kind
         if details.get('original_language') != 'ja':
@@ -152,7 +152,7 @@ def _confirm_fribb(tmdb_api, media, record):
     kind = record['kind']
     movie_format = media.get('format') == 'MOVIE'
     for tmdb_id in record['ids']:
-        details = tmdb_api.get_details_request(kind, tmdb_id)
+        details = tmdb_api.get_details_request(kind, tmdb_id, plot_fallback=False)  # only ids and the year are read here
         if not details or _first_int(details.get('id')) != tmdb_id or details.get('original_language') != 'ja':
             continue
         if (kind == 'movie') != movie_format:

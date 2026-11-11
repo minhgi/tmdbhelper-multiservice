@@ -1,6 +1,7 @@
 from urllib.parse import quote_plus
 from jurialmunkey.parser import try_int
 from tmdbhelper.lib.addon.consts import CACHE_SHORT, CACHE_MEDIUM
+from tmdbhelper.lib.addon.plugin import get_setting
 
 
 def get_genres(self):
@@ -119,7 +120,7 @@ def get_tmdb_id_from_query(self, tmdb_type, query, header=None, use_details=Fals
 
 
 def get_collection_tmdb_id(self, tmdb_id):
-    details = self.get_details_request('movie', tmdb_id) if tmdb_id else None
+    details = self.get_details_request('movie', tmdb_id, plot_fallback=False) if tmdb_id else None  # only the collection id is read
     try:
         return details['belongs_to_collection']['id']
     except (KeyError, TypeError):
@@ -188,16 +189,30 @@ def get_tvshow_nextaired(self, tmdb_id):
     return _get_formatted(infoproperties)
 
 
-def get_details_request(self, tmdb_type, tmdb_id, season=None, episode=None, cache_refresh=False):
+def get_details_request(self, tmdb_type, tmdb_id, season=None, episode=None, cache_refresh=False, plot_fallback=True):
     path_affix = []
     if season is not None:
         path_affix += ['season', season]
     if season is not None and episode is not None:
         path_affix += ['episode', episode]
-    return self.get_request_lc(
+    details = self.get_request_lc(
         tmdb_type, tmdb_id, *path_affix,
         append_to_response=self.append_to_response, cache_refresh=cache_refresh
     ) or {}
+    if not plot_fallback or not details or (details.get('overview') or '').strip():
+        return details
+    # English plot fallback (GitHub issue #11; setting "force_english_plot_fallback", off by default): TMDb answers an untranslated plot with an empty one.
+    # Only then, and only for a language other than English, ask TMDb once more for the plain English details (no append_to_response, so the answer is small).
+    # Not get_request_lc(): it forces the add-on language onto every request (configure_request_kwargs), which would just fetch the same empty plot again.
+    # Read live, never cached: a long-running service must follow a settings change.
+    if self.iso_language == 'en' or not get_setting('force_english_plot_fallback'):
+        return details
+    english = self.get_request(
+        tmdb_type, tmdb_id, *path_affix,
+        language='en-US', cache_days=CACHE_MEDIUM, cache_refresh=cache_refresh
+    ) or {}
+    plot = (english.get('overview') or '').strip()
+    return {**details, 'overview': plot} if plot else details  # a new dict: the cached answer in the request cache is left as TMDb sent it
 
 
 def get_details(self, tmdb_type, tmdb_id, season=None, episode=None, **kwargs):

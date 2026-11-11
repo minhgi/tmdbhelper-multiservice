@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <addons><addon id="plugin.video.themoviedb.helper"
-version="7.0.82"
+version="7.0.84"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,12 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.84
+- New: "English plot fallback" (Settings > General, right under Language; off by default). When TMDb has no plot in your language, the English plot is shown instead of an empty space. It is only asked for items that have no plot in your language, so everything else loads as before. It works where TMDb Helper looks up an item's details: in lists and widgets that needs "Get additional details and artwork from TMDb" (or a fanart.tv lookup) turned on. Turning it on or off rebuilds lists and widgets.
+
+v7.0.83
+- Changed: the Artwork Manager no longer lists fanart.tv artwork (and no longer asks fanart.tv for it) while all three fanart.tv lookup options are off. Turn on any one of them to have fanart.tv listed again, the same way TheTVDB needs its own setting.
+
 v7.0.82
 - Fixed: the size shown for a TMDb image in the Artwork Manager was always its full native resolution, even though your Quality setting downloads a smaller version. It now shows the size that will actually be used.
 

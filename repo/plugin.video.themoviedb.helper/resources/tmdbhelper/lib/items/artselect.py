@@ -4,7 +4,7 @@ from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.items.listitem import ListItem
 from tmdbhelper.lib.api.fanarttv.api import ARTWORK_TYPES, NO_LANGUAGE, get_encoded_url
 from tmdbhelper.lib.addon.dialog import BusyDialog
-from tmdbhelper.lib.addon.plugin import get_localized, executebuiltin, get_setting, set_setting
+from tmdbhelper.lib.addon.plugin import get_localized, executebuiltin, get_setting, set_setting, fanarttv_art_enabled
 from tmdbhelper.lib.addon.consts import CACHE_SHORT
 from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
 
@@ -98,6 +98,10 @@ class _ArtworkSelector():
             'disp_width': width if disp_width is None else int(disp_width or 0), 'disp_height': height if disp_height is None else int(disp_height or 0)}
 
     def get_ftv_art(self, ftv_type, ftv_id, artwork_type, season=None, group=0):
+        """fanart.tv's art of this type. Not offered (and not asked for) while none of the three fanart.tv lookup options is on, like TheTVDB without its
+        setting (GitHub issue #9)."""
+        if not fanarttv_art_enabled():
+            return []
         ftv_items = self.ftv_api.get_all_artwork(ftv_id, ftv_type, season=season, artlist_type=artwork_type, season_type='season_only')
         return [
             self._art_record('fanarttv', get_encoded_url(i), None, i.get('lang'), i.get('likes'), f'{i.get("likes", 0)} likes', group=group)

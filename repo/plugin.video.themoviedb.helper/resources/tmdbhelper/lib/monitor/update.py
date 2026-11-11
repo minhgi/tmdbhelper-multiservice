@@ -4,7 +4,7 @@ import xbmc
 # (items/widget_cache.py), but a skin only asks for its widgets again when told to, so a change has to nudge the skins.
 WIDGET_SETTINGS = (
     'fanarttv_enfallback', 'fanarttv_secondpref', 'fanarttv_lookup', 'widget_fanarttv_lookup',
-    'service_fanarttv_lookup', 'tvdb_artwork')
+    'service_fanarttv_lookup', 'tvdb_artwork', 'force_english_plot_fallback')
 
 
 def get_widget_settings_state():

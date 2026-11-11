@@ -3996,3 +3996,11 @@ msgstr ""
 msgctxt "#32783"
 msgid "Show only your language, English and no language"
 msgstr ""
+
+msgctxt "#32784"
+msgid "English plot fallback"
+msgstr ""
+
+msgctxt "#32785"
+msgid "Off by default. When TMDb has no plot in your language, shows the English plot instead. Only used for a language other than English. TMDb Helper asks for the English plot only for an item with no plot in your language (one small extra request, kept like the rest of the TMDb data), so items that already have a plot cost nothing extra. It applies where TMDb Helper looks up the item's details: in lists and widgets that needs "Get additional details and artwork from TMDb" (or a fanart.tv lookup) turned on, otherwise rows keep the plot the list gave them. Items already built keep their empty plot until they are rebuilt; turning this on or off makes lists and widgets rebuild."
+msgstr ""

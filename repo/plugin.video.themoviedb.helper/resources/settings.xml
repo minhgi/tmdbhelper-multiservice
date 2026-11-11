@@ -92,6 +92,11 @@
                         <heading>32005</heading>
                     </control>
                 </setting>
+                <setting id="force_english_plot_fallback" type="boolean" label="32784" help="32785">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="ignore_regionreleasefilter" type="boolean" label="32449" help="32610">
                     <level>0</level>
                     <default>false</default>

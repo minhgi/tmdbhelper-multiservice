@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.82 — Complete Features & Functions Guide
+# TMDb Helper 7.0.84 — Complete Features & Functions Guide
 
-**Version:** 7.0.82 (Enhanced Fork — Personal Build)
+**Version:** 7.0.84 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.82_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.84_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.82. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.84. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -302,6 +302,15 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 ### Artwork Manager shows the size you'll actually get (7.0.82)
 
 - **A row's size is what your Quality setting downloads, not TMDb's full resolution** (7.0.82). A TMDb row's size used to be the image's full, original resolution even though your Quality setting downloads a smaller version - on Medium a poster could read 4332x6064 when the file actually fetched is 500x751. The size shown is now the one your Quality setting really uses. fanart.tv rows still show `?`, since fanart.tv never reports a size; TheTVDB rows show TheTVDB's own full size, since Artwork Manager always uses TheTVDB's image at full size regardless of your Quality setting.
+
+### Artwork Manager hides fanart.tv when no fanart.tv option is on (7.0.83)
+
+- **fanart.tv is listed in the Artwork Manager only while a fanart.tv option is on** (7.0.83). The Artwork Manager no longer lists fanart.tv artwork, and no longer asks fanart.tv for it, while all three fanart.tv options (lists and library, widgets, service) are off - the same way TheTVDB needs its own setting (GitHub issue #9). Turn on any one of them and fanart.tv is listed again, between TMDb and TheTVDB. The artwork type picker still offers the types only fanart.tv has (for movies: banner, clearart and discart), so picking one while fanart.tv is hidden, and TheTVDB is off or does not have that type, says that nothing was found.
+
+### English plot fallback (7.0.84)
+
+- **English plot when your language has none** (7.0.84). Settings → General, right under *Language and country*: *English plot fallback* (**off by default**). When TMDb has no plot in your language, the English plot is shown instead of an empty space (GitHub issue #11). It only applies to a language other than English, and it only asks for the English plot for an item that has no plot in your language: one small extra request (no cast, images or other extras), kept like the rest of the TMDb data - about 0.1 seconds and 2 KB per item on a PC, once. Items that already have a plot cost nothing extra.
+- **Where it works, and what changes** (7.0.84). In lists and widgets it works where TMDb Helper looks up the item's details, which needs *Get additional details and artwork from TMDb* (or a fanart.tv option) to be on; with those off, rows keep the plot the list gave them. Turning the setting on or off makes lists and widgets rebuild once; items already built keep their empty plot until then. An episode with no plot in your language used to show the show's plot in your language; with this setting on it shows the episode's own English plot, so a list can mix English episode plots into your language. Only the plot is replaced - titles, taglines and other details stay in your language.
 
 ## 3. First-Time Setup
 
@@ -553,7 +562,7 @@ Right-click (or long-press) an item to see these TMDb Helper entries. Each can b
 | **MDBList options** | Watched / unwatched, unwatched seasons and episodes (shows, 7.0.77), watchlist, collection, rating, add or remove from a list, drop show, reset resume position |
 | **Simkl options** | Mark watched / unwatched, unwatched seasons (shows, 7.0.77), plan to watch, hold, drop, set as watching, rating |
 | **TMDb user options** | Your TMDb favourites, watchlist, rating and lists |
-| **Manage artwork** | Choose artwork for the item from TMDb, fanart.tv and TheTVDB, sorted by source or language, with an option to show every language (7.0.81) |
+| **Manage artwork** | Choose artwork for the item from TMDb, fanart.tv (listed only while a fanart.tv option is on, 7.0.83) and TheTVDB, sorted by source or language, with an option to show every language (7.0.81) |
 | **Refresh details** | Reload the item's details |
 | **Add to library** | Save the item to your Kodi library (section 13) |
 | **Add/Remove as Custom Node** | Save a list as a *Nodes* entry |
@@ -713,6 +722,7 @@ All settings are visible at the **Standard** level. Defaults below are the shipp
 |---|---|---|
 | MPAA rating prefix | `Rated` | Text added before the rating (PG → "Rated PG"); cached items need a refresh |
 | Language and country | English (US) | Language and country used for TMDb and Trakt lookups |
+| English plot fallback | off | When TMDb has no plot in your language, shows the English plot instead (7.0.84); in lists and widgets it needs *Get additional details and artwork from TMDb* on |
 | Ignore region release filter | off | Lists are not limited to releases in your country |
 | Get additional details from the local Kodi library database | off | Adds watched state and local files for items also in your library |
 | Get additional details and artwork from TMDb | off | Extra details and artwork; off is faster but shows less |
