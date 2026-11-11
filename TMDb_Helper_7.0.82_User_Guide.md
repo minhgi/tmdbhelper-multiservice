@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.81 — Complete Features & Functions Guide
+# TMDb Helper 7.0.82 — Complete Features & Functions Guide
 
-**Version:** 7.0.81 (Enhanced Fork — Personal Build)
+**Version:** 7.0.82 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.81_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.82_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.81. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.82. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -295,9 +295,13 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 ### Artwork Manager: TheTVDB, sorting and every language (7.0.81)
 
 - **TheTVDB rows in the Artwork Manager** (7.0.81). With *Fill missing clearlogos and fanart from TheTVDB* on, the Artwork Manager also lists TheTVDB posters, fanart, banners, clearart and clearlogos for movies and shows (not for seasons or landscape; a movie needs an IMDb id). TheTVDB is asked once per title and the answer is kept for 30 days; the first open takes a few seconds.
-- **Every row shows where the picture comes from** (7.0.81). A row reads, for example, `TMDb | EN | 4332x6064 | 1.2 (4 votes)`: source, language, size and score.
+- **Every row shows where the picture comes from** (7.0.81). A row reads, for example, `TMDb | EN | 500x751 | 1.2 (4 votes)`: source, language, size and score — the size is what your Quality setting actually downloads, not TMDb's full resolution (7.0.82).
 - **A Sort by row, remembered** (7.0.81). The list starts with a **Sort by** row. Choose *Source (TMDb, fanart.tv, TheTVDB), then language* or *Language, then source*, and switch between *Show only your language, English and no language* and *Show every language*. Your language comes first, then English, then no language, then the others by code. Inside each group larger images come first (fanart.tv gives no size, so those go last). Your last choice is kept, also after a restart.
 - **The Artwork Manager can show every TMDb language** (7.0.81). Its TMDb request used to ask TMDb only for your language, so other languages could never appear. It now asks without that limit.
+
+### Artwork Manager shows the size you'll actually get (7.0.82)
+
+- **A row's size is what your Quality setting downloads, not TMDb's full resolution** (7.0.82). A TMDb row's size used to be the image's full, original resolution even though your Quality setting downloads a smaller version - on Medium a poster could read 4332x6064 when the file actually fetched is 500x751. The size shown is now the one your Quality setting really uses. fanart.tv rows still show `?`, since fanart.tv never reports a size; TheTVDB rows show TheTVDB's own full size, since Artwork Manager always uses TheTVDB's image at full size regardless of your Quality setting.
 
 ## 3. First-Time Setup
 

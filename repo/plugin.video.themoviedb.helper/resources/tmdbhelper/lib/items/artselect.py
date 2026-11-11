@@ -1,3 +1,4 @@
+import re
 from xbmcgui import Dialog
 from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.items.listitem import ListItem
@@ -11,6 +12,24 @@ SORT_MODES = (32776, 32777)  # Source, Language (the string ids); the chosen ind
 SOURCE_RANK = {'tmdb': 0, 'fanarttv': 1, 'tvdb': 2}  # the order the sources are listed in
 SOURCE_NAMES = {'tmdb': 'TMDb', 'fanarttv': 'fanart.tv', 'tvdb': 'TheTVDB'}
 NO_LANGUAGE_CODES = ('', '00', 'null', 'none', 'xx')
+TMDB_TIER = re.compile(r'/t/p/(\w+)/')  # the size tier TMDbImagePath baked into the url, e.g. 'w500' or 'original'
+
+
+def tmdb_displayed_size(url, width, height):
+    """TMDb's images API always reports an image's native size, but the url TMDb Helper actually requests is capped to the Quality setting's
+    tier (e.g. w500). Scale the reported size down to what that tier will really deliver, so Artwork Manager doesn't show a native resolution
+    the add-on never downloads."""
+    width, height = int(width or 0), int(height or 0)
+    if not width or not height:
+        return width, height
+    match = TMDB_TIER.search(url or '')
+    tier = match.group(1) if match else None
+    if not tier or tier == 'original' or not tier[1:].isdigit():
+        return width, height
+    cap = int(tier[1:])
+    if width <= cap:
+        return width, height
+    return cap, round(height * cap / width)
 
 
 def normalize_language(code):
@@ -69,10 +88,14 @@ class _ArtworkSelector():
         return languages
 
     @staticmethod
-    def _art_record(source, url, thumb, language, score, rating, width=0, height=0, group=0):
+    def _art_record(source, url, thumb, language, score, rating, width=0, height=0, group=0, disp_width=None, disp_height=None):
+        width, height = int(width or 0), int(height or 0)
         return {
             'source': source, 'url': url, 'thumb': thumb or url, 'lang': normalize_language(language), 'score': float(score or 0), 'rating': rating,
-            'width': int(width or 0), 'height': int(height or 0), 'group': group}
+            'width': width, 'height': height, 'group': group,
+            # disp_width/disp_height are what will actually be shown (e.g. TMDb's Quality-tier cap); width/height stay the item's real
+            # resolution so the "larger images first" sort still ranks by true size instead of every same-tier image tying at one value.
+            'disp_width': width if disp_width is None else int(disp_width or 0), 'disp_height': height if disp_height is None else int(disp_height or 0)}
 
     def get_ftv_art(self, ftv_type, ftv_id, artwork_type, season=None, group=0):
         ftv_items = self.ftv_api.get_all_artwork(ftv_id, ftv_type, season=season, artlist_type=artwork_type, season_type='season_only')
@@ -94,11 +117,19 @@ class _ArtworkSelector():
         tmdb_items = self.tmdb_api.get_request(tmdb_type, tmdb_id, *tmdb_iargs, cache_days=CACHE_SHORT) or self.tmdb_api.get_request_sc(tmdb_type, tmdb_id, *tmdb_iargs) or {}
         tmdb_items = tmdb_items.get(mappings[artwork_type]['key']) or []
         func = mappings[artwork_type]['func']
-        return [
-            self._art_record(
-                'tmdb', func(i.get('file_path')), None, i.get('iso_639_1'), i.get('vote_average'),
-                f'{float(i.get("vote_average") or 0):.1f} ({i.get("vote_count") or 0} votes)', i.get('width'), i.get('height'), group)
-            for i in tmdb_items if i.get('file_path') and i.get('file_path', '')[-4:] != '.svg']
+        records = []
+        for i in tmdb_items:
+            file_path = i.get('file_path') or ''
+            if not file_path or file_path[-4:] == '.svg':
+                continue
+            url = func(file_path)
+            width, height = i.get('width'), i.get('height')
+            disp_width, disp_height = tmdb_displayed_size(url, width, height)
+            records.append(self._art_record(
+                'tmdb', url, None, i.get('iso_639_1'), i.get('vote_average'),
+                f'{float(i.get("vote_average") or 0):.1f} ({i.get("vote_count") or 0} votes)', width, height, group,
+                disp_width=disp_width, disp_height=disp_height))
+        return records
 
     def get_tvdb_art(self, tmdb_type, item, artwork_type):
         """TheTVDB's art of this type for a movie or show (when the TheTVDB setting is on; it is asked once, then cached). Not for seasons and not
@@ -124,7 +155,7 @@ class _ArtworkSelector():
 
     @staticmethod
     def _art_listitem(record):
-        size = f'{record["width"]}x{record["height"]}' if record['width'] and record['height'] else '?'
+        size = f'{record["disp_width"]}x{record["disp_height"]}' if record['disp_width'] and record['disp_height'] else '?'
         language = record['lang'].upper() or '--'
         return ListItem(
             label=record['url'],

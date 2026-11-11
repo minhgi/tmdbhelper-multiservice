@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.81"
+version="7.0.82"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.82
+- Fixed: the size shown for a TMDb image in the Artwork Manager was always its full native resolution, even though your Quality setting downloads a smaller version. It now shows the size that will actually be used.
+
 v7.0.81
 - New: the Artwork Manager now also lists TheTVDB artwork (posters, fanart, banners, clearart and clearlogos for movies and shows) when "Fill missing clearlogos and fanart from TheTVDB" is on. It is asked once per movie or show and kept for 30 days. TheTVDB has nothing like landscape, and no season artwork.
 - New: every artwork row shows its source, language, size and score, and the list starts with a "Sort by" row: source (TMDb, fanart.tv, TheTVDB) then language, or language then source. Inside each, larger images come first (fanart.tv does not give a size, so those go last). The same row switches between your language, English and no language, and every language. Your last choice is remembered.

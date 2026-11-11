@@ -1,9 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.81" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper"
+version="7.0.82"
+name="TMDb Helper"
+provider-name="jurialmunkey">
 <requires>
-  <import addon="xbmc.python" version="3.0.1" />
-  <import addon="script.module.requests" version="2.9.1" />
-  <import addon="script.module.pil" version="1.1.7" />
+  <import addon="xbmc.python" version="3.0.1"/>
+  <import addon="script.module.requests" version="2.9.1"/>
+  <import addon="script.module.pil" version="1.1.7"/>
   <import addon="script.module.addon.signals" version="0.0.6" />
   <import addon="script.module.jurialmunkey" version="0.2.36" />
   <import addon="script.module.infotagger" version="0.0.5" />
@@ -14,7 +17,7 @@
 </extension>
 <extension point="xbmc.python.script" library="resources/script.py" />
 <extension point="xbmc.service" library="resources/service.py" />
-<extension point="xbmc.python.module" library="resources/modules" />
+<extension point="xbmc.python.module" library="resources/modules"/>
 <extension point="xbmc.addon.metadata">
   <reuselanguageinvoker>false</reuselanguageinvoker>
   <summary lang="en_GB">TMDb Helper</summary>
@@ -30,6 +33,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.82
+- Fixed: the size shown for a TMDb image in the Artwork Manager was always its full native resolution, even though your Quality setting downloads a smaller version. It now shows the size that will actually be used.
+
 v7.0.81
 - New: the Artwork Manager now also lists TheTVDB artwork (posters, fanart, banners, clearart and clearlogos for movies and shows) when "Fill missing clearlogos and fanart from TheTVDB" is on. It is asked once per movie or show and kept for 30 days. TheTVDB has nothing like landscape, and no season artwork.
 - New: every artwork row shows its source, language, size and score, and the list starts with a "Sort by" row: source (TMDb, fanart.tv, TheTVDB) then language, or language then source. Inside each, larger images come first (fanart.tv does not give a size, so those go last). The same row switches between your language, English and no language, and every language. Your last choice is remembered.
@@ -64,7 +70,7 @@ v7.0.75
 - Fixed: Simkl In Progress rows hid nothing, because Simkl holds no per-episode watched marks of its own. A Simkl row now hides what any service has watched.
 
 v7.0.74
-- Changed: Trakt In Progress (TV shows): a show now opens its Seasons list, like a show in MDBList and Simkl In Progress, instead of its Up Next episode list (Flatten seasons still applies). With Settings &gt; Widgets &gt; Hide watched on, the seasons and episodes opened from an In Progress row also hide what is already watched, judged by the same service as the row (Trakt for Trakt In Progress, MDBList / Simkl for theirs), so a whole-show mark on another service cannot empty the list. The marks shown are unchanged. Up Next is still on the show page and the Play next button, and lists opened any other way are unchanged.
+- Changed: Trakt In Progress (TV shows): a show now opens its Seasons list, like a show in MDBList and Simkl In Progress, instead of its Up Next episode list (Flatten seasons still applies). With Settings > Widgets > Hide watched on, the seasons and episodes opened from an In Progress row also hide what is already watched, judged by the same service as the row (Trakt for Trakt In Progress, MDBList / Simkl for theirs), so a whole-show mark on another service cannot empty the list. The marks shown are unchanged. Up Next is still on the show page and the Play next button, and lists opened any other way are unchanged.
 
 v7.0.73
 - Fixed: Kodi's log was filled with deprecation warnings every time a cached widget or row was shown: "resumetime" / "totaltime" in ListItem.setProperty() is deprecated, and "Passing None where a string is expected is deprecated". A cached item set its resume and total time twice (as the resume point, which is right, and again as the old properties) and passed None for a cast member's missing thumbnail or role and for the default unique ID of every item. The old properties are no longer set from the cache, as a freshly built item already did not set them, and a cast member's empty fields are left out and an empty string is passed as the default ID, which is what Kodi uses itself. Nothing visible changes. A few similar warnings remain at startup from the service; they are harmless.
@@ -79,13 +85,13 @@ v7.0.70
 - Changed: clearlogos and fanart from TheTVDB now follow the artwork quality setting, like TMDb art does. TheTVDB only has the full image (fanart 1920 px, logo 800 px) and a smaller thumbnail (fanart 640 px, logo 400 px), so the thumbnail is used when it is at least 80% of the TMDb size for your quality: logos at quality 1 to 3, fanart only at the lowest quality (3). Original quality, and fanart at quality 1 and 2, keep the full image, because the thumbnail would be much smaller than TMDb's. Items built before this version keep their full-size TheTVDB image until they are rebuilt or refreshed; nothing is asked from TheTVDB again because of this update, except items not yet stored.
 
 v7.0.69
-- Added: TheTVDB is now in the Clear Cache picker and in Clear All Cache (Tools &gt; Clear Cache Tool, and Settings &gt; Delete cache), listed right after fanart.tv. It clears the stored TheTVDB answers (clearlogo/fanart found or "nothing found", kept 30 days) and the TheTVDB list and genre caches, and makes no TheTVDB request. Items already built keep their artwork until they are rebuilt: for an immediate effect use Clear All Cache (it clears item details too) or Manage artwork &gt; Refresh all artwork, which now asks TheTVDB again (before, it reused the stored answer).
+- Added: TheTVDB is now in the Clear Cache picker and in Clear All Cache (Tools > Clear Cache Tool, and Settings > Delete cache), listed right after fanart.tv. It clears the stored TheTVDB answers (clearlogo/fanart found or "nothing found", kept 30 days) and the TheTVDB list and genre caches, and makes no TheTVDB request. Items already built keep their artwork until they are rebuilt: for an immediate effect use Clear All Cache (it clears item details too) or Manage artwork > Refresh all artwork, which now asks TheTVDB again (before, it reused the stored answer).
 
 v7.0.68
 - Fixed: changing "Fallback to English when main language unavailable", "Prefer artwork from TMDb first if available" or the widget fanart.tv lookup setting now refreshes the artwork, the way a language change does (GitHub issue #9). Before, items and widgets already built kept their old artwork. Turning Fallback to English off rebuilds items as you browse them (they are stored under a separate name only while it is off, so nothing changes while it stays on; artwork you picked by hand is carried over); the other two rebuild widgets and rows. A running service now reads these options each time instead of once at start, so it follows a change without restarting Kodi.
 
 v7.0.67
-- Added: optional TheTVDB source for clearlogos and fanart (Settings &gt; fanart.tv group &gt; "Fill missing clearlogos and fanart from TheTVDB", off by default). It only fills gaps: TheTVDB is asked only when TMDb and fanart.tv gave no clearlogo or no fanart, and never replaces what they found or what you picked by hand. Clearlogo order: your language, English, no language. Fanart order: textless, then your language. Where the fanart.tv lookups (lists, widgets, service) are off it only reads answers already stored, so it adds no network work there. To keep slow devices responsive: 4 second timeout, answers kept 30 days (also "nothing found"), and TheTVDB is left alone for a few minutes after a failed login or request. Shows and seasons use the show's artwork; movies are found through their IMDb id. Turning the setting on or off rebuilds widgets once; items already built keep their artwork until rebuilt or refreshed.
+- Added: optional TheTVDB source for clearlogos and fanart (Settings > fanart.tv group > "Fill missing clearlogos and fanart from TheTVDB", off by default). It only fills gaps: TheTVDB is asked only when TMDb and fanart.tv gave no clearlogo or no fanart, and never replaces what they found or what you picked by hand. Clearlogo order: your language, English, no language. Fanart order: textless, then your language. Where the fanart.tv lookups (lists, widgets, service) are off it only reads answers already stored, so it adds no network work there. To keep slow devices responsive: 4 second timeout, answers kept 30 days (also "nothing found"), and TheTVDB is left alone for a few minutes after a failed login or request. Shows and seasons use the show's artwork; movies are found through their IMDb id. Turning the setting on or off rebuilds widgets once; items already built keep their artwork until rebuilt or refreshed.
 
 v7.0.66
 - Fixed: the rating window property (TMDbHelper.ListItem.Rating) is now shown to one decimal place, e.g. 7.8 instead of 7.789. Taken from upstream TMDb Helper (issue #1815).
@@ -96,7 +102,7 @@ v7.0.65
 - Fixed: fanart.tv artwork URLs are now fully encoded. Before, only spaces were replaced, so a URL with any other character that needs encoding could fail to load its image. Taken from upstream TMDb Helper (fanart.tv URL fix, upstream issues #1971 and #1972).
 
 v7.0.64
-- Changed: Tools &gt; Clear Cache Tool has the per-service picker back (Clear Cache: pick TMDb, Trakt, fanart.tv, OMDb or item details, confirm, clear only that one), above Clear All Cache. 7.0.60/7.0.61 replaced it with Clear All Cache only; both are now available, Clear Cache first, Clear All Cache below it (GitHub issue #10).
+- Changed: Tools > Clear Cache Tool has the per-service picker back (Clear Cache: pick TMDb, Trakt, fanart.tv, OMDb or item details, confirm, clear only that one), above Clear All Cache. 7.0.60/7.0.61 replaced it with Clear All Cache only; both are now available, Clear Cache first, Clear All Cache below it (GitHub issue #10).
 
 v7.0.63
 - Fixed: widgets and the plain lists a skin shows as rows (built outside the full library window) kept showing the previous language's clearlogos and labels after the add-on's language was changed. Their disk cache did not count language as part of what made two requests the same, so a cache hit served the old language's data regardless. Language is now part of that key; every existing widget and row cache rebuilds once after updating, then stays cached as before. Lists opened in the full library window were not affected - they already rebuild per language.
@@ -105,7 +111,7 @@ v7.0.62
 - Fixed: When a video ended just after a jump to the end (for example Seren's automatic credits skip), TMDb Helper could send Trakt a start at about 100% after the stop had begun, so Trakt could show the finished item as playing again. The position update after a skip is now dropped once a stop has begun, and a stop waits up to 5 seconds for an update that is already being sent.
 
 v7.0.61
-- Changed: Tools &gt; Clear Cache Tool &gt; Clear All Cache now clears the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go, after one yes/no question. Before, it opened a list to pick one cache and asked again for each. The search history and the Anime and Asian lists cache keep their own entries.
+- Changed: Tools > Clear Cache Tool > Clear All Cache now clears the TMDb, Trakt, fanart.tv, OMDb and item details caches in one go, after one yes/no question. Before, it opened a list to pick one cache and asked again for each. The search history and the Anime and Asian lists cache keep their own entries.
 
 v7.0.60
 - Changed: In Tools, the Clear Cache Tool entry that clears the cached TMDb, Trakt, fanart.tv, OMDb and item details data is now called Clear All Cache (it was Clear Cache). Only the name changed.
@@ -166,7 +172,7 @@ v7.0.43
 - Fix: Cross-Service Sync - With Run when something changes on, the MDBList check started a full sync every 5 minutes. MDBList's activity answer carries the server's clock, which differs on every request, so it always looked like new activity. The clock is now ignored; only real activity starts a run.
 
 v7.0.42
-- New: Cross-Service Sync - Run when something changes (Settings &gt; Navigation &gt; Cross-Service Sync, on by default). The sync no longer waits for its fixed interval: it runs about 20 seconds after you mark something watched or change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity (checked every 2 to 5 minutes, so a change made on the website or in an app is found too). The interval stays as a safety net. A removal made elsewhere now also has to have been missing for 3 minutes before it is copied to the other services, and a run that leaves removals waiting is followed by another about 3 minutes later.
+- New: Cross-Service Sync - Run when something changes (Settings > Navigation > Cross-Service Sync, on by default). The sync no longer waits for its fixed interval: it runs about 20 seconds after you mark something watched or change a list in Kodi or finish a video, and when Trakt, MDBList or Simkl report new activity (checked every 2 to 5 minutes, so a change made on the website or in an app is found too). The interval stays as a safety net. A removal made elsewhere now also has to have been missing for 3 minutes before it is copied to the other services, and a run that leaves removals waiting is followed by another about 3 minutes later.
 
 v7.0.41
 - Fix: Home widgets - The unwatched / watched number on a show's poster did not change when you marked one episode watched or unwatched (an unwatch never lowered it). The MDBList and Simkl show and season totals were only refreshed by the next periodic sync, and the number shown is the highest of the Trakt, MDBList and Simkl totals. A mark now recounts the MDBList totals from its episode rows (which also repairs a stale total) and moves the Simkl totals by the change made. Bulk-marked seasons and shows are left alone, and specials count only toward their own season.
@@ -254,7 +260,7 @@ v7.0.17
 - New: Setting "List sort order" (Widgets): sorts your Trakt, MDBList and Simkl lists by release date, date added or title, newest/oldest or A to Z/Z to A, however a list is opened (watchlists, lists you made, history, progress, Next Up). The default, Service order, changes nothing. A sort set in a menu or widget path still wins; Trakt Recently Released, Anticipated, Most Watched, Trakt episode lists and Trakt charts keep their own order. Date added applies to Trakt watchlists, favourites and lists and to Simkl Plan to Watch; MDBList and Simkl Next Up sort by show title only. Release date uses TMDb dates, so the first open of a long list can take a while. MDBList lists you open, ranked ones included, are sorted too: leave Service order to keep a list's ranking.
 
 v7.0.16
-- Fixed: MDBList Next Up (and the Anime and Asian Next Up rows) stopped at 20 episodes with no Next Page item, however many shows you were following. It now lists the next episode of every show you are following, looking through your 200 most recently watched shows (it used to look at 60), and pages them like any other list: 20 per page with a Next Page item (for widgets, turn on Settings &gt; Widgets &gt; Next page item), or all on one page by raising the Trakt basic lists page multiplier. The first time you open Next Up after updating it can take longer while TMDb details of the extra shows are fetched; they are cached after that.
+- Fixed: MDBList Next Up (and the Anime and Asian Next Up rows) stopped at 20 episodes with no Next Page item, however many shows you were following. It now lists the next episode of every show you are following, looking through your 200 most recently watched shows (it used to look at 60), and pages them like any other list: 20 per page with a Next Page item (for widgets, turn on Settings > Widgets > Next page item), or all on one page by raising the Trakt basic lists page multiplier. The first time you open Next Up after updating it can take longer while TMDb details of the extra shows are fetched; they are cached after that.
 - Fixed: Adding a Trakt list (or your Trakt watchlist) to the Kodi library, or keeping it in the library monitor, only added the first 100 items. Trakt now sends a list 100 items at a time and the later pages were never asked for, so a list of 300 items arrived as 100. All pages are now read before the list is checked against the size limits and added; if a page cannot be read, the list is not added rather than being added part-way. The size limits (500 TV shows and 2500 movies per list) are unchanged.
 
 v7.0.15
@@ -292,11 +298,11 @@ v7.0.5
 - Changed: Lists with no ID to look up (Trending, Popular, a Trakt list and so on) skip the TMDb ID lookup and no longer open its ID database. Faster to open, most of all while Kodi is starting up and many widgets load at once.
 
 v7.0.4
-- Added: The rows and banners of the skin (the Spotlight banner, the hub rows of the Movies, TV shows, New and My list pages) are kept on disk like widgets and refresh in the background after a sync, so they open instantly instead of being built every time. Only lists whose path is stored in the skin's settings and that are opened by the skin are cached: Show all, searches and details lists are built as before. Setting: Widgets &gt; Cache the rows and banners of the skin.
-- Added: While Kodi is idle the add-on builds the rows and widgets of every page of the skin that has no cache yet, so the first visit to a page is instant. Setting: Widgets &gt; Build every page of the skin in the background.
+- Added: The rows and banners of the skin (the Spotlight banner, the hub rows of the Movies, TV shows, New and My list pages) are kept on disk like widgets and refresh in the background after a sync, so they open instantly instead of being built every time. Only lists whose path is stored in the skin's settings and that are opened by the skin are cached: Show all, searches and details lists are built as before. Setting: Widgets > Cache the rows and banners of the skin.
+- Added: While Kodi is idle the add-on builds the rows and widgets of every page of the skin that has no cache yet, so the first visit to a page is instant. Setting: Widgets > Build every page of the skin in the background.
 
 v7.0.3
-- Added: Settings &gt; Expert &gt; Re-Use Language Invoker status and Toggle Re-Use Language Invoker. A switch for Kodi's reuse of the add-on's Python process between calls. Off by default (as before). When on, widgets and menus start faster but the add-on keeps using memory until Kodi restarts, and changes to other TMDb Helper settings only apply after a Kodi restart. After the add-on is updated the shipped value (off) is back until the service starts and sets addon.xml back to the saved choice, so the reuse returns after the next Kodi restart. A manual edit of addon.xml is set back to match the setting the same way.
+- Added: Settings > Expert > Re-Use Language Invoker status and Toggle Re-Use Language Invoker. A switch for Kodi's reuse of the add-on's Python process between calls. Off by default (as before). When on, widgets and menus start faster but the add-on keeps using memory until Kodi restarts, and changes to other TMDb Helper settings only apply after a Kodi restart. After the add-on is updated the shipped value (off) is back until the service starts and sets addon.xml back to the saved choice, so the reuse returns after the next Kodi restart. A manual edit of addon.xml is set back to match the setting the same way.
 
 v7.0.2
 - Fixed: The MDBList Next Up lists for anime and Asian titles were still empty. MDBList also holds a whole-season watched mark for every season of a started show, and Next Up counted those seasons as finished. A season mark is now counted only for a season with no individually watched episode, so the next unwatched aired episode shows again.
@@ -312,7 +318,7 @@ v6.0.216
 - Fixed: The Cast, Crew and similar rows of skins that read the focused item's ID from the TMDbHelper.ListItem.Monitor.* window properties (Arctic Fuse 3 does) stayed empty. The service now sets TMDb_ID, TMDb_Type, Season and Episode for the focused item.
 
 v6.0.215
-- Changed: With Settings &gt; Accounts &gt; Trakt switched off, the In Trakt Lists row is no longer in the item details menu or the Related Lists context menu (it needs the Trakt service). The Trakt menus, the Trakt list rows and the Trakt context menu entries were already hidden by that switch.
+- Changed: With Settings > Accounts > Trakt switched off, the In Trakt Lists row is no longer in the item details menu or the Related Lists context menu (it needs the Trakt service). The Trakt menus, the Trakt list rows and the Trakt context menu entries were already hidden by that switch.
 
 v6.0.214
 - Fixed: In the Anime TV Calendar, an episode that cannot be placed in TMDb's numbering (shown as "E4") had no poster, so its show's header row in the calendar window was blank. These episodes now carry the show's poster and fanart.
@@ -324,34 +330,34 @@ v6.0.213
 - Changed: The calendar menu descriptions for the Asian Drama and Anime TV calendars now say they come from Simkl, with Trakt for days Simkl does not cover.
 
 v6.0.212
-- Added: Anime Recommendations. For a Japanese title, the details menu (and the Related Lists context menu) gets an "Anime Recommendations" entry right after Recommended, for TV shows, episodes and movies. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (up to 20 per page with a Next Page): the show page uses the first season's AniList entry and a movie its own, and the title itself is never listed. Compared with TMDb's own Recommended list for the same anime, AniList's is mostly a different, better-ranked set (Blue Lock gets Aoashi, Kuroko's Basketball and Haikyu!! instead of an unrelated mix). It needs the title's AniList id from the ARM service; anything ARM does not know opens an empty list. Answers are saved for 12 hours with the other Anime lists, and Tools &gt; Clear Anime and Asian Lists Cache clears them. The entry shows for every Japanese-language title, including live action, which then opens an empty list.
+- Added: Anime Recommendations. For a Japanese title, the details menu (and the Related Lists context menu) gets an "Anime Recommendations" entry right after Recommended, for TV shows, episodes and movies. It lists what AniList users recommend for that anime, most voted first, matched to TMDb (up to 20 per page with a Next Page): the show page uses the first season's AniList entry and a movie its own, and the title itself is never listed. Compared with TMDb's own Recommended list for the same anime, AniList's is mostly a different, better-ranked set (Blue Lock gets Aoashi, Kuroko's Basketball and Haikyu!! instead of an unrelated mix). It needs the title's AniList id from the ARM service; anything ARM does not know opens an empty list. Answers are saved for 12 hours with the other Anime lists, and Tools > Clear Anime and Asian Lists Cache clears them. The entry shows for every Japanese-language title, including live action, which then opens an empty list.
 
 v6.0.211
-- Added: Anime scores for skins. Japanese and Chinese titles now also pass on myanimelist_rank and myanimelist_popularity (MyAnimeList, through Tenrai) and anilist_rating, anilist_rank and anilist_popularity (AniList) as rating properties, next to the existing ones. The MyAnimeList score and votes that MDBList already sends (myanimelist_rating, myanimelist_votes) are now passed on to skins as well. The MyAnimeList and AniList ids come from the ARM service; the answers are saved for 12 hours (ids for 90 days), a slow first lookup is finished in the background so a page never waits more than a moment, and Tools &gt; Clear Anime and Asian Lists Cache also clears the saved scores. Titles that are not anime send nothing but their TMDb id to ARM once, then are remembered for 14 days.
+- Added: Anime scores for skins. Japanese and Chinese titles now also pass on myanimelist_rank and myanimelist_popularity (MyAnimeList, through Tenrai) and anilist_rating, anilist_rank and anilist_popularity (AniList) as rating properties, next to the existing ones. The MyAnimeList score and votes that MDBList already sends (myanimelist_rating, myanimelist_votes) are now passed on to skins as well. The MyAnimeList and AniList ids come from the ARM service; the answers are saved for 12 hours (ids for 90 days), a slow first lookup is finished in the background so a page never waits more than a moment, and Tools > Clear Anime and Asian Lists Cache also clears the saved scores. Titles that are not anime send nothing but their TMDb id to ARM once, then are remembered for 14 days.
 
 v6.0.210
-- Changed: The Anime TV Calendar now comes from Simkl's public anime calendar file instead of Trakt: about four times as many anime episodes for the same week. Each episode is placed in TMDb's season and episode numbering by its air date, so the watched tick and the episode it opens are right; an episode that cannot be placed is listed as "E3" and opens the show. Chinese animation (donghua) is listed too, placed the same way. Days the file does not cover (older days, and days more than about five weeks ahead) still use Trakt. Tools &gt; Clear Anime and Asian Lists Cache also clears the saved Simkl anime calendar.
+- Changed: The Anime TV Calendar now comes from Simkl's public anime calendar file instead of Trakt: about four times as many anime episodes for the same week. Each episode is placed in TMDb's season and episode numbering by its air date, so the watched tick and the episode it opens are right; an episode that cannot be placed is listed as "E3" and opens the show. Chinese animation (donghua) is listed too, placed the same way. Days the file does not cover (older days, and days more than about five weeks ahead) still use Trakt. Tools > Clear Anime and Asian Lists Cache also clears the saved Simkl anime calendar.
 
 v6.0.209
-- Changed: The Asian Drama calendars (Asian Drama &gt; Calendar and each country's Drama Calendar) now come from Simkl's public calendar file instead of Trakt: about ten times as many Asian dramas for the same week (Chinese, Thai and Japanese dramas Trakt does not list), with the same air times. Only titles with the Drama genre are listed, as in the Asian Drama menus. Yesterday and earlier days, and days more than five weeks ahead, still use Trakt. Tools &gt; Clear Anime and Asian Lists Cache also clears the saved Simkl calendar. The Anime TV Calendar is unchanged.
+- Changed: The Asian Drama calendars (Asian Drama > Calendar and each country's Drama Calendar) now come from Simkl's public calendar file instead of Trakt: about ten times as many Asian dramas for the same week (Chinese, Thai and Japanese dramas Trakt does not list), with the same air times. Only titles with the Drama genre are listed, as in the Asian Drama menus. Yesterday and earlier days, and days more than five weeks ahead, still use Trakt. Tools > Clear Anime and Asian Lists Cache also clears the saved Simkl calendar. The Anime TV Calendar is unchanged.
 
 v6.0.208
 - Fixed: Asian Progress (Trakt, MDBList, Simkl) and the Movies and TV Shows Progress menus no longer need a TV show to carry the Drama genre to count as Asian. A Japanese mystery or comedy series in your progress was listed under Movies and TV Shows instead of Asian Progress. Animation, reality and talk shows are still left out.
 
 v6.0.207
-- Changed: The Asian Movies calendars (Asian Movies &gt; Calendar and each country's Movies Calendar, month grid and day pages) now list films by TMDb release date, most popular first (up to 100 a window), instead of Trakt's calendar, which held only 0-2 Asian films a month. Concert films, animation and documentaries are left out. Other movie calendars still use Trakt.
+- Changed: The Asian Movies calendars (Asian Movies > Calendar and each country's Movies Calendar, month grid and day pages) now list films by TMDb release date, most popular first (up to 100 a window), instead of Trakt's calendar, which held only 0-2 Asian films a month. Concert films, animation and documentaries are left out. Other movie calendars still use Trakt.
 
 v6.0.206
-- Changed: Asian Movies &gt; Trending (all countries and each country) now leaves out concert films and ranks films by ratings that have at least 50 votes (it was 5, so films with a handful of votes topped the list). Asian Movies &gt; Most Watched reads four Trakt pages instead of eight, so it opens faster. Asian Drama is unchanged.
+- Changed: Asian Movies > Trending (all countries and each country) now leaves out concert films and ranks films by ratings that have at least 50 votes (it was 5, so films with a handful of votes topped the list). Asian Movies > Most Watched reads four Trakt pages instead of eight, so it opens faster. Asian Drama is unchanged.
 
 v6.0.205
-- Added: Settings &gt; Navigation &gt; Main menu has on/off switches for Movies, TV Shows, Anime and Asian Cinema &amp; TV. Switch one off and its row leaves the main menu of the add-on (all four are on by default).
+- Added: Settings > Navigation > Main menu has on/off switches for Movies, TV Shows, Anime and Asian Cinema &amp; TV. Switch one off and its row leaves the main menu of the add-on (all four are on by default).
 
 v6.0.204
-- Changed: A watch service (Trakt, MDBList, Simkl) that is switched off in Settings &gt; Accounts now disappears from view: its row leaves the main menu (and the Trakt rows leave the Movies, TV Shows and People menus), its Sync Tools entry is hidden, and its settings (the context-menu switch, Trakt page multiplier, next-episode sort, genre icons and request log) fold away. Its context-menu entry was already hidden. Everything returns when the service is switched on again.
+- Changed: A watch service (Trakt, MDBList, Simkl) that is switched off in Settings > Accounts now disappears from view: its row leaves the main menu (and the Trakt rows leave the Movies, TV Shows and People menus), its Sync Tools entry is hidden, and its settings (the context-menu switch, Trakt page multiplier, next-episode sort, genre icons and request log) fold away. Its context-menu entry was already hidden. Everything returns when the service is switched on again.
 
 v6.0.203
-- Fixed: MDBList &gt; Watchlist TV shows (and Watchlist Movies) listed both movies and shows: MDBList now returns the watchlist as separate movie and show groups, and the list no longer filtered them by the kind you opened.
+- Fixed: MDBList > Watchlist TV shows (and Watchlist Movies) listed both movies and shows: MDBList now returns the watchlist as separate movie and show groups, and the list no longer filtered them by the kind you opened.
 
 v6.0.202
 - Added: TV calendar pages (Your TV Calendar and the one-day All / Premieres / New / Asian Drama / Anime pages) show a small badge beside an episode that is a New show, Premiere, Mid premiere, Mid finale, Finale or Series finale (Trakt's own episode type), and a green tick on episodes you have already watched (when that service's watched indicators are switched on).
@@ -370,7 +376,7 @@ v6.0.199
 - Changed: The Anime lists now save which TMDb show or movie each AniList entry is, in a table on disk that is kept for months, so a title is no longer searched again every time a list is rebuilt.
 - Changed: New matches come from the ARM id service (arm.haglund.dev) first, and each id is checked against TMDb (it must exist there and be Japanese) before it is used; anything it cannot settle is still found by the title search, so the lists work as before if ARM is down.
 - Fixed: Anime whose title search found the wrong or an older show or nothing (e.g. a new KERORO, Devils' Crest, a Girls und Panzer film) now open the right TMDb entry.
-- Changed: Tools &gt; Clear the Anime and Asian list cache also clears the saved AniList to TMDb matches.
+- Changed: Tools > Clear the Anime and Asian list cache also clears the saved AniList to TMDb matches.
 
 v6.0.198
 - Added: The TV calendar pages show the local air time of each episode (in your region's time format) next to its date.
@@ -454,10 +460,10 @@ v6.0.173
 - Changed: The movie month-grid windows (Movies, Asian and Anime calendars) are styled like the TV show page: dark teal background, plain title with the month under it, flat teal buttons and selection frame, thin scrollbar at the right. The posters, badges, dates and ratings are unchanged.
 
 v6.0.172
-- New (test): TV &gt; All Calendar opens the show page one day at a time: every episode airing that day, grouped by show, in the same look as Your Calendar. Left and Right (or the arrow buttons) go to the previous and next day; Select a show for its unwatched episodes, an episode for its information and Play. All Calendar Premieres and All Calendar New are still lists.
+- New (test): TV > All Calendar opens the show page one day at a time: every episode airing that day, grouped by show, in the same look as Your Calendar. Left and Right (or the arrow buttons) go to the previous and next day; Select a show for its unwatched episodes, an episode for its information and Play. All Calendar Premieres and All Calendar New are still lists.
 
 v6.0.171
-- Changed: TV &gt; Your Calendar Premieres and Your Calendar New open the same scrollable show page as Your Calendar (a header row per show, its episodes under it; Select a show for its unwatched episodes, an episode for its information and Play). The All calendars are unchanged.
+- Changed: TV > Your Calendar Premieres and Your Calendar New open the same scrollable show page as Your Calendar (a header row per show, its episodes under it; Select a show for its unwatched episodes, an episode for its information and Play). The All calendars are unchanged.
 
 v6.0.170
 - Changed: The Your TV Calendar page now looks like the TMDb Helper menus in your skin: the poster and description of the selected row on the left, flat rows on the right with one teal selection bar, a dark teal background, and plain coloured status text (Aired, Today, In N days, Watched) instead of coloured boxes.
@@ -466,7 +472,7 @@ v6.0.169
 - Changed: The Your TV Calendar page uses the TMDb colours (navy background, TMDb blue for the selected row and buttons, TMDb green for the show summaries and the Aired badge). Text on the selected row is dark for contrast.
 
 v6.0.168
-- New (test): TV &gt; Your Calendar opens one scrollable page with every show you follow. Each show is a header row with its episodes under it (aired and not yet aired, from 14 days back to about 19 days ahead); watched episodes stay in the list, dimmed. Select a show to see its unwatched episodes (Back returns to the page); Select an episode to open its information, with Play and the other buttons. The old day-by-day list can still be opened from a saved widget path; Premieres, New and the All calendars are unchanged.
+- New (test): TV > Your Calendar opens one scrollable page with every show you follow. Each show is a header row with its episodes under it (aired and not yet aired, from 14 days back to about 19 days ahead); watched episodes stay in the list, dimmed. Select a show to see its unwatched episodes (Back returns to the page); Select an episode to open its information, with Play and the other buttons. The old day-by-day list can still be opened from a saved widget path; Premieres, New and the All calendars are unchanged.
 
 v6.0.167
 - Changed: The TV calendars now put the show name after the episode, in colour: 1x02. Episode Title (Show Name). An episode without a title shows 1x02 (Show Name), and stacked episodes show 1x01-1x03. 3 Episodes (Show Name). The show name uses the TMDb name and follows your language setting.
@@ -481,7 +487,7 @@ v6.0.164
 - New: The other three Movies calendar rows (Your Calendar, Your Calendar DVD and All Calendar DVD) also open the Seren-style month poster grid, like All Calendar did in 6.0.163. Your Calendar and Your Calendar DVD show the movies you follow; the DVD rows show physical releases; the All rows follow your region when the region filter is on. Saved widget paths to the old day-by-day lists still work.
 
 v6.0.163
-- New (test): Movies &gt; All Calendar opens a month poster grid in the style of Seren's Movie Calendar instead of the day-by-day list. Each poster shows the title, the release date, a countdown badge (days until release, or a star once released) and the rating; Left / Right at the edge of the grid, or the previous and next buttons, change month; Select opens the movie's information. It lists the same movies as before (by your region when the region filter is on). The other three movie calendar rows (Your Calendar, Your DVD, All DVD) are still lists, and the old list can still be opened from a saved widget path.
+- New (test): Movies > All Calendar opens a month poster grid in the style of Seren's Movie Calendar instead of the day-by-day list. Each poster shows the title, the release date, a countdown badge (days until release, or a star once released) and the rating; Left / Right at the edge of the grid, or the previous and next buttons, change month; Select opens the movie's information. It lists the same movies as before (by your region when the region filter is on). The other three movie calendar rows (Your Calendar, Your DVD, All DVD) are still lists, and the old list can still be opened from a saved widget path.
 - Changed: The window uses the fonts font10, font12, font13, font14 and font37 of your skin.
 
 v6.0.162
@@ -511,14 +517,14 @@ v6.0.157
 v6.0.156
 - New: Widgets open faster. The service now rebuilds, in the background, the widget lists you opened in the last 24 hours (not while a video plays), so opening one is a cache hit. Right after a restart a widget may briefly show its previous contents and then refreshes itself. Anything you change yourself (mark watched, edit a list) still rebuilds the widget at once.
 - New: While you read a list, the next page is fetched in the background so Next Page opens faster.
-- New: Setting Widgets &gt; "Rebuild widgets in the background" (on by default). With it off nothing runs in the background and widgets behave as before.
+- New: Setting Widgets > "Rebuild widgets in the background" (on by default). With it off nothing runs in the background and widgets behave as before.
 - Changed: The widget cache file is written in one step (never half-written).
 
 v6.0.155
 - New: Opening a list that has nothing in it (an empty collection, no liked lists, nothing on a watchlist, ...) now shows a "Nothing here yet" notice instead of silently returning to the menu.
 
 v6.0.154
-- Fixed: Simkl &gt; Watching, On Hold and Dropped now show a show by what Simkl says you watched, like Plan to Watch already did. A show you finished on Trakt but left on hold at Simkl used to count as watched, so Kodi's "Unwatched" view hid it and the list looked empty.
+- Fixed: Simkl > Watching, On Hold and Dropped now show a show by what Simkl says you watched, like Plan to Watch already did. A show you finished on Trakt but left on hold at Simkl used to count as watched, so Kodi's "Unwatched" view hid it and the list looked empty.
 - Fixed: The built-in Trakt client id now matches the one the Account Manager issues tokens for (the previous one is rejected by Trakt on the hidden / dropped endpoints).
 
 v6.0.153
