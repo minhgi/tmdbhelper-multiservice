@@ -18,7 +18,15 @@ class MDbListSyncDataBase(DataBase):
         if self._db_file in self._migrated:
             return
         self._migrated.add(self._db_file)
+        # Only add the columns the table does not have yet. Every new Python invocation starts with an empty _migrated set, so
+        # the old try/ALTER/ignore ran ~13 doomed ALTERs per database per call and the database layer logged each one as
+        # "duplicate column name" (7.0.88). If the column list cannot be read, fall back to the old try/ALTER/ignore.
+        result = self.execute_sql('PRAGMA table_info(simplecache)', ())
+        rows = result.fetchall() if result else None
+        present = {row[1] for row in rows} if rows else set()
         for col_name, col_def in self.simplecache_columns.items():
+            if col_name in present:
+                continue
             try:
                 self.execute_sql(
                     f'ALTER TABLE simplecache ADD COLUMN {col_name} {col_def["data"]}', ())

@@ -422,8 +422,8 @@ class PlayerScrobbler():
     @is_scrobbling
     def seek(self, tmdb_type, tmdb_id, current_time):
         """ Kodi jumped to another position. Trakt works out the "watching" end time from the last start or pause it received, so a skip left
-        its playing time stale. Once the skipping has settled, post start again with the new position (only Trakt has a live watching state;
-        MDBList and Simkl take a position on pause and stop only). A burst of seeks (repeated skip presses) sends one post. Kodi's fast-forward and rewind buttons change the speed instead and are not handled here. """
+        its playing time stale. Once the skipping has settled, post start again with the new position (MDBList and Simkl
+        get their own start when playback begins and when it resumes from a pause, never on a seek - Simkl's docs forbid a start on a seek event). A burst of seeks (repeated skip presses) sends one post. Kodi's fast-forward and rewind buttons change the speed instead and are not handled here. """
         if not self.started or not self.is_match(tmdb_type, tmdb_id):
             return
         self.current_time = current_time
@@ -543,7 +543,9 @@ class MDbListScrobbler(PlayerScrobbler):
         watched: POST /sync/watched    {'movies': [{'tmdb': id}]} / {'shows': [{'tmdb': id, 'seasons': [...]}]}
 
     Lifecycle:
-        start  — sets started=True; no API call (MDBList has no /scrobble/start endpoint).
+        start  — sets started=True and owes a POST /scrobble/start (the "now watching" state), sent once a playing time is measured (see _post_start).
+                 Live probe 2026-11-15: a start, even at 40%, REMOVES the item's paused row from /sync/playback; only a later pause or stop saves
+                 it again. So a start is sent only when that later post will certainly follow (see _post_start).
         pause  — POST /scrobble/pause (gated on service_mdblist + mdblist_playprogress).
         stop ≥75% — POST /sync/watched + direct DB write via ItemMDbListWatched + reload_widgets.
         stop <75% — POST /scrobble/pause (server-only resume save; no local DB write in v1).
@@ -551,6 +553,7 @@ class MDbListScrobbler(PlayerScrobbler):
 
     service_name = 'MDBList'
     _refreshes_on_report = True  # _mark_watched reloads the lists itself
+    _start_pending = False  # a start is owed: posted once a playing time is measured (see _post_start)
 
     def _refresh_after_stop(self):
         self._reload_lists()  # MDBList's lists read the server live and the resume row was written locally by the pause post
@@ -561,6 +564,7 @@ class MDbListScrobbler(PlayerScrobbler):
             self._playerstring = playerstring
             self.external = bool(playerstring)
         self.mdblist_api = mdblist_api
+        self._service_lock = RLock()  # orders this service's start / pause / stop posts: a start must never land after a pause or stop
         self.current_time = 0
         self.total_time = total_time
         ps = self.playerstring
@@ -719,30 +723,69 @@ class MDbListScrobbler(PlayerScrobbler):
         except Exception:
             return None
 
+    def _post_start(self):
+        """POST /scrobble/start once a playing time is measured. Three rules keep the user's resume point safe, because the service
+        deletes the item's paused row on a start and only a later pause or stop post writes it back:
+          - only while resume points are posted at all (mdblist_playprogress): with that off nothing would ever save it again;
+          - never before a playing time is measured: a stop without one posts nothing (see _nothing_played), so a start sent then
+            followed by a quick stop would leave the item with no resume point;
+          - never for playback another add-on started: that add-on reports its own start and pause, and two add-ons' posts cannot be ordered.
+        Serialised with pause and stop (_service_lock) so a start never lands after them. Sent once per start / resume; a failure is not retried."""
+        with self._service_lock:
+            if not self._start_pending or self.stopped:
+                return
+            if self.external or not self._resume_ready:
+                self._start_pending = False
+                return
+            if not self.current_time:
+                return  # still owed: the next position update retries
+            self._start_pending = False
+            payload = self._pause_payload()  # same body as a pause: the item and its progress
+            if not payload:
+                return
+            url = self.mdblist_api.get_request_url('scrobble', 'start')
+            response = self.mdblist_api.get_api_request(url, postdata=payload, method='json', headers=self.mdblist_api.auth_headers)
+            self._log_scrobble('start', response)
+
     @PlayerScrobbler.is_scrobbling
     def start(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
         self._start_baseline()
-        self.started = True  # No API call — MDBList has no /scrobble/start endpoint
+        self.started = True
+        self._start_pending = True
+        self._post_start()
+
+    def update_time(self, tmdb_type, tmdb_id, current_time):
+        super().update_time(tmdb_type, tmdb_id, current_time)
+        if self._start_pending and self.current_time:
+            self._post_start()
 
     @PlayerScrobbler.is_scrobbling
     def pause(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
-        self._post_pause()
+        with self._service_lock:
+            self._start_pending = False  # paused before the start went out: a later position update must not start a paused item
+            self._post_pause()
 
     @PlayerScrobbler.is_scrobbling
     def stop(self, tmdb_type, tmdb_id):
         if not self.started:
             return
-        if self.progress >= 75:
-            self._report_watched(self._mark_watched)
-        else:
-            self._post_pause()
-            if self.external and self._resume_ready:
-                self.refresh_after_stop()
-        self.stopped = True
+        self._start_pending = False  # no start may follow from here on
+        locked = self._service_lock.acquire(timeout=SEEK_LOCK_WAIT)  # a start being sent goes first, the stop follows it
+        try:
+            if self.progress >= 75:
+                self._report_watched(self._mark_watched)
+            else:
+                self._post_pause()
+                if self.external and self._resume_ready:
+                    self.refresh_after_stop()
+            self.stopped = True
+        finally:
+            if locked:
+                self._service_lock.release()
 
 
 class SimklScrobbler(PlayerScrobbler):
@@ -752,7 +795,8 @@ class SimklScrobbler(PlayerScrobbler):
     Mark watched (≥75%): POST /sync/history (movie/episode) or /sync/add-to-list
                          with "to":"completed" (show)
     Clear resume: DELETE /sync/playback/{id}  (204) — /sync/history does NOT auto-clear.
-    No /scrobble/start endpoint used (matches MDBList pattern).
+    Start:       POST /scrobble/start (the "now watching" state), sent once a playing time is measured, same rules as MDBList (see _post_start).
+                 Live probe 2026-11-15: a start, even at 40%, REMOVES the item's paused row from /sync/playback; only a later pause or stop saves it again.
 
     Resume reading: local-only (SimklSync.db written on pause). Progress from
     simkl.com or other devices not synced in this phase.
@@ -765,6 +809,7 @@ class SimklScrobbler(PlayerScrobbler):
 
     service_name = 'Simkl'
     _anime_target = None  # (ids, number inside the entry) / False once resolved; see _anime_entry
+    _start_pending = False  # a start is owed: posted once a playing time is measured (see _post_start)
     _refreshes_on_report = True  # _mark_watched reloads the lists itself
 
     def _refresh_after_stop(self):
@@ -775,6 +820,7 @@ class SimklScrobbler(PlayerScrobbler):
             self._playerstring = playerstring
             self.external = bool(playerstring)
         self.simkl_api = simkl_api
+        self._service_lock = RLock()  # orders this service's start / pause / stop posts: a start must never land after a pause or stop
         self.current_time = 0
         self.total_time = total_time
         ps = self.playerstring
@@ -1025,30 +1071,74 @@ class SimklScrobbler(PlayerScrobbler):
         except Exception:
             return None
 
+    def _post_start(self):
+        """POST /scrobble/start once a playing time is measured; the rules and the reasons are those of MDbListScrobbler._post_start
+        (the service deletes the paused row on a start, so it is sent only when a later pause or stop will certainly save it again).
+        An anime episode that resolves to its entry goes out as that entry first, exactly like a pause, with the TMDb numbers as the fallback."""
+        with self._service_lock:
+            if not self._start_pending or self.stopped:
+                return
+            if self.external or not self._resume_ready:
+                self._start_pending = False
+                return
+            if not self.current_time:
+                return  # still owed: the next position update retries
+            self._start_pending = False
+            payload = self._pause_payload()  # same body as a pause: the item and its progress
+            if not payload:
+                return
+            url = f'{self.BASE_URL}/scrobble/start?client_id={self.simkl_api.client_id}'
+            response = None
+            target = self._anime_entry()
+            if target:
+                response = self.simkl_api.get_api_request(
+                    url, postdata=self._anime_pause_payload(target), method='json', headers=self.simkl_api.auth_headers)
+                kodi_log(f'Scrobble Simkl start {self._item_label}: sent as anime {target[0]} episode {target[1]}: '
+                         f'{"accepted" if response is not None else "not accepted, sending the TMDb numbers"}', 1)
+            if response is None:
+                response = self.simkl_api.get_api_request(
+                    url, postdata=payload, method='json', headers=self.simkl_api.auth_headers)
+            self._log_scrobble('start', response)
+
     @PlayerScrobbler.is_scrobbling
     def start(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
         self._start_baseline()
-        self.started = True  # No /scrobble/start endpoint
+        self.started = True
+        self._start_pending = True
+        self._post_start()
+
+    def update_time(self, tmdb_type, tmdb_id, current_time):
+        super().update_time(tmdb_type, tmdb_id, current_time)
+        if self._start_pending and self.current_time:
+            self._post_start()
 
     @PlayerScrobbler.is_scrobbling
     def pause(self, tmdb_type, tmdb_id):
         if not self.is_match(tmdb_type, tmdb_id):
             return self.stop(tmdb_type, tmdb_id)
-        self._post_pause()
+        with self._service_lock:
+            self._start_pending = False  # paused before the start went out: a later position update must not start a paused item
+            self._post_pause()
 
     @PlayerScrobbler.is_scrobbling
     def stop(self, tmdb_type, tmdb_id):
         if not self.started:
             return
-        if self.progress >= 75:
-            self._report_watched(self._mark_watched)
-        else:
-            self._post_pause()
-            if self.external and self._resume_ready:
-                self.refresh_after_stop()
-        self.stopped = True
+        self._start_pending = False  # no start may follow from here on
+        locked = self._service_lock.acquire(timeout=SEEK_LOCK_WAIT)  # a start being sent goes first, the stop follows it
+        try:
+            if self.progress >= 75:
+                self._report_watched(self._mark_watched)
+            else:
+                self._post_pause()
+                if self.external and self._resume_ready:
+                    self.refresh_after_stop()
+            self.stopped = True
+        finally:
+            if locked:
+                self._service_lock.release()
 
 
 class PlayerItem():

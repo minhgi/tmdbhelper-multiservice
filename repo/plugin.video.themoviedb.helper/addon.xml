@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.87"
+version="7.0.89"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,12 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.89
+- Added: MDBList and Simkl now get a "now watching" start when playback begins and when it resumes from a pause, like Trakt (they only received pause and stop before; both services do have a start endpoint). A start makes the service forget the item's saved resume point until the next pause or stop saves it again, so Resume points must be on for the service, nothing is sent until a playing time is measured, and nothing is sent for playback another add-on started.
+
+v7.0.88
+- Fixed: the MDBList and Simkl sync databases no longer try to add columns they already have on every start, which wrote about 30 harmless "duplicate column name" lines to the debug log. The missing columns are now looked up first and only those are added.
+
 v7.0.87
 - Added: two new settings under Artwork, "TMDb poster quality" and "TMDb fanart quality", to pick the image size of posters and of fanart separately from the "TMDb artwork quality" (ported from the upstream add-on). Both start on Default, which follows the TMDb artwork quality, so nothing changes until you set one. Landscape, thumbnails and logos keep following the TMDb artwork quality. Changing either setting rebuilds the lists and widgets that hold artwork, like the TMDb artwork quality does.
 

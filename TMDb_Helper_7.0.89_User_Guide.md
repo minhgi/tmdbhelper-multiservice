@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.87 — Complete Features & Functions Guide
+# TMDb Helper 7.0.89 — Complete Features & Functions Guide
 
-**Version:** 7.0.87 (Enhanced Fork — Personal Build)
+**Version:** 7.0.89 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.87_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.89_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.87. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.89. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -327,6 +327,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 - **Two new settings: TMDb poster quality and TMDb fanart quality** (7.0.87). They sit directly below *TMDb artwork quality* (Settings, General, *TMDb detailed information*). Each can be Default, Original, High, Medium or Low. Default follows *TMDb artwork quality*, so nothing changes until you pick a level. Poster quality sets the size of posters (movie, show and season posters, and the actor portraits drawn with them); fanart quality sets the size of fanart (movie, show and season fanart). Landscape images, thumbnails and logos always follow *TMDb artwork quality*.
 - **Image sizes** (7.0.87). Posters: Original is 780 px wide (TMDb Helper's largest poster size), High and Medium 500 px, Low 342 px. Fanart: Original is the full original image, High and Medium 1280 px, Low 780 px. For example poster Original with fanart Low gives large sharp posters and smaller, lighter fanart on a slow device.
 - **Changing them refreshes lists and widgets** (7.0.87). Like *TMDb artwork quality*, changing either setting makes widgets reload and rebuild with the new sizes. Leaving both on Default rebuilds nothing, also right after this update. Artwork that is saved with an item once (actor portraits already stored, set posters and set fanart, extra fanart) can keep its old size until that item expires or is refreshed. Tested live on a PC Kodi 22 with poster Original and fanart Low: posters and actor portraits came in at 780 px, fanart at 780 px, logos unchanged. Ported from the upstream add-on.
+
+### MDBList and Simkl now-watching start (7.0.88-7.0.89)
+
+- **MDBList and Simkl get a start when playback begins and when it resumes** (7.0.89). TMDb Helper already told Trakt when a video started; MDBList and Simkl only heard about pauses and stops. They now also get a start, so each service knows what you are watching. A seek sends nothing, because both services' documentation forbids a start on a seek.
+- **A start is only sent when it cannot cost you the resume point** (7.0.89). On MDBList and Simkl a start removes the item's saved resume point until the next pause or stop saves it again. So TMDb Helper sends the start only while *Scrobble* and *Get resume points* are both on for that service, only once a playing time has been measured, and only for playback TMDb Helper started itself (not a play another add-on started, which reports its own start and pause). If you stop before any playing time was measured, nothing is sent and your saved resume point stays. A start is sent once per start or resume and is not retried if it fails.
+- **Quieter log** (7.0.88). The MDBList and Simkl sync databases no longer log 32 'duplicate column name' lines every time Kodi starts: the update step now checks which columns exist before adding them. Nothing you see or store changes.
 
 ## 3. First-Time Setup
 
