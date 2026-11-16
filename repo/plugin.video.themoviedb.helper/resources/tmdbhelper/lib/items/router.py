@@ -39,6 +39,10 @@ class Router():
     def get_directory(self, items_only=False, build_items=True):
         from tmdbhelper.lib.items.routes import get_container
         container = get_container(self.params.get('info'))(self.handle, self.paramstring, **self.params)
+        if not items_only and build_items and container.missing_tmdb_type():
+            # A skin path built from a row that is no movie or show (e.g. "Next page") has no type: finish it empty, not with a traceback
+            kodi_log(['lib.container.router - Skipped, the path has no type\n', self.paramstring], 1)
+            return container.finish_container()
         container.get_tmdb_id()  # TODO: Only get this as necessary
         return container.get_directory(items_only, build_items)
 

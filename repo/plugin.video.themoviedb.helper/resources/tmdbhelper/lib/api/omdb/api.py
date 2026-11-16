@@ -1,4 +1,6 @@
 from jurialmunkey.parser import del_empty_keys, merge_two_dicts
+from jurialmunkey.tmdate import get_timestamp, set_timestamp
+from jurialmunkey.window import get_property
 from tmdbhelper.lib.api.request import RequestAPI
 from tmdbhelper.lib.api.omdb.mapping import ItemMapper
 from tmdbhelper.lib.api.api_keys.omdb import API_KEY
@@ -24,6 +26,9 @@ def translate_xml(request):
     return {'root': {'movie': [d]}}
 
 
+OMDB_BLOCK_SECONDS = 1800  # pause after a 401 (rejected key or used-up daily quota), as Seren does
+
+
 class OMDb(RequestAPI):
 
     api_key = API_KEY
@@ -38,6 +43,29 @@ class OMDb(RequestAPI):
         self.translate_xml = translate_xml  # Temp monkey patch bandaid for broken ElementTree. Remove after upstream fix.
         self._error_notification = False  # Override user settings and always suppress OMDb error notifications since it times-out a lot.
         OMDb.api_key = api_key
+
+    @property
+    def unauthorized_property(self):
+        """ Window property holding the time until which OMDb is not asked. Named by the key so a new key starts clean. """
+        from hashlib import md5
+        key_hash = md5(str(OMDb.api_key).encode('utf-8')).hexdigest()[:12]
+        return f'OMDb.Unauthorized.{key_hash}'
+
+    def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
+        """ OMDb answers 401 for a rejected key and for a used-up daily quota, and the same key fails again on the next
+        item. The base class only logs the 401 and returns nothing, and the empty result is never cached, so a list of
+        items asked OMDb once per item (222 requests for 59 titles in one Shield log). Remember the 401 for a while,
+        shared by every plugin call until Kodi restarts, and send nothing to OMDb in the meantime. """
+        prop = self.unauthorized_property
+        if get_timestamp(get_property(prop, is_type=float)):
+            return
+        response = super(OMDb, self).get_simple_api_request(request=request, postdata=postdata, headers=headers, method=method)
+        if response is not None and response.status_code == 401:
+            get_property(prop, set_timestamp(OMDB_BLOCK_SECONDS))
+            self.kodi_log(
+                f'OMDb rejected the request (401), the API key is invalid or its daily limit is used up.\n'
+                f'Pausing OMDb lookups for {OMDB_BLOCK_SECONDS // 60} minutes', 1)
+        return response
 
     def get_request_item(self, imdb_id=None, title=None, year=None, tomatoes=True, fullplot=True, cache_only=False):
         kwparams = {}

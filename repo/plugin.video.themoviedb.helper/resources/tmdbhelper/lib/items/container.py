@@ -9,6 +9,11 @@ from tmdbhelper.lib.items.season_layout_display import SeasonLayoutDisplay
 # Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
 BLANK_MENUS = ('dir_mdblist_progress', 'trakt_history_stats')
 
+# Lists where "nothing found" is a normal answer (an episode TMDb has no crew credits for): the container is finished with
+# no items, so Kodi opens an empty list instead of logging "GetDirectory - Error getting" and the user gets no "empty" popup.
+# Kept apart from BLANK_MENUS, which also keeps these lists out of the widget / skin row cache (widget_cache.cacheable_info).
+EMPTY_FINISHED = ('crew',)
+
 # In Progress lists whose shows open the seasons list, and the service whose watched data decides what that list hides
 HIDE_SOURCES = {'trakt_inprogress': 'trakt', 'mdblist_upnext': 'mdblist', 'simkl_upnext': 'simkl'}
 
@@ -402,6 +407,14 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             addSortMethod(self.handle, **i)
         endOfDirectory(self.handle, updateListing=self.update_listing)
 
+    def missing_tmdb_type(self):
+        """True when this list cannot be built because its path has no type and get_items requires one."""
+        if self.params.get('tmdb_type'):
+            return False
+        from inspect import signature, Parameter
+        param = signature(self.get_items).parameters.get('tmdb_type')
+        return param is not None and param.default is Parameter.empty
+
     def get_tmdb_id(self):
 
         if self.params.get('info') == 'collection' and self.params.get('tmdb_type') == 'movie':
@@ -470,7 +483,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             with TimerList(self.timer_lists, 'get_list', logging=self.log_timers):
                 items = self.get_items(**self.params)
             if not items:
-                if self.params.get('info') in BLANK_MENUS and build_items and not items_only:
+                if self.params.get('info') in (*BLANK_MENUS, *EMPTY_FINISHED) and build_items and not items_only:
                     self.finish_container()
                     return
                 # Kodi bounces back from a directory that is never finished: tell the user the list is empty instead

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.91"
+version="7.0.94"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,15 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.94
+- Fixed: a Crew list with nothing in it (TMDb has no crew credits for many episodes, for example Chinese shows) now opens as an empty list. Before, the list was never finished, so Kodi wrote a "GetDirectory - Error getting" line to the log each time a skin asked for it, and a list opened by hand showed an "empty list" popup.
+
+v7.0.93
+- Fixed: when OMDb answers 401 (the API key is wrong or its daily limit is used up), TMDb Helper no longer asks OMDb again for every item in a list. It pauses OMDb lookups for 30 minutes and writes one line to the log; the ratings and awards that come from OMDb are simply missing meanwhile. Entering a new key in the settings starts clean.
+
+v7.0.92
+- Fixed: a list opened from a path with no type (a skin builds "similar" and other lists from the focused row, and a "Next page" row has no movie or show type) no longer ends in a TypeError traceback and a Kodi "Error getting" line. The list now opens empty and the log gets one short line.
+
 v7.0.91
 - Added: MDBList and Simkl now have an "In-Progress Episodes" list like Trakt's: the episodes you stopped part-way through, newest first. It sits right after In-Progress in each service's menu and in their Movies and TV Shows / Anime / Asian Progress menus. Simkl lists the episodes of regular shows only, and only those TMDb's numbering has (an anime episode carries Simkl's own cour numbering, so Simkl's Anime Progress menu has no such row) (GitHub issue #13).
 - Fixed: switching a watch service on or off (or its watched / resume indicators) now refreshes the widgets at once. The widget caches did not follow those switches, so the old service's marks stayed on the widgets, even after a restart, until Rebuild Database was run (GitHub issue #13). Every widget is rebuilt once after this update.

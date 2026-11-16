@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.91 — Complete Features & Functions Guide
+# TMDb Helper 7.0.94 — Complete Features & Functions Guide
 
-**Version:** 7.0.91 (Enhanced Fork — Personal Build)
+**Version:** 7.0.94 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.91_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.94_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.91. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.94. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -341,6 +341,12 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.9
 - **Trakt follows its switch without a restart** (7.0.91). Turning Trakt on while Kodi is running now authorizes it right away, and turning it off stops scrobbling to it right away; both only took effect at the next start before.
 - **Set as watched clears the resume point on MDBList and Simkl** (7.0.90–7.0.91). A movie or episode marked watched on MDBList or Simkl, or mirrored there from another service, no longer keeps its playback percentage: the resume point is cleared on the service and in the local data.
 - **Fewer wrong options in the item menus** (7.0.90). Episodes no longer offer Add to collection on Trakt and MDBList (movies and shows keep it), and Simkl no longer offers Add to hold for a movie, because this add-on's On Hold list shows TV shows only. A movie that is already on hold keeps Remove from hold.
+
+### Fixes in 7.0.92–7.0.94
+
+- **A list opened without a type no longer ends in an error** (7.0.92). A skin that builds a list such as Similar from the focused row can send a path with no movie or show type (the Next page row has none). The list now opens empty and the log gets one short line, instead of a TypeError traceback and a Kodi 'Error getting' line.
+- **OMDb is paused for 30 minutes after a 401** (7.0.93). OMDb answers 401 for a wrong API key and for a used-up daily limit. TMDb Helper used to ask OMDb again for every item in a list (222 requests for 59 titles in one log). It now writes one line to the log, stops asking for 30 minutes, and the ratings and awards that come from OMDb are simply missing meanwhile. Entering a new key in the settings starts clean.
+- **An empty Crew list opens as an empty list** (7.0.94). TMDb has no crew credits for many episodes, for example Chinese shows. Before, the list was never finished, so Kodi wrote a 'GetDirectory - Error getting' line to the log each time a skin asked for it, and a list opened by hand showed an 'empty list' popup.
 
 ## 3. First-Time Setup
 
