@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.95"
+version="7.0.96"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.96
+- Fixed: the add-on's own menus no longer stay as they were after a service (Trakt, MDBList, Simkl) or a main-menu row is switched on or off. Kodi kept a saved copy of the menu page and showed it again when you went Back, without asking TMDb Helper, so the row stayed until Kodi was restarted. Menu pages are no longer saved, and a menu that is on screen when you close Settings is refreshed at once.
+- Fixed: Simkl In-Progress Episodes now shows the playback percentage Simkl itself holds for each episode. Before, the percentage came from TMDb Helper's own copy, which only knows the episodes paused in TMDb Helper, so an episode paused on simkl.com or in another app showed no percentage or a wrong one.
+
 v7.0.95
 - Fixed: changelog.txt stopped at v7.0.73; it now lists every version up to this one.
 

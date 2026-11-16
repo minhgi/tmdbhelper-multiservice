@@ -248,7 +248,8 @@ def _playback_episodes(items_list):
         at = str(item.get('paused_at') or '')
         key = (tmdb_id, season, number)
         if key not in rows or at > rows[key][0]:
-            rows[key] = (at, {'id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': number, 'title': show.get('title')})
+            rows[key] = (at, {'id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': number, 'title': show.get('title'),
+                              'progress': progress})  # taken off again in ListInProgressEpisodes: it is not an item field
     return [row for _, row in sorted(rows.values(), key=lambda r: r[0], reverse=True)]
 
 
@@ -693,6 +694,9 @@ class ListInProgressEpisodes(ContainerDirectory):
         rows = kept
         if not rows:
             return
+        # The percentage Simkl itself holds for each episode. The rows of this list show it (SimklPlayData.set_playprogress); the
+        # add-on's local copy only knows the pauses made here, so an episode paused on simkl.com or in another app showed none or a wrong one
+        self.simkl_playdata.server_progress = {(r['id'], r['season'], r['episode']): r.pop('progress', None) for r in rows}
         response = self.simkl_api.get_paginated({'episodes': rows}, page=page or 1)
         self.tmdb_cache_only = False
         self.set_mixed_content(response.paginated_items_dict)

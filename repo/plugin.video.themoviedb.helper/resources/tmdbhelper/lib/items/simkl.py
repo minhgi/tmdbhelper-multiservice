@@ -6,6 +6,8 @@ class SimklPlayData:
     def __init__(self, watchedindicators=False, pauseplayprogress=False):
         self._watchedindicators = watchedindicators
         self._pauseplayprogress = pauseplayprogress
+        # {(show tmdb id, season, episode): percent} that Simkl itself holds, set by the Simkl In-Progress Episodes list for its own rows
+        self.server_progress = {}
 
     def is_sync(func):
         def wrapper(self, *args, **kwargs):
@@ -98,11 +100,25 @@ class SimklPlayData:
             return
         if li.infolabels.get('mediatype') not in ('movie', 'episode'):
             return
-        if li.infoproperties.get('ResumeTime'):
-            return  # Trakt or MDBList already set a resume point
         duration = li.infolabels.get('duration')
         if not duration:
             return
+
+        if self.server_progress and li.infolabels.get('mediatype') == 'episode':
+            # a row of Simkl's own In-Progress Episodes list: Simkl's percentage for that episode wins over the local copy and over
+            # the resume point Trakt / MDBList set, so the list shows what Simkl holds (GitHub issue #13)
+            try:
+                key = (int(li.unique_ids.get('tvshow.tmdb')), int(li.infolabels.get('season')), int(li.infolabels.get('episode')))
+                percent = int(round(float(self.server_progress.get(key))))
+            except (TypeError, ValueError):
+                percent = None
+            if percent is not None and 4 <= percent <= 96:
+                li.infoproperties['ResumeTime'] = int(duration * percent // 100)
+                li.infoproperties['TotalTime'] = int(duration)
+                return
+
+        if li.infoproperties.get('ResumeTime'):
+            return  # Trakt or MDBList already set a resume point
 
         if li.infolabels.get('mediatype') == 'movie':
             progress = self.simkl_syncdata.get_value(

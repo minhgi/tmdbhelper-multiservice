@@ -2015,6 +2015,9 @@ def _get_tmdb_v4():
 
 class ListBaseDir(ContainerDirectory):
     def get_items(self, info=None, **kwargs):
+        # A menu is built from the service / menu switches every time it opens. Kodi kept a saved copy of the page and served it
+        # again on Back (the add-on was not called at all), so a menu row switched on or off stayed as it was (GitHub issue #13)
+        self.cache_to_disc = False
         route = {
             'dir_movie': lambda: _get_basedir_list('movie', tmdb=True, trakt=True),
             'dir_tv': lambda: _get_basedir_list('tv', tmdb=True, trakt=True),

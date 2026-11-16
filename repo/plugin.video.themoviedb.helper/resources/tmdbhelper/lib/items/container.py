@@ -50,6 +50,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
 
         # endOfDirectory
         self.update_listing = False  # endOfDirectory(updateListing=) set True to replace current path
+        self.cache_to_disc = True  # endOfDirectory(cacheToDisc=) False: Kodi keeps no saved copy of the page (menus, GitHub issue #13)
         self.plugin_category = ''  # Container.PluginCategory / ListItem.Property(widget)
         self.container_content = ''  # Container.Content({})
         self.container_update = ''  # Add path to call Containr.Update({}) at end of directory
@@ -405,7 +406,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         setContent(self.handle, self.container_content)  # Container.Content
         for i in self.sort_methods:
             addSortMethod(self.handle, **i)
-        endOfDirectory(self.handle, updateListing=self.update_listing)
+        endOfDirectory(self.handle, updateListing=self.update_listing, cacheToDisc=self.cache_to_disc)
 
     def missing_tmdb_type(self):
         """True when this list cannot be built because its path has no type and get_items requires one."""
