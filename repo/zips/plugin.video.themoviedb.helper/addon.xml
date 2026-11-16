@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.94"
+version="7.0.95"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,9 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.95
+- Fixed: changelog.txt stopped at v7.0.73; it now lists every version up to this one.
+
 v7.0.94
 - Fixed: a Crew list with nothing in it (TMDb has no crew credits for many episodes, for example Chinese shows) now opens as an empty list. Before, the list was never finished, so Kodi wrote a "GetDirectory - Error getting" line to the log each time a skin asked for it, and a list opened by hand showed an "empty list" popup.
 

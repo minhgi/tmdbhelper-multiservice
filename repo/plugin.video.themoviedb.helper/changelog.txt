@@ -1,3 +1,87 @@
+v7.0.95
+- Fixed: changelog.txt stopped at v7.0.73; it now lists every version up to this one.
+
+v7.0.94
+- Fixed: a Crew list with nothing in it (TMDb has no crew credits for many episodes, for example Chinese shows) now opens as an empty list. Before, the list was never finished, so Kodi wrote a "GetDirectory - Error getting" line to the log each time a skin asked for it, and a list opened by hand showed an "empty list" popup.
+
+v7.0.93
+- Fixed: when OMDb answers 401 (the API key is wrong or its daily limit is used up), TMDb Helper no longer asks OMDb again for every item in a list. It pauses OMDb lookups for 30 minutes and writes one line to the log; the ratings and awards that come from OMDb are simply missing meanwhile. Entering a new key in the settings starts clean.
+
+v7.0.92
+- Fixed: a list opened from a path with no type (a skin builds "similar" and other lists from the focused row, and a "Next page" row has no movie or show type) no longer ends in a TypeError traceback and a Kodi "Error getting" line. The list now opens empty and the log gets one short line.
+
+v7.0.91
+- Added: MDBList and Simkl now have an "In-Progress Episodes" list like Trakt's: the episodes you stopped part-way through, newest first. It sits right after In-Progress in each service's menu and in their Movies and TV Shows / Anime / Asian Progress menus. Simkl lists the episodes of regular shows only, and only those TMDb's numbering has (an anime episode carries Simkl's own cour numbering, so Simkl's Anime Progress menu has no such row) (GitHub issue #13).
+- Fixed: switching a watch service on or off (or its watched / resume indicators) now refreshes the widgets at once. The widget caches did not follow those switches, so the old service's marks stayed on the widgets, even after a restart, until Rebuild Database was run (GitHub issue #13). Every widget is rebuilt once after this update.
+- Fixed: turning Trakt on while Kodi is running now authorizes it right away, and turning it off stops scrobbling to it right away; both only changed at the next restart before (GitHub issue #13).
+- Fixed: a movie or episode that another service mirrors as watched to MDBList or Simkl no longer keeps its resume percentage there (7.0.90 fixed it for "Set as watched" made on MDBList or Simkl itself).
+
+v7.0.90
+- Fixed: "Set as watched" on an MDBList or Simkl movie or episode now also removes its resume point, so the playback percentage no longer stays on the poster until you run Reset resume position by hand. The local resume row is cleared, and the playback entry on the service with it (GitHub issue #13).
+- Fixed: the Simkl options menu no longer offers "Add to hold" for a movie (this add-on's On Hold list reads shows and anime only, so a movie put on hold appeared in none of its lists). A movie that is already on hold keeps "Remove from hold".
+- Changed: "Add to collection" is no longer offered on episodes in the Trakt and MDBList menus; shows and movies keep it.
+
+v7.0.89
+- Added: MDBList and Simkl now get a "now watching" start when playback begins and when it resumes from a pause, like Trakt (they only received pause and stop before; both services do have a start endpoint). A start makes the service forget the item's saved resume point until the next pause or stop saves it again, so Resume points must be on for the service, nothing is sent until a playing time is measured, and nothing is sent for playback another add-on started.
+
+v7.0.88
+- Fixed: the MDBList and Simkl sync databases no longer try to add columns they already have on every start, which wrote about 30 harmless "duplicate column name" lines to the debug log. The missing columns are now looked up first and only those are added.
+
+v7.0.87
+- Added: two new settings under Artwork, "TMDb poster quality" and "TMDb fanart quality", to pick the image size of posters and of fanart separately from the "TMDb artwork quality" (ported from the upstream add-on). Both start on Default, which follows the TMDb artwork quality, so nothing changes until you set one. Landscape, thumbnails and logos keep following the TMDb artwork quality. Changing either setting rebuilds the lists and widgets that hold artwork, like the TMDb artwork quality does.
+
+v7.0.86
+- Changed: the English plot fallback now also covers the plot (biography) of people, such as cast members, and the plots of the seasons in a show's season list (GitHub issue #11). It still only applies when "English plot fallback" is on and your language is not English, and only for items that have no plot in your language. The season list needs one extra small request per show, kept in the cache. Lists and widgets rebuild once after this update when the setting is on.
+
+v7.0.85
+- Fixed: changing the artwork quality in the settings now refreshes the artwork (GitHub issue #9). Widgets are saved per quality and the skin reloads its widgets when the quality changes, and the background service follows the setting at once instead of keeping the quality it started with. Widgets rebuild once after this update.
+- Changed: the Artwork Manager only offers the artwork types that one of your sources can give. TMDb always gives poster, fanart, landscape and clearlogo; banner, clearart, discart, keyart and character art need a fanart.tv option on (clearart and banner also come from TheTVDB when its setting is on, for movies and shows).
+
+v7.0.84
+- New: "English plot fallback" (Settings > General, right under Language; off by default). When TMDb has no plot in your language, the English plot is shown instead of an empty space. It is only asked for items that have no plot in your language, so everything else loads as before. It works where TMDb Helper looks up an item's details: in lists and widgets that needs "Get additional details and artwork from TMDb" (or a fanart.tv lookup) turned on. Turning it on or off rebuilds lists and widgets.
+
+v7.0.83
+- Changed: the Artwork Manager no longer lists fanart.tv artwork (and no longer asks fanart.tv for it) while all three fanart.tv lookup options are off. Turn on any one of them to have fanart.tv listed again, the same way TheTVDB needs its own setting.
+
+v7.0.82
+- Fixed: the size shown for a TMDb image in the Artwork Manager was always its full native resolution, even though your Quality setting downloads a smaller version. It now shows the size that will actually be used.
+
+v7.0.81
+- New: the Artwork Manager now also lists TheTVDB artwork (posters, fanart, banners, clearart and clearlogos for movies and shows) when "Fill missing clearlogos and fanart from TheTVDB" is on. It is asked once per movie or show and kept for 30 days. TheTVDB has nothing like landscape, and no season artwork.
+- New: every artwork row shows its source, language, size and score, and the list starts with a "Sort by" row: source (TMDb, fanart.tv, TheTVDB) then language, or language then source. Inside each, larger images come first (fanart.tv does not give a size, so those go last). The same row switches between your language, English and no language, and every language. Your last choice is remembered.
+- Changed: the list used to start with fanart.tv and then TMDb; it now starts with TMDb, then fanart.tv, then TheTVDB.
+- Fixed: language codes of the three sources are matched properly (TheTVDB writes "deu" where TMDb writes "de"), so the language filter and sort treat them alike.
+
+v7.0.80
+- Fixed: after you changed the language, widgets could stay in the old language, even after restarting Kodi. The background service kept using the language it started with and could save widgets in the old language under the new language's name. It now follows the language setting at once.
+- Fixed: changing the language, "Fallback to English", "Prefer artwork from TMDb first", the fanart.tv lookups or TheTVDB now makes the skin reload its widgets by itself.
+- Changed: with none of the three fanart.tv lookup options on, only TMDb artwork is shown, whatever fanart.tv art was stored earlier. "Prefer artwork from TMDb first" now only matters (and can only be changed) when a fanart.tv lookup is on. Artwork you picked by hand is kept. Widgets and rows rebuild once after this update.
+- Changed: the Artwork Manager lists only artwork in your language, without a language and (with Fallback to English) in English. If there is none of those you get every language. Fanart backgrounds are unchanged.
+
+v7.0.79
+- Fixed: the Unwatched seasons / episodes entries disappeared when Cross-Service Sync was off. An entry now only needs its own service switched on and signed in; Cross-Service Sync only decides whether the other services are changed too.
+- Fixed: if the service you picked fails (for example a rate limit), nothing is sent to the other services, so they are never left half changed.
+- Changed: the lists are no longer read when the menu opens. Picking an entry refreshes that service first, so a season marked moments ago is always listed. If nothing is watched you get a short message.
+- New: a show held as one whole-show mark (no season detail) gets a "Whole show (marked as one block)" row that removes it on that service only (it is not mirrored).
+- Safer: a season is only changed on Simkl, or mirrored from Simkl, when Simkl numbers the show's seasons like TMDb does. Otherwise that service is skipped and the result dialog says so.
+
+v7.0.78
+- Fixed: the Unwatched seasons / episodes result dialog said "MDBList: done" instead of a count, because MDBList answers with a "removed" count where Trakt and Simkl use "deleted". It now shows the number removed.
+
+v7.0.77
+- Reverted: the 7.0.76 change to Trakt options and MDBList options (a lone entry shows the list). They run a single available action at once again, as in 7.0.75; Simkl options keep their own 7.0.29 rule.
+- New: Trakt options, MDBList options and Simkl options get "Unwatched seasons" (and Trakt / MDBList also "Unwatched episodes"), placed right after Mark as unwatched. "Unwatched seasons" lists the seasons that service has watched for the show ("Season 2 (24 watched)"), "Unwatched episodes" lists the watched episodes ("2x05. Title"); tick any, press OK, and they are unwatched with one request per service, then mirrored to the other two services like Mark as unwatched. Simkl keeps no episode rows, so it only offers seasons. The entry only appears when that service has something watched for the show.
+
+v7.0.76
+- Fixed: Trakt options and MDBList options in the context menu ran the action the moment they were picked when only one entry applied, so on a season Trakt options simply marked it watched with no list to cancel. They now show the list like Simkl options does; a skin button that names one action still runs it at once.
+
+v7.0.75
+- Fixed: In Progress rows (MDBList, Simkl): a show the row's own service counts as fully watched (for example one kept In Progress by a paused episode) opened an empty seasons list. When hiding watched items would leave nothing to open, the list now shows everything and the episode lists are not hidden either.
+- Fixed: Simkl In Progress rows hid nothing, because Simkl holds no per-episode watched marks of its own. A Simkl row now hides what any service has watched.
+
+v7.0.74
+- Changed: Trakt In Progress (TV shows): a show now opens its Seasons list, like a show in MDBList and Simkl In Progress, instead of its Up Next episode list (Flatten seasons still applies). With Settings > Widgets > Hide watched on, the seasons and episodes opened from an In Progress row also hide what is already watched, judged by the same service as the row (Trakt for Trakt In Progress, MDBList / Simkl for theirs), so a whole-show mark on another service cannot empty the list. The marks shown are unchanged. Up Next is still on the show page and the Play next button, and lists opened any other way are unchanged.
+
 v7.0.73
 - Fixed: Kodi's log was filled with deprecation warnings every time a cached widget or row was shown: "resumetime" / "totaltime" in ListItem.setProperty() is deprecated, and "Passing None where a string is expected is deprecated". A cached item set its resume and total time twice (as the resume point, which is right, and again as the old properties) and passed None for a cast member's missing thumbnail or role and for the default unique ID of every item. The old properties are no longer set from the cache, as a freshly built item already did not set them, and a cast member's empty fields are left out and an empty string is passed as the default ID, which is what Kodi uses itself. Nothing visible changes. A few similar warnings remain at startup from the service; they are harmless.
 
