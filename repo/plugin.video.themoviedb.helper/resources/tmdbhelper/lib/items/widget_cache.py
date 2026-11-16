@@ -76,6 +76,10 @@ def _get_settings_salt(row=False):
         sort += '|enplot=2' if get_setting('force_english_plot_fallback') and lang[:2] != 'en' else ''  # default off; English plot fallback (GitHub issue #11), only for a language other than English
         sort += f"|aq={get_artwork_quality_key()}"  # the saved art holds the Artwork quality's image sizes (GitHub issue #9); always present, so every cache built before it (which held whatever quality was set then) is rebuilt once. The default level alone while the poster/fanart overrides add nothing (the same text as before they existed), else 'default.poster.fanart'
         sort += '|fa=1' if fanarttv_art_enabled() else '|fa=0'  # fanart.tv art is shown only while a fanart.tv lookup option is on (7.0.80); always present, so every cache built before it is rebuilt once
+        # the watch services and their indicators decide which marks a built widget holds (GitHub issue #13 item 5); always present, so every cache built before it is rebuilt once
+        sort += '|svc=' + ''.join('1' if get_setting(i) else '0' for i in (
+            'service_trakt', 'service_mdblist', 'service_simkl', 'trakt_watchedindicators', 'mdblist_watchedindicators',
+            'simkl_watchedindicators', 'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress'))
         sort += '|hw=1' if get_setting('widgets_hidewatched') else '|hw=0'  # In Progress show paths changed in 7.0.74 and carry this setting; always present, so every cache built before it is rebuilt once
         sort += '|wftv=1' if not row and get_setting('widget_fanarttv_lookup') else ''  # default off (rows already carry the lookup setting below)
     except Exception:

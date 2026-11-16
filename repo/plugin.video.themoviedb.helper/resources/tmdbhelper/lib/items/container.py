@@ -251,9 +251,9 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             trakt_playcount = trakt_raw or 0
             mdb_playcount = self.mdblist_playdata.get_playcount(li) or 0
             simkl_playcount = self.simkl_playdata.get_playcount(li) or 0
-            if _info in ('mdblist_watchlist', 'mdblist_history', 'mdblist_upnext'):
+            if _info in ('mdblist_watchlist', 'mdblist_history', 'mdblist_upnext', 'mdblist_ondeck'):
                 playcount = mdb_playcount
-            elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext', 'simkl_watching', 'simkl_hold', 'simkl_dropped'):
+            elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext', 'simkl_ondeck', 'simkl_watching', 'simkl_hold', 'simkl_dropped'):
                 playcount = simkl_playcount
             elif _info == 'trakt_inprogress' and li.infolabels.get('mediatype') == 'tvshow' and trakt_raw is not None:
                 # In Progress lists the shows Trakt says are unfinished (aired > watched). Taking the highest count of all services here

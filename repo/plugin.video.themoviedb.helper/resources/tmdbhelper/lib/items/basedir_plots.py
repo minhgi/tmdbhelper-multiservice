@@ -84,6 +84,7 @@ _BY_INFO = {
     'trakt_userlists': "Type a Trakt username to browse that person's public lists",
     # MDBList
     'mdblist_upnext': '{N} you started but have not finished, from MDBList',
+    'mdblist_ondeck': 'The episodes you stopped part-way through, from MDBList',
     'mdblist_nextup': 'The next episode to watch of each show you are watching on MDBList',
     'mdblist_watchlist': '{N} on your MDBList watchlist',
     'mdblist_history': '{N} you watched recently, from your MDBList history',
@@ -96,6 +97,7 @@ _BY_INFO = {
     'mdblist_userlists': "Type an MDBList username to browse that person's public lists",
     # Simkl
     'simkl_upnext': '{N} you started but have not finished, from Simkl',
+    'simkl_ondeck': 'The episodes you stopped part-way through, from Simkl',
     'simkl_nextup': 'The next episode to watch of each show you are watching on Simkl',
     'simkl_watching': 'TV shows you are watching on Simkl',
     'simkl_plantowatch': '{N} on your Simkl plan to watch list',

@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.89 — Complete Features & Functions Guide
+# TMDb Helper 7.0.91 — Complete Features & Functions Guide
 
-**Version:** 7.0.89 (Enhanced Fork — Personal Build)
+**Version:** 7.0.91 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.89_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.91_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.89. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.91. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -333,6 +333,14 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.8
 - **MDBList and Simkl get a start when playback begins and when it resumes** (7.0.89). TMDb Helper already told Trakt when a video started; MDBList and Simkl only heard about pauses and stops. They now also get a start, so each service knows what you are watching. A seek sends nothing, because both services' documentation forbids a start on a seek.
 - **A start is only sent when it cannot cost you the resume point** (7.0.89). On MDBList and Simkl a start removes the item's saved resume point until the next pause or stop saves it again. So TMDb Helper sends the start only while *Scrobble* and *Get resume points* are both on for that service, only once a playing time has been measured, and only for playback TMDb Helper started itself (not a play another add-on started, which reports its own start and pause). If you stop before any playing time was measured, nothing is sent and your saved resume point stays. A start is sent once per start or resume and is not retried if it fails.
 - **Quieter log** (7.0.88). The MDBList and Simkl sync databases no longer log 32 'duplicate column name' lines every time Kodi starts: the update step now checks which columns exist before adding them. Nothing you see or store changes.
+
+### In-Progress Episodes, service switches and resume points (7.0.90–7.0.91)
+
+- **MDBList and Simkl have an In-Progress Episodes list** (7.0.91). Like Trakt's, it shows the episodes you stopped part-way through, newest first. It sits right after In-Progress in each service's menu and in their Movies and TV Shows, Anime and Asian Progress menus. Simkl lists the episodes of regular shows only, and only those that TMDb's numbering has; an anime episode paused on Simkl is not listed (Simkl numbers anime its own way), so Simkl's Anime Progress menu has no such row.
+- **Switching a watch service refreshes the widgets** (7.0.91). Turning Trakt, MDBList or Simkl on or off, or their watched or resume indicators, now refreshes the widgets at once. Before, the widget cache did not follow those switches and was reused for up to 6 hours, even after a restart, so the old service's marks stayed on the widgets until Rebuild Database was run. Every widget is rebuilt once after this update.
+- **Trakt follows its switch without a restart** (7.0.91). Turning Trakt on while Kodi is running now authorizes it right away, and turning it off stops scrobbling to it right away; both only took effect at the next start before.
+- **Set as watched clears the resume point on MDBList and Simkl** (7.0.90–7.0.91). A movie or episode marked watched on MDBList or Simkl, or mirrored there from another service, no longer keeps its playback percentage: the resume point is cleared on the service and in the local data.
+- **Fewer wrong options in the item menus** (7.0.90). Episodes no longer offer Add to collection on Trakt and MDBList (movies and shows keep it), and Simkl no longer offers Add to hold for a movie, because this add-on's On Hold list shows TV shows only. A movie that is already on hold keeps Remove from hold.
 
 ## 3. First-Time Setup
 

@@ -476,9 +476,16 @@ class ItemSimklWatched(ItemSimklSyncBase):
         mirror_watched_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
 
+    def clear_resume_point(self):
+        """An item set as watched must not keep its resume percentage (GitHub issue #13 item 4); see the
+        module-level clear_resume_point(). Only after the watched call succeeded."""
+        if self.is_successful_sync:
+            clear_resume_point(self.tmdb_type, self.tmdb_id, self.season, self.episode)
+
     def sync(self):
         _ = self.sync_response
         self.update_watched_in_db(True, force=True)
+        self.clear_resume_point()
         self.display_dialog()
         self.refresh_containers(force=True)
         if self.is_successful_sync:
@@ -626,7 +633,18 @@ class ItemSimklHold(ItemSimklSyncBase):
 
     Add:    POST /sync/add-to-list  with "to": "hold"
     Remove: remove_status() (a show with history leaves the list as 'watching'; see ItemSimklSyncBase)
+
+    Shows only (GitHub issue #13 item 2). Simkl's API accepts a movie on hold (live-probed 2026-11-15: 201, the movie
+    reads back with status 'hold'), but this add-on's On Hold list reads shows and anime only, so a movie put on hold
+    appears in none of its lists. A movie that already carries the hold flag keeps the entry, so it can be taken off
+    hold again.
     """
+
+    @cached_property
+    def is_allowed_type(self):
+        if self.simkl_type == 'movie':
+            return bool(self.get_sync_value('hold_at'))
+        return super().is_allowed_type
 
     @cached_property
     def remove(self):
@@ -752,8 +770,8 @@ class ItemSimklClearProgress(ItemSimklSyncBase):
                 return {'cleared': 0}
         return None
 
-    def update_progress_in_db(self):
-        if not self.is_successful_sync:
+    def update_progress_in_db(self, force=False):
+        if not force and not self.is_successful_sync:
             return
         try:
             db_type = 'movie' if self.simkl_type == 'movie' else 'tv'
@@ -771,6 +789,30 @@ class ItemSimklClearProgress(ItemSimklSyncBase):
         self.update_progress_in_db()
         self.display_dialog()
         self.refresh_containers()
+
+
+def clear_resume_point(tmdb_type, tmdb_id, season=None, episode=None):
+    """Remove the resume point of a movie / episode that was just marked watched (GitHub issue #13 item 4), whether the
+    mark was made on Simkl itself (ItemSimklWatched) or mirrored from another service (cross_sync).
+
+    Kodi draws the percentage from the local paused_progress row, and a watched mark left that row in place, so the
+    percentage stayed until Reset resume position was run by hand. Simkl hides the playback entry itself once the item is
+    watched, but the entry returns if the item is later unwatched (live-checked 2026-11-15), so a stored session is also
+    deleted on the server (same call as Reset resume position). Done only for a movie / episode that still has a local
+    resume row (paused_progress, or a session id): the local row is cleared whether or not the server answered.
+    Never mirrors anything, so cross_sync may call it (it only instantiates this clear-progress item).
+    """
+    if tmdb_type not in ('movie', 'tv') or (tmdb_type == 'tv' and (season is None or episode is None)):
+        return
+    try:
+        clear = ItemSimklClearProgress(tmdb_type, tmdb_id, season, episode)
+        if not (clear.paused_id or clear.get_sync_value('paused_progress')):
+            return
+        if clear.paused_id:  # a pause saved without a session id has nothing to delete on the server
+            _ = clear.sync_response  # best effort; a failed delete leaves the server session for the next sync
+        clear.update_progress_in_db(force=True)
+    except Exception:
+        pass
 
 
 class ItemSimklRating(ItemSimklSyncBase):

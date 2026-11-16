@@ -3,6 +3,8 @@
 IMPORTANT: Mirror functions must never instantiate Trakt, MDBList, or Simkl *Item* sync
 classes or call their .sync() methods. Doing so would create an infinite echo loop:
   Trakt.sync() -> mirror_to_mdblist() -> ItemMDbListWatched.sync() -> mirror_to_trakt() -> ...
+The one exception: mdblist_sync.clear_resume_point() / simkl_sync.clear_resume_point() (a watched mark mirrored in must
+not leave a resume point behind) instantiate only the clear-progress items, which never mirror anything.
 
 All functions operate directly against each service's HTTP API and local DB cache.
 Only on-action mirroring is performed (forward-going actions). Pre-existing library
@@ -229,6 +231,9 @@ def mirror_watched_to_mdblist(tmdb_type, tmdb_id, season, episode, remove):
         path = ('sync', 'watched', 'remove') if remove else ('sync', 'watched')
         if _mdb_post(mdb, payload, *path) is not None:
             _update_mdb_watched_db(mdb, tmdb_type, tmdb_id, season, episode, not remove)
+            if not remove:  # a movie / episode now watched on MDBList must not keep its resume point there (issue #13 item 4)
+                from tmdbhelper.lib.script.sync.mdblist_sync import clear_resume_point
+                clear_resume_point(tmdb_type, tmdb_id, season, episode)
     except Exception as exc:
         kodi_log(f'cross_sync mirror_watched_to_mdblist error: {exc}', 2)
 
@@ -557,6 +562,9 @@ def mirror_watched_to_simkl(tmdb_type, tmdb_id, season, episode, remove):
             return
         if remove or not _simkl_not_found(resp):  # a removal of something Simkl does not have leaves it unwatched, as asked
             _update_simkl_watched_db(simkl, tmdb_type, tmdb_id, season, not remove)
+            if not remove and tmdb_type == 'movie':  # a movie now watched on Simkl must not keep its resume point there (issue #13 item 4)
+                from tmdbhelper.lib.script.sync.simkl_sync import clear_resume_point
+                clear_resume_point(tmdb_type, tmdb_id, None, None)
         else:
             kodi_log(f'cross_sync: Simkl did not know {tmdb_type} {tmdb_id} by its TMDb id - not marked watched there or in the local data', 1)
     except Exception as exc:

@@ -49,7 +49,7 @@ def _get_basedir_progress(basedir, infos, progress_filter=None):
 
 
 def _get_basedir_mdblist_progress(progress_filter=None):
-    return _get_basedir_progress(_get_basedir_mdblist(all_labels=False), ('mdblist_upnext', 'mdblist_nextup'), progress_filter)
+    return _get_basedir_progress(_get_basedir_mdblist(all_labels=False), ('mdblist_upnext', 'mdblist_ondeck', 'mdblist_nextup'), progress_filter)
 
 
 def _get_basedir_trakt_progress(progress_filter=None):
@@ -57,7 +57,9 @@ def _get_basedir_trakt_progress(progress_filter=None):
 
 
 def _get_basedir_simkl_progress(progress_filter=None):
-    return _get_basedir_progress(_get_basedir_simkl(all_labels=False), ('simkl_upnext', 'simkl_nextup'), progress_filter)
+    # Simkl's In-Progress Episodes lists regular shows only (an anime entry has Simkl's own cour numbering), so the Anime Progress menu has no such row
+    infos = ('simkl_upnext', 'simkl_nextup') if progress_filter == 'anime' else ('simkl_upnext', 'simkl_ondeck', 'simkl_nextup')
+    return _get_basedir_progress(_get_basedir_simkl(all_labels=False), infos, progress_filter)
 
 
 # A main-menu row shows only while its switch is on: a watch service in Settings > Accounts, Movies / TV Shows / Anime / Asian in Settings > Navigation > Main menu
@@ -496,6 +498,14 @@ def _get_basedir_mdblist(all_labels=True):
                 'landscape': f'{ADDONPATH}/fanart.jpg',
                 'icon': f'{ADDONPATH}/resources/icons/mdblist/inprogress.png'}},
         {
+            'label': u'All In-Progress Episodes' if all_labels else u'In-Progress Episodes',
+            'types': ['tv'],
+            'params': {'info': 'mdblist_ondeck'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/mdblist/inprogress.png'}},
+        {
             'label': u'All {}'.format(get_localized(32572)) if all_labels else get_localized(32572),
             'types': ['tv'],
             'params': {'info': 'mdblist_nextup'},
@@ -608,6 +618,14 @@ def _get_basedir_simkl(all_labels=True):
             'label': u'All In-Progress{space}{item_type}' if all_labels else u'In-Progress{space}{item_type}',
             'types': ['movie', 'tv', 'both'],
             'params': {'info': 'simkl_upnext'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/simkl/inprogress.png'}},
+        {
+            'label': u'All In-Progress Episodes' if all_labels else u'In-Progress Episodes',
+            'types': ['tv'],
+            'params': {'info': 'simkl_ondeck'},
             'path': PLUGINPATH,
             'art': {
                 'landscape': f'{ADDONPATH}/fanart.jpg',

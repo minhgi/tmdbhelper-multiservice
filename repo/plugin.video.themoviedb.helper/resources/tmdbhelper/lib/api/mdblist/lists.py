@@ -392,6 +392,32 @@ def _get_dropped_show_ids(mdblist_api):
     return {r['id'] for r in _normalize_collection(raw if isinstance(raw, dict) else {}).get('shows') or []}
 
 
+def _playback_episodes(playback):
+    """[{'id': show tmdb id, 'mediatype': 'episode', 'season', 'episode', 'title'}] for the episodes paused part-way in
+    GET /sync/playback, newest pause first. An entry at 0% is just a started player, nothing watched yet, and is skipped,
+    as is an entry without a show id or a season / episode number; the same episode is listed once."""
+    rows = {}
+    for item in playback or []:
+        if item.get('type') != 'episode':
+            continue
+        show = item.get('show') or {}
+        episode = item.get('episode') or {}
+        tmdb_id = (show.get('ids') or {}).get('tmdb')
+        try:
+            progress = float(item.get('progress'))
+            season, number = int(episode.get('season')), int(episode.get('number'))
+            tmdb_id = int(tmdb_id)
+        except (TypeError, ValueError):
+            continue
+        if progress <= 0:
+            continue
+        at = str(item.get('paused_at') or item.get('updated_at') or '')
+        key = (tmdb_id, season, number)
+        if key not in rows or at > rows[key][0]:
+            rows[key] = (at, {'id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': number, 'title': show.get('title')})
+    return [row for _, row in sorted(rows.values(), key=lambda r: r[0], reverse=True)]
+
+
 class ListInProgress(ContainerDirectory):
     """MDBList in-progress. Shows: every show you have started and not finished (like Trakt's In Progress) -
     a show with an individually watched episode and a later aired episode still unwatched (the Next Up rule),
@@ -465,6 +491,29 @@ class ListInProgress(ContainerDirectory):
         self.tmdb_cache_only = False
         self.set_mixed_content(response.paginated_items_dict)
         self.library = 'video'
+        return response.items + response.next_page
+
+
+class ListInProgressEpisodes(ContainerDirectory):
+    """MDBList In-Progress Episodes (GitHub issue #13 item 3), the counterpart of Trakt's Your In-Progress Episodes: every
+    episode paused part-way in GET /sync/playback, newest pause first, one row per episode.
+    anime_only='true' / asian_only='true' keep only anime / Asian shows (Anime / Asian Progress menus); other_only='true'
+    keeps everything else (Movies and TV Shows menu).
+    """
+
+    def get_items(self, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        raw = _get_user_endpoint(self.mdblist_api, 'sync', 'playback')
+        rows = _playback_episodes(raw if isinstance(raw, list) else [])
+        scope = _get_scope(anime_only, asian_only, other_only)
+        if rows and scope:
+            rows = [r for r in rows if _in_scope(self.tmdb_api.get_request_sc('tv', r['id']) or {}, scope, 'tv')]
+        if not rows:
+            return
+        response = self.mdblist_api.get_paginated({'episodes': rows}, page=page or 1)
+        self.tmdb_cache_only = False
+        self.set_mixed_content(response.paginated_items_dict)
+        self.library = 'video'
+        self.plugin_category = 'In-Progress Episodes'
         return response.items + response.next_page
 
 

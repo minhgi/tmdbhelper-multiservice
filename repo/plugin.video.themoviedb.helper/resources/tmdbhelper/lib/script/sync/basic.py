@@ -93,7 +93,6 @@ class ItemWatchlist(ItemSync):
 class ItemCollection(ItemSync):
     localized_name_add = 32289
     localized_name_rem = 32290
-    allow_episodes = True
     trakt_sync_key = 'collection_last_collected_at'
     trakt_sync_url = 'collection'
 

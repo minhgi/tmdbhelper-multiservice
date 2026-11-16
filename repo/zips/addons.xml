@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.89" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.91" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,17 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.91
+- Added: MDBList and Simkl now have an "In-Progress Episodes" list like Trakt's: the episodes you stopped part-way through, newest first. It sits right after In-Progress in each service's menu and in their Movies and TV Shows / Anime / Asian Progress menus. Simkl lists the episodes of regular shows only, and only those TMDb's numbering has (an anime episode carries Simkl's own cour numbering, so Simkl's Anime Progress menu has no such row) (GitHub issue #13).
+- Fixed: switching a watch service on or off (or its watched / resume indicators) now refreshes the widgets at once. The widget caches did not follow those switches, so the old service's marks stayed on the widgets, even after a restart, until Rebuild Database was run (GitHub issue #13). Every widget is rebuilt once after this update.
+- Fixed: turning Trakt on while Kodi is running now authorizes it right away, and turning it off stops scrobbling to it right away; both only changed at the next restart before (GitHub issue #13).
+- Fixed: a movie or episode that another service mirrors as watched to MDBList or Simkl no longer keeps its resume percentage there (7.0.90 fixed it for "Set as watched" made on MDBList or Simkl itself).
+
+v7.0.90
+- Fixed: "Set as watched" on an MDBList or Simkl movie or episode now also removes its resume point, so the playback percentage no longer stays on the poster until you run Reset resume position by hand. The local resume row is cleared, and the playback entry on the service with it (GitHub issue #13).
+- Fixed: the Simkl options menu no longer offers "Add to hold" for a movie (this add-on's On Hold list reads shows and anime only, so a movie put on hold appeared in none of its lists). A movie that is already on hold keeps "Remove from hold".
+- Changed: "Add to collection" is no longer offered on episodes in the Trakt and MDBList menus; shows and movies keep it.
+
 v7.0.89
 - Added: MDBList and Simkl now get a "now watching" start when playback begins and when it resumes from a pause, like Trakt (they only received pause and stop before; both services do have a start endpoint). A start makes the service forget the item's saved resume point until the next pause or stop saves it again, so Resume points must be on for the service, nothing is sent until a playing time is measured, and nothing is sent for playback another add-on started.
 

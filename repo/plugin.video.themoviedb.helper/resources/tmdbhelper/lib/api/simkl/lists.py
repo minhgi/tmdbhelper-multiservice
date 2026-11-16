@@ -225,6 +225,33 @@ def _paused_show_times(items_list):
     return times
 
 
+def _playback_episodes(items_list):
+    """[{'id': show tmdb id, 'mediatype': 'episode', 'season', 'episode', 'title'}] for the episodes of regular shows paused
+    part-way in GET /sync/playback, newest pause first. An entry at 0% is only a started player and is skipped, as is an
+    entry without a show id or a season / episode number; the same episode is listed once. Anime entries (an 'anime' block
+    instead of 'show') carry Simkl's cour numbering, which does not map onto a TMDb episode, so they are left out, as the
+    In Progress list leaves them out."""
+    rows = {}
+    for item in items_list or []:
+        if item.get('type') != 'episode':
+            continue
+        show = item.get('show') or {}
+        episode = item.get('episode') or {}
+        try:
+            progress = float(item.get('progress'))
+            tmdb_id = int((show.get('ids') or {}).get('tmdb'))
+            season, number = int(episode.get('season')), int(episode.get('number'))
+        except (TypeError, ValueError):
+            continue
+        if progress <= 0:
+            continue
+        at = str(item.get('paused_at') or '')
+        key = (tmdb_id, season, number)
+        if key not in rows or at > rows[key][0]:
+            rows[key] = (at, {'id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': number, 'title': show.get('title')})
+    return [row for _, row in sorted(rows.values(), key=lambda r: r[0], reverse=True)]
+
+
 _INPROGRESS_SHOW_CAP = 200   # watching shows examined; each costs one cached TMDb call
 
 
@@ -638,6 +665,39 @@ class ListInProgress(ContainerDirectory):
         self.tmdb_cache_only = False
         self.set_mixed_content(response.paginated_items_dict)
         self.library = 'video'
+        return response.items + response.next_page
+
+
+class ListInProgressEpisodes(ContainerDirectory):
+    """Simkl In-Progress Episodes (GitHub issue #13 item 3), the counterpart of Trakt's Your In-Progress Episodes: every
+    episode of a regular show paused part-way in GET /sync/playback, newest pause first, one row per episode. The episode
+    numbers are the ones Simkl stored (this add-on's own pauses are TMDb-numbered; an episode paused in another app can
+    be numbered by Simkl's own scheme). anime_only='true' / asian_only='true' keep only anime / Asian shows (anime
+    entries are not listed, so the Anime menu is empty); other_only='true' keeps everything else.
+    """
+
+    def get_items(self, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
+        from tmdbhelper.lib.api.mdblist.lists import _get_scope, _in_scope
+        raw = _simkl_get(self.simkl_api, '/sync/playback')
+        rows = _playback_episodes(raw if isinstance(raw, list) else [])
+        scope = _get_scope(anime_only, asian_only, other_only)
+        # Simkl numbers episodes the TVDB way: keep only the episodes TMDb's numbering has (one cached details call per show)
+        details = {}
+        kept = []
+        for r in rows:
+            if r['id'] not in details:
+                details[r['id']] = self.tmdb_api.get_request_sc('tv', r['id']) or {}
+            if _exists_in_tmdb(details[r['id']], r['season'], r['episode']) and (
+                    not scope or _in_scope(details[r['id']], scope, 'tv')):
+                kept.append(r)
+        rows = kept
+        if not rows:
+            return
+        response = self.simkl_api.get_paginated({'episodes': rows}, page=page or 1)
+        self.tmdb_cache_only = False
+        self.set_mixed_content(response.paginated_items_dict)
+        self.library = 'video'
+        self.plugin_category = 'In-Progress Episodes'
         return response.items + response.next_page
 
 

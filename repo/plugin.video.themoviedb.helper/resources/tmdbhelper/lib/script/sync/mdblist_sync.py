@@ -321,11 +321,18 @@ class ItemMDbListWatched(ItemMDbListSyncBase):
     def get_sync_response(self):
         return self.call_api('sync', 'watched')
 
+    def clear_resume_point(self):
+        """An item set as watched must not keep its resume percentage (GitHub issue #13 item 4); see the
+        module-level clear_resume_point(). Only after the watched call succeeded."""
+        if self.is_successful_sync:
+            clear_resume_point(self.tmdb_type, self.tmdb_id, self.season, self.episode)
+
     def sync(self):
         # reset_lastactivities() intentionally omitted: prevents MDBList sync from
         # running on Container.Refresh and wiping the plays value we just wrote.
         _ = self.sync_response  # trigger API call first; local write and refresh proceed regardless
         self.update_watched_in_db(True, force=True)
+        self.clear_resume_point()
         self.display_dialog()
         self.refresh_containers(force=True)
         if self.is_successful_sync:
@@ -442,13 +449,12 @@ class ItemMDbListWatchlist(ItemMDbListSyncBase):
 
 
 class ItemMDbListCollection(ItemMDbListSyncBase):
-    """Add / remove movie / show / episode from MDBList collection.
+    """Add / remove movie / show from MDBList collection (not offered on seasons or episodes, GitHub issue #13).
 
     Write endpoints confirmed (POV):
         Add:    POST /sync/collection
         Remove: POST /sync/collection/remove
     """
-    allow_episodes = True
 
     @cached_property
     def remove(self):
@@ -609,8 +615,8 @@ class ItemMDbListClearProgress(ItemMDbListSyncBase):
                     return None
         return {'cleared': len(ids)}
 
-    def update_progress_in_db(self):
-        if not self.is_successful_sync:
+    def update_progress_in_db(self, force=False):
+        if not force and not self.is_successful_sync:
             return
         try:
             db_type = 'movie' if self.mdb_type == 'movie' else 'tv'
@@ -628,6 +634,29 @@ class ItemMDbListClearProgress(ItemMDbListSyncBase):
         self.update_progress_in_db()
         self.display_dialog()
         self.refresh_containers()
+
+
+def clear_resume_point(tmdb_type, tmdb_id, season=None, episode=None):
+    """Remove the resume point of a movie / episode that was just marked watched (GitHub issue #13 item 4), whether the
+    mark was made on MDBList itself (ItemMDbListWatched) or mirrored from another service (cross_sync).
+
+    Kodi draws the percentage from the local paused_progress row, and a watched mark left that row in place, so the
+    percentage stayed until Reset resume position was run by hand. MDBList also keeps the playback entry after a watched
+    call (live-checked 2026-11-15), so only a server clear stops the next playback sync from bringing the row back.
+    Done only for a movie / episode that still has a local resume point: the playback entries are read and cleared on
+    the server (same calls as Reset resume position), then the local row is cleared whether or not the server answered.
+    Never mirrors anything, so cross_sync may call it (it only instantiates this clear-progress item).
+    """
+    if tmdb_type not in ('movie', 'tv') or (tmdb_type == 'tv' and (season is None or episode is None)):
+        return
+    try:
+        clear = ItemMDbListClearProgress(tmdb_type, tmdb_id, season, episode)
+        if not clear.get_sync_value('paused_progress'):
+            return
+        _ = clear.sync_response  # best effort; a failed read or clear leaves the server entry for the next sync
+        clear.update_progress_in_db(force=True)
+    except Exception:
+        pass
 
 
 class ItemMDbListRating(ItemMDbListSyncBase):

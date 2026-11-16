@@ -2,9 +2,16 @@ import xbmc
 
 # Settings that change the artwork or labels a built widget holds (GitHub issue #9). Widget caches are keyed by them
 # (items/widget_cache.py), but a skin only asks for its widgets again when told to, so a change has to nudge the skins.
+# The service switches and the watched / resume indicator switches of the three watch services (GitHub issue #13 item 5)
+# are NOT in the cache key: a widget built before a service was switched kept its marks (and the skin its rows) until
+# Rebuild Database, and a restart served the same cache again (it is reused for 6 h). Listing them here makes a change
+# invalidate the widget caches once, so the next build follows the new setting.
 WIDGET_SETTINGS = (
     'fanarttv_enfallback', 'fanarttv_secondpref', 'fanarttv_lookup', 'widget_fanarttv_lookup',
-    'service_fanarttv_lookup', 'tvdb_artwork', 'force_english_plot_fallback')
+    'service_fanarttv_lookup', 'tvdb_artwork', 'force_english_plot_fallback',
+    'service_trakt', 'service_mdblist', 'service_simkl',
+    'trakt_watchedindicators', 'mdblist_watchedindicators', 'simkl_watchedindicators',
+    'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress')
 
 
 def get_widget_settings_state():
@@ -25,6 +32,11 @@ class UpdateMonitor(xbmc.Monitor):
             self._widget_settings_state = get_widget_settings_state()
         except Exception:
             self._widget_settings_state = None
+        try:
+            from tmdbhelper.lib.addon.plugin import get_setting
+            self._trakt_on = bool(get_setting('service_trakt'))
+        except Exception:
+            self._trakt_on = None
 
     @staticmethod
     def run_library_tagger():
@@ -36,9 +48,46 @@ class UpdateMonitor(xbmc.Monitor):
         if library == 'video':
             self.run_library_tagger()
 
+    def _authorize_trakt(self):
+        """What the startup job (monitor/cronjob.py _do_trakt_authorization) does, for a Trakt switch turned on while Kodi runs."""
+        from jurialmunkey.parser import boolean
+        from jurialmunkey.window import get_property
+        from tmdbhelper.lib.api.trakt.api import TraktAPI
+        TraktAPI().authorize(confirmation=True)
+        self.waitForAbort(1)
+        if not boolean(get_property('TraktIsAuth')):
+            return
+        from tmdbhelper.lib.script.method.trakt import get_stats
+        get_stats()
+
+    def _check_trakt_switch(self):
+        """The Trakt switch was turned on or off while Kodi was running (GitHub issue #13 item 5).
+        On: the authorization that sets TraktIsAuth only ran at startup and only with the switch on, so Trakt scrobbling and
+        syncing stayed idle until Kodi was restarted; run it now, once per switch-on, off the monitor thread.
+        Off: the Trakt scrobbler checks TraktIsAuth and trakt_scrobbling but not the switch, so Trakt kept receiving plays
+        until a restart; clear the property so it stops at once."""
+        try:
+            from tmdbhelper.lib.addon.plugin import get_setting
+            on = bool(get_setting('service_trakt'))
+            was, self._trakt_on = self._trakt_on, on
+            if on and was is False:
+                from tmdbhelper.lib.addon.logger import kodi_log
+                from tmdbhelper.lib.addon.thread import SafeThread
+                kodi_log('UpdateMonitor: Trakt switched on, authorizing it now (no restart needed)', 2)
+                SafeThread(target=self._authorize_trakt).start()
+            elif was and not on:
+                from jurialmunkey.window import get_property
+                from tmdbhelper.lib.addon.logger import kodi_log
+                get_property('TraktIsAuth', clear_property=True)
+                kodi_log('UpdateMonitor: Trakt switched off, scrobbling and syncing to Trakt stop now (no restart needed)', 2)
+        except Exception as exc:
+            from tmdbhelper.lib.addon.logger import kodi_log
+            kodi_log(f'UpdateMonitor: Trakt switch check failed: {exc}', 1)
+
     def onSettingsChanged(self):
-        """Language or artwork setting changed: make the skins ask for their widgets again.
+        """Language, artwork or watch-service setting changed: make the skins ask for their widgets again.
         Compared with the last state because the add-on also writes its own settings (tokens, flags) and each write comes here."""
+        self._check_trakt_switch()
         try:
             state = get_widget_settings_state()
             if state == self._widget_settings_state:

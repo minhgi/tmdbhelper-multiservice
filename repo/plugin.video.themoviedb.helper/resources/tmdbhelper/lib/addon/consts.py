@@ -899,6 +899,9 @@ ROUTE_NOID = {
     'mdblist_upnext': {'route': {
         'module_name': 'tmdbhelper.lib.api.mdblist.lists',
         'import_attr': 'ListInProgress'}},
+    'mdblist_ondeck': {'route': {
+        'module_name': 'tmdbhelper.lib.api.mdblist.lists',
+        'import_attr': 'ListInProgressEpisodes'}},
     'mdblist_nextup': {'route': {
         'module_name': 'tmdbhelper.lib.api.mdblist.lists',
         'import_attr': 'ListNextUp'}},
@@ -917,6 +920,9 @@ ROUTE_NOID = {
     'simkl_upnext': {'route': {
         'module_name': 'tmdbhelper.lib.api.simkl.lists',
         'import_attr': 'ListInProgress'}},
+    'simkl_ondeck': {'route': {
+        'module_name': 'tmdbhelper.lib.api.simkl.lists',
+        'import_attr': 'ListInProgressEpisodes'}},
     'simkl_nextup': {'route': {
         'module_name': 'tmdbhelper.lib.api.simkl.lists',
         'import_attr': 'ListNextUp'}},
