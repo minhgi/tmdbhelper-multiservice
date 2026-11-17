@@ -433,6 +433,30 @@ def _exists_in_tmdb(details, season, episode):
     return False
 
 
+def _anime_next_unaired(details, episode, total):
+    """True when a Simkl anime's next episode (episode E of a cour of `total`) has not aired on TMDb, False when it has, and None
+    when TMDb cannot say - the row is then kept as before. Simkl counts one episode too many as aired for a show that airs weekly
+    (A Tale of the Secret Saint 2026-11-16: next_to_watch E8 with 4 of 12 not aired, while TMDb's last aired episode is 7).
+    Only positive evidence drops a row: TMDb has the show as Japanese animation, its last aired episode is known, the cour's
+    TMDb season is known (the one season of the cour's length, else the show's only season) with at least `total` episodes, and
+    (season, E) comes after the last aired episode. Simkl numbers a cour from 1, so the real TMDb episode is never earlier
+    than E: an E that has not aired means the real one has not either. """
+    from tmdbhelper.lib.api.mdblist.lists import _is_anime
+    last = (details or {}).get('last_episode_to_air') or {}
+    if last.get('season_number') is None or last.get('episode_number') is None or not total or not _is_anime(details):
+        return None
+    seasons = [s for s in details.get('seasons') or [] if (s.get('season_number') or 0) > 0]
+    season = _anime_tmdb_season(details, total)
+    if season is None and len(seasons) == 1:
+        season = seasons[0].get('season_number')
+    if season is None:
+        return None
+    count = next((s.get('episode_count') or 0 for s in seasons if s.get('season_number') == season), 0)
+    if count < total:
+        return None
+    return (season, episode) > (last['season_number'], last['episode_number'])
+
+
 class ListPlanToWatch(ContainerDirectory):
     """Simkl plan-to-watch — GET /sync/all-items/movies/plantowatch + /sync/all-items/shows/plantowatch
     + /sync/all-items/anime/plantowatch (Simkl's anime bucket)."""
@@ -592,7 +616,8 @@ class ListInProgress(ContainerDirectory):
         2026-11-01: after one episode Simkl answers status 'watching', watched_episodes_count 1, next_to_watch 'S01E02'; with
         the only episode unwatched again the status stays 'watching' at count 0, so a count of 0 is not in progress).
         A show with a paused episode is listed already. A regular show also needs its next episode to exist and to have
-        aired in TMDb's numbering (as Next Up does); an anime keeps Simkl's cour numbering and is taken as it is.
+        aired in TMDb's numbering (as Next Up does); an anime keeps Simkl's cour numbering and is taken as it is, except that
+        a row whose next episode TMDb positively says has not aired is left out (_anime_next_unaired).
         None when the watching list could not be read."""
         from tmdbhelper.lib.api.mdblist.lists import _in_scope
         r = _simkl_get(self.simkl_api, '/sync/all-items/shows/watching')
@@ -606,7 +631,7 @@ class ListInProgress(ContainerDirectory):
         def _started(item):
             return int(item.get('watched_episodes_count') or 0) > 0 and bool(item.get('next_to_watch'))
 
-        candidates = []   # (last watched, tmdb id, show, next episode as (season, episode) or None for an anime)
+        candidates = []   # (last watched, tmdb id, show, next episode as (season, episode) or None for an anime, anime cour as (next episode, total) or None)
         for item in r.get('shows') or []:
             show = (item or {}).get('show') or {}
             match = _NEXT_TO_WATCH.match(str(item.get('next_to_watch') or ''))
@@ -615,7 +640,7 @@ class ListInProgress(ContainerDirectory):
             except (ValueError, TypeError):
                 continue
             if _started(item) and match:
-                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, (int(match.group(1)), int(match.group(2)))))
+                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, (int(match.group(1)), int(match.group(2))), None))
         for item in anime_raw or []:
             show = (item or {}).get('show') or {}
             try:
@@ -623,15 +648,20 @@ class ListInProgress(ContainerDirectory):
             except (ValueError, TypeError):
                 continue
             if item.get('anime_type') != 'movie' and _started(item):
-                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, None))
+                match = _ANIME_NEXT.match(str(item.get('next_to_watch') or ''))
+                total = _int(item.get('total_episodes_count')) or 0
+                candidates.append((item.get('last_watched_at') or '', tmdb_id, show, None, (int(match.group(1)), total) if match and total > 0 else None))
 
         seen = set(paused_times)
         rows = []
-        for ts, tmdb_id, show, nxt in sorted(candidates, key=lambda c: c[0], reverse=True)[:_INPROGRESS_SHOW_CAP]:
+        for ts, tmdb_id, show, nxt, cour in sorted(candidates, key=lambda c: c[0], reverse=True)[:_INPROGRESS_SHOW_CAP]:
             if tmdb_id in seen:
                 continue
-            details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {} if (nxt or scope) else {}
+            details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {} if (nxt or cour or scope) else {}
             if nxt and not _exists_in_tmdb(details, *nxt):
+                continue
+            if cour and _anime_next_unaired(details, *cour):
+                kodi_log(f'Simkl In Progress: anime tmdb {tmdb_id} left out, its next episode E{cour[0]} has not aired on TMDb', 1)
                 continue
             if scope and not _in_scope(details, scope, 'tv'):
                 continue

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.103" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.104" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.104
+- Fixed: the same caught-up show stayed in MDBList and Simkl In Progress. MDBList: a pause left on an episode you had already marked watched (a partly replayed episode) kept the show in the list; now only a pause on an unwatched episode does. The pause itself still shows in In-Progress Episodes. Simkl: Simkl counts one episode too many as aired for a show that airs weekly, so its next episode was one that had not aired yet; an anime row is now left out when TMDb says that episode has not aired. When TMDb cannot tell (no matching season, unknown last aired episode) the row stays as before.
+
 v7.0.103
 - Fixed: a show you had watched up to the latest aired episode stayed in TV Shows - In Progress. Trakt can count one more episode as aired than its own episode air dates allow (A Tale of the Secret Saint: Trakt counted 8 aired while episode 8 airs a week later), so the show looked one episode behind. In Progress now also counts the episodes by their air dates and leaves the show out once all of those are watched; it returns when the next episode airs. This is used only when the saved episode dates are complete and agree with what you have watched; otherwise Trakt's own count decides as before.
 

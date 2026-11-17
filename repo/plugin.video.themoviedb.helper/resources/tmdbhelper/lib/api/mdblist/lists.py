@@ -385,6 +385,43 @@ def _playback_shows(playback):
     return shows
 
 
+def _playback_episode_keys(playback):
+    """{show tmdb id: {(season, number) or None}} of the episodes paused part-way (progress above 0) in GET /sync/playback, same
+    entries as _playback_shows. An entry whose episode cannot be read is kept as None, so it is never taken for a watched one."""
+    keys = {}
+    for item in playback or []:
+        if item.get('type') != 'episode':
+            continue
+        tmdb_id = ((item.get('show') or {}).get('ids') or {}).get('tmdb')
+        try:
+            if not tmdb_id or float(item.get('progress')) <= 0:
+                continue
+        except (TypeError, ValueError):
+            continue
+        episode = item.get('episode') or {}
+        try:
+            key = (int(episode.get('season')), int(episode.get('number')))
+        except (TypeError, ValueError):
+            key = None
+        keys.setdefault(tmdb_id, set()).add(key)
+    return keys
+
+
+def _drop_watched_pauses(paused, paused_episodes, by_show):
+    """paused without the shows whose every paused episode is already marked watched on MDBList (a partly replayed episode, or a
+    pause left on an episode that was finished later). Such a pause is not unfinished viewing, so on its own it must not keep a
+    caught-up show in In Progress (Trakt's In Progress ignores pauses too); the pause itself stays in In-Progress Episodes."""
+    kept = {}
+    for tmdb_id, entry in paused.items():
+        episodes = paused_episodes.get(tmdb_id)
+        watched = (by_show.get(tmdb_id) or {}).get('episodes')
+        if episodes and watched and all(episode in watched for episode in episodes):
+            kodi_log(f'MDBList In Progress: pause on watched episode(s) of tmdb {tmdb_id} does not keep it in progress', 1)
+            continue
+        kept[tmdb_id] = entry
+    return kept
+
+
 def _get_dropped_show_ids(mdblist_api):
     """{tmdb id} of the shows on MDBList's dropped list (GET /sync/dropped). Empty when the read fails, so a failed read lists
     dropped shows rather than hiding the whole menu."""
@@ -441,13 +478,15 @@ class ListInProgress(ContainerDirectory):
     def _get_dropped_ids(self):
         return _get_dropped_show_ids(self.mdblist_api)
 
-    def _get_started_shows(self, paused, scope):
+    def _get_started_shows(self, paused, scope, playback=None):
         watched = _get_watched_all(self.mdblist_api)
         if watched is None:
             kodi_log('MDBList in progress: /sync/watched could not be read - listing only the shows with a paused episode', 1)
             rows = [{'id': k, 'mediatype': 'show', 'title': v['title']} for k, v in sorted(paused.items(), key=lambda kv: kv[1]['at'], reverse=True)]
             return self._keep_scope({'shows': rows}, scope).get('shows', []) if scope else rows
         by_show = _group_watched_by_show(watched)
+        if playback:
+            paused = _drop_watched_pauses(paused, _playback_episode_keys(playback), by_show)
         started = {k: v for k, v in by_show.items() if v['episodes']}
         dropped = self._get_dropped_ids()
         candidates = sorted(
@@ -474,7 +513,7 @@ class ListInProgress(ContainerDirectory):
         scope = _get_scope(anime_only, asian_only, other_only)
         normalized = {}
         if tmdb_type != 'movie':
-            shows = self._get_started_shows(_playback_shows(playback), scope)
+            shows = self._get_started_shows(_playback_shows(playback), scope, playback)
             if shows:
                 normalized['shows'] = shows
         if tmdb_type != 'tv':
