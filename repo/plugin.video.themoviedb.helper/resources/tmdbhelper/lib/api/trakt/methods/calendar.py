@@ -31,13 +31,29 @@ def get_calendar_episode_label(show_title, episode_code, title=None):
     return f'{label} [COLOR {CALENDAR_SHOW_COLOR}]({show_title})[/COLOR]' if show_title else label
 
 
+CALENDAR_WIDE_MARGIN = 8  # days asked for on each side of a "my" calendar window: Trakt's calendar index can sit a week away from an episode's own air date
+CALENDAR_MAX_DAYS = 33    # the most days Trakt's calendar answers in one request
+
+
+def calendar_fetch_window(startdate, days, wide=False):
+    """ (first day offset, number of days) asked of Trakt for a calendar of `days` days from `startdate` days from today.
+    The window is broadened by a day each side in case the UTC conversion bumps an episode onto another day. With wide, the margin is
+    CALENDAR_WIDE_MARGIN (less when the span would pass Trakt's limit): Trakt's own calendar index can place an episode a whole
+    episode away from its first_aired (A Tale of the Secret Saint 2026-11-16: asking for 11/14 returns episode 8, which airs 11/21, and
+    episode 7 is only in the index slot a week earlier), so a narrow window missed it. The caller keeps only the episodes whose own
+    air date is inside the window. """
+    margin = 1
+    if wide:
+        margin = max(1, min(CALENDAR_WIDE_MARGIN, (CALENDAR_MAX_DAYS - days) // 2))
+    return startdate - margin, days + 2 * margin
+
+
 @use_simple_cache(cache_days=0.25)
-def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None, countries=None, genres=None):
+def get_calendar_episodes(self, startdate=0, days=1, user=True, endpoint=None, countries=None, genres=None, wide=False):
     # Broaden date range in case utc conversion bumps into different day
     from jurialmunkey.parser import try_int
     from tmdbhelper.lib.addon.tmdate import get_datetime_today, get_timedelta
-    mod_date = try_int(startdate) - 1
-    mod_days = try_int(days) + 2
+    mod_date, mod_days = calendar_fetch_window(try_int(startdate), try_int(days), wide)
     date = get_datetime_today() + get_timedelta(days=mod_date)
     if countries or genres:  # filtered "All" calendar: public endpoint, so a logged-out user is not sent to the Trakt login prompt
         return get_calendar(
@@ -206,8 +222,28 @@ def stack_calendar_tvshows(self, tvshow_list, flipped=False):
     return items[::-1] if flipped else items
 
 
+def calendar_row_key(i):
+    """ (show tmdb id, season, episode) of a Trakt calendar row, to tell two rows of the same episode apart from two episodes """
+    ids = (i.get('show') or {}).get('ids') or {}
+    episode = i.get('episode') or {}
+    return ids.get('tmdb') or ids.get('trakt'), episode.get('season'), episode.get('number')
+
+
+def merge_my_anime_rows(response, mine):
+    """ The Trakt "All" anime calendar plus the anime episodes of the user's own calendar it does not list. Trakt's All calendar can
+    leave out a show the user follows (A Tale of the Secret Saint 2026-11-16: not in the All calendar on any day, in "my" calendar
+    with the genre anime), so the Anime TV Calendar days Simkl's file does not cover lost its episodes. An episode both list
+    stays once, as the All calendar has it. """
+    response = list(response or [])
+    have = {calendar_row_key(i) for i in response}
+    extra = [i for i in mine or [] if 'anime' in (((i.get('show') or {}).get('genres')) or []) and calendar_row_key(i) not in have]
+    if not extra:
+        return response
+    return sorted(response + extra, key=lambda i: (i.get('first_aired') or '')[:10])   # by day only: the All calendar keeps its own order inside a day, the added episodes follow it
+
+
 @use_simple_cache(cache_days=0.25)
-def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes', countries=None, calendar_filter=None, genres=None, source=None):
+def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_db=None, stack=True, endpoint=None, stack_info='episodes', countries=None, calendar_filter=None, genres=None, source=None, wide=False, mine_anime=False):
     # Get response (countries / genres / calendar_filter are passed on only when set, so the unfiltered TV calendar keeps its cache keys)
     if source == 'simkl':   # Asian Drama calendars: Simkl's CDN file (api/simkl/calendar_cdn.py), already filtered to Asian dramas
         from tmdbhelper.lib.api.simkl.calendar_cdn import episodes as simkl_episodes
@@ -219,11 +255,15 @@ def get_calendar_episodes_listitems(self, startdate=0, days=1, user=True, kodi_d
     else:
         response = get_calendar_episodes(
             self, startdate=startdate, days=days, user=user, endpoint=endpoint,
-            **{k: v for k, v in (('countries', countries), ('genres', genres)) if v})
+            **{k: v for k, v in (('countries', countries), ('genres', genres), ('wide', wide)) if v})
+        if mine_anime and self.authorization:   # a logged-out user is never sent to the Trakt login prompt for this
+            response = merge_my_anime_rows(response, get_calendar_episodes(self, startdate=startdate, days=days, user=True, wide=True))
     if not response:
         return
     if calendar_filter:
         response = [i for i in response if calendar_filter_item(i, 'show', calendar_filter)]
+    if wide:  # the wider window brings in episodes Trakt indexed on another day: put every one in its own air-date order before the rows are built and stacked
+        response = sorted(response, key=lambda i: i.get('first_aired') or '')
     # Reverse items for date ranges in past
     traktitems = reversed(response) if startdate < -1 else response
     items = [get_calendar_episode_item(i) for i in traktitems if get_calendar_episode_item_bool(i, kodi_db, user, startdate, days)]
@@ -248,6 +288,10 @@ def get_calendar_episodes_list(self, startdate=0, days=1, user=True, kodi_db=Non
         from tmdbhelper.lib.api.simkl.calendar_cdn import covers as simkl_covers
         if simkl_covers(startdate, days, catalog='anime'):
             extra['source'] = 'simkl_anime'
+    if user and 'source' not in extra:   # a "my" calendar asks Trakt for a wider window (calendar_fetch_window); it also gives the cached rows a new key
+        extra['wide'] = True
+    if genres == 'anime' and not calendar_filter and not user and 'source' not in extra:   # the Anime TV Calendar days Trakt serves: add the user's own anime episodes Trakt's All calendar leaves out
+        extra['mine_anime'] = True
     response_items = get_calendar_episodes_listitems(self, startdate, days, user, kodi_db, stack=stack, endpoint=endpoint, stack_info=stack_info, **extra)
     response = PaginatedItems(response_items, page=page, limit=limit)
     if response and response.items:

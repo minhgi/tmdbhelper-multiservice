@@ -33,6 +33,26 @@ class TraktPlayData():
     def trakt_episodedata(self):
         return self.trakt_api.trakt_episodedata
 
+    def _get_future_dated_count(self, tmdb_id, aired, watched, season=None):
+        """ How many of the episodes Trakt counts as aired carry a known future air date in the cached Trakt episode list (A Tale of
+        the Secret Saint: aired_episodes 8, episode 8 airs later, so the badge read 1 unwatched with everything aired watched).
+        Read only, never lowers the count below the watched count, and 0 whenever the cache cannot say (no rows, gaps, no dates).
+        Nothing is read for a show that has nothing unwatched. """
+        if not tmdb_id or not aired or watched >= aired:
+            return 0
+        try:
+            episodedata = self.trakt_episodedata
+            if not episodedata:
+                return 0
+            conditions, values = 'tmdb_id=? AND season_number>0', (tmdb_id, )
+            if season is not None:
+                conditions, values = 'tmdb_id=? AND season_number=?', (tmdb_id, season)
+            rows = episodedata.cache.get_list_values(keys=('season_number', 'episode_number', 'first_aired', ), values=values, conditions=conditions)
+            from tmdbhelper.lib.api.trakt.sync.itemlist import count_future_dated_in_aired
+            return min(count_future_dated_in_aired([(r[0], r[1], r[2]) for r in rows or []], aired), aired - watched)
+        except Exception:
+            return 0
+
     @is_sync
     def pre_sync(self, info=None, tmdb_id=None, tmdb_type=None, season=None, **kwargs):
         info_movies = ('stars_in_movies', 'crew_in_movies', 'trakt_userlist', 'stars_in_both', 'crew_in_both',)
@@ -124,21 +144,22 @@ class TraktPlayData():
                 episode=li.infolabels.get('episode')) or 0
 
         if li.infolabels.get('mediatype') == 'tvshow':
-            air_count = self.trakt_syncdata.get_episode_airedcount(
-                tmdb_id=li.unique_ids.get('tvshow.tmdb') or li.unique_ids.get('tmdb'))
+            tmdb_id = li.unique_ids.get('tvshow.tmdb') or li.unique_ids.get('tmdb')
+            air_count = self.trakt_syncdata.get_episode_airedcount(tmdb_id=tmdb_id)
+            watched = self.trakt_syncdata.get_episode_watchedcount(tmdb_id=tmdb_id) or 0
             if air_count and air_count > 0:
+                air_count -= self._get_future_dated_count(tmdb_id, air_count, watched)
                 li.infolabels['episode'] = air_count
             air_count = max(int(li.infolabels.get('episode') or 0), int(air_count or 0), 0)
-            return min(self.trakt_syncdata.get_episode_watchedcount(
-                tmdb_id=li.unique_ids.get('tvshow.tmdb') or li.unique_ids.get('tmdb')) or 0, air_count)
+            return min(watched, air_count)
 
         if li.infolabels.get('mediatype') == 'season':
-            air_count = self.trakt_syncdata.get_episode_airedcount(
-                tmdb_id=li.unique_ids.get('tvshow.tmdb'),
-                season=li.infolabels.get('season'))
+            tmdb_id = li.unique_ids.get('tvshow.tmdb')
+            season = li.infolabels.get('season')
+            air_count = self.trakt_syncdata.get_episode_airedcount(tmdb_id=tmdb_id, season=season)
+            watched = self.trakt_syncdata.get_episode_watchedcount(tmdb_id=tmdb_id, season=season) or 0
             if air_count and air_count > 0:
+                air_count -= self._get_future_dated_count(tmdb_id, air_count, watched, season)
                 li.infolabels['episode'] = air_count
             air_count = max(int(li.infolabels.get('episode') or 0), int(air_count or 0), 0)
-            return min(self.trakt_syncdata.get_episode_watchedcount(
-                tmdb_id=li.unique_ids.get('tvshow.tmdb'),
-                season=li.infolabels.get('season')) or 0, air_count)
+            return min(watched, air_count)

@@ -282,6 +282,30 @@ def count_aired_by_date(episodes, trakt_aired, now=None):
     return aired
 
 
+def count_future_dated_in_aired(episodes, trakt_aired, now=None):
+    """ How many of the first trakt_aired regular episodes (season, episode order) carry an air date still in the future: the ones
+    Trakt's show-level aired_episodes counts as aired too early (A Tale of the Secret Saint 2026-11-16: aired_episodes 8, episode 8
+    airs 11/21). Only a known future date counts, so an episode with no date (a cache written before the date was announced) never
+    lowers the count. 0 when the list cannot be trusted: fewer rows than trakt_aired, or a season with a gap. """
+    import datetime
+    if not episodes or not trakt_aired or len(episodes) < trakt_aired:
+        return 0
+    seasons = {}
+    for season, episode, _ in episodes:
+        seasons.setdefault(season, set()).add(episode)
+    if any(numbers != set(range(1, max(numbers) + 1)) for numbers in seasons.values()):
+        return 0
+    now = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    future = 0
+    for _, _, first_aired in sorted(episodes, key=lambda e: (e[0], e[1]))[:trakt_aired]:
+        try:
+            if datetime.datetime.strptime(first_aired[:19], '%Y-%m-%dT%H:%M:%S') > now:
+                future += 1
+        except (TypeError, ValueError):  # no air date: unknown, not counted
+            continue
+    return future
+
+
 class ItemListSyncDataInProgress(ItemListSyncData):
     """ Partially watched shows that are inprogress """
 

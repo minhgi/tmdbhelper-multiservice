@@ -211,6 +211,36 @@ def _normalize_inprogress(items_list):
     return result
 
 
+def _drop_watched_episode_pauses(items_list, is_watched):
+    """GET /sync/playback without the shows whose every paused episode is already watched: a pause on a watched episode (a part-way
+    replay) is not an unfinished show, as in MDBList's In Progress (_drop_watched_pauses). is_watched(tmdb id, season, episode) is
+    the local watched mark; an entry it cannot read (no season / episode number, no mark, an error) counts as not watched, so a show
+    is only discounted when every one of its paused episodes is positively watched. Movies are not touched. """
+    paused = {}
+    for item in items_list or []:
+        if item.get('type') != 'episode':
+            continue
+        try:
+            tmdb_id = int(((item.get('show') or {}).get('ids') or {}).get('tmdb'))
+        except (ValueError, TypeError):
+            continue
+        try:
+            episode = item.get('episode') or {}
+            watched = bool(is_watched(tmdb_id, int(episode.get('season')), int(episode.get('number'))))
+        except Exception:
+            watched = False
+        paused[tmdb_id] = paused.get(tmdb_id, True) and watched
+    dropped = {k for k, v in paused.items() if v}
+    if not dropped:
+        return items_list
+    def _show_id(item):
+        try:
+            return int(((item.get('show') or {}).get('ids') or {}).get('tmdb'))
+        except (ValueError, TypeError):
+            return None
+    return [i for i in items_list if not (i.get('type') == 'episode' and _show_id(i) in dropped)]
+
+
 def _paused_show_times(items_list):
     """{tmdb id: newest paused_at} of the shows that have an episode paused part-way in GET /sync/playback."""
     times = {}
@@ -338,7 +368,7 @@ class _CountedTMDb:
         return getattr(self._api, name)
 
 
-def _anime_next_targets(tmdb_api, rows, use_anilist=True):
+def _anime_next_targets(tmdb_api, rows, use_anilist=True, allow_unaired=False):
     """For each anime Next Up row (season None) the (tmdb id, season, episode, how) to show, or None to leave it out.
 
     The TMDb id is Simkl's, or the one the AniList id table finds for the row's AniList id (api/anilist/idmap.py); when the
@@ -348,7 +378,9 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
     TMDb's air dates (api/anilist/cours.py), which also covers cours inside a longer TMDb season; when the offline Fribb index
     names the cour's TMDb season, that one season is tried before all of them and only an answer the air dates agree with is
     used. Without AniList data the
-    behaviour is as before: Simkl's id and the season rule only (use_anilist=False asks for exactly that)."""
+    behaviour is as before: Simkl's id and the season rule only (use_anilist=False asks for exactly that).
+    allow_unaired=True (Simkl In Progress only) lets the air-date answer land on an episode TMDb has not aired yet, so the
+    caller can see that a row's next episode is after TMDb's last aired one; Next Up keeps the default and never gets one."""
     from tmdbhelper.lib.api.anilist import cours
     from tmdbhelper.lib.api.anilist.idmap import resolve
     from tmdbhelper.lib.api.anilist.lists import _match_tmdb
@@ -371,7 +403,7 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
         api = _CountedTMDb(tmdb_api)   # counts the TMDb requests this row needs (cached or not): the cost of the mapping
 
         def _anchor(tmdb_id, details, start, n):
-            found = cours.anchor_episode(cours.tmdb_episodes(api, details), start, n) if start else None
+            found = cours.anchor_episode(cours.tmdb_episodes(api, details), start, n, None, allow_unaired) if start else None
             return (tmdb_id, found[0], found[1], 'air date') if found else None
 
         def _indexed(tmdb_id, start, n):
@@ -379,7 +411,7 @@ def _anime_next_targets(tmdb_api, rows, use_anilist=True):
             record = index.get(row.get('anilist'))
             if not record or record.get('kind') != 'tv' or tmdb_id not in record.get('ids') or not start:
                 return None
-            found = cours.anchor_in_season(api, tmdb_id, record.get('season'), record.get('offset'), start, n)
+            found = cours.anchor_in_season(api, tmdb_id, record.get('season'), record.get('offset'), start, n, None, allow_unaired)
             return (tmdb_id, found[0], found[1], 'air date, Fribb season') if found else None
 
         target = None
@@ -610,6 +642,33 @@ class ListInProgress(ContainerDirectory):
                 kept[key] = rows
         return kept
 
+    def _anime_cour_targets(self, anime_candidates, scope):
+        """{tmdb id: (tmdb id, season, episode, how)} for the started anime whose next episode _anime_next_unaired cannot place by
+        the season rule (a show with several TMDb seasons and no one of the cour's length), found with the AniList / Fribb mapping
+        Next Up uses (_anime_next_targets). Only Japanese animation with a known last aired episode is asked, the same calls
+        are cached, and any failure leaves the row out of the answer, so the row stays listed as before. """
+        from tmdbhelper.lib.api.mdblist.lists import _is_anime, _in_scope
+        rows = []
+        for ts, tmdb_id, show, nxt, cour in anime_candidates:
+            details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {}
+            last = details.get('last_episode_to_air') or {}
+            if _anime_next_unaired(details, *cour) is not None or last.get('season_number') is None or not _is_anime(details):
+                continue
+            if scope and not _in_scope(details, scope, 'tv'):
+                continue
+            rows.append({'id': tmdb_id, 'anilist': _int(((show or {}).get('ids') or {}).get('anilist')), 'title': (show or {}).get('title'),
+                         'season': None, 'episode': cour[0], 'total': cour[1]})
+        if not rows:
+            return {}
+        try:
+            found = _anime_next_targets(self.tmdb_api, rows, use_anilist=scope in (None, 'anime'), allow_unaired=True)
+        except Exception as exc:
+            kodi_log(f'Simkl In Progress: anime season mapping failed: {type(exc).__name__}: {exc}', 1)
+            return {}
+        targets = {row['id']: target for row, target in zip(rows, found) if target}
+        kodi_log(f'Simkl In Progress anime: {len(rows)} rows the season rule cannot place, {len(targets)} placed by the AniList / Fribb mapping', 1)
+        return targets
+
     def _get_started_shows(self, paused_times, scope):
         """Shows Simkl lists as 'watching' that have a watched episode and one still to watch, as [(last watched, row)].
         A show whose episode was finished has no /sync/playback entry any more but is still in progress (live-probed
@@ -653,14 +712,23 @@ class ListInProgress(ContainerDirectory):
                 candidates.append((item.get('last_watched_at') or '', tmdb_id, show, None, (int(match.group(1)), total) if match and total > 0 else None))
 
         seen = set(paused_times)
+        ordered = sorted(candidates, key=lambda c: c[0], reverse=True)[:_INPROGRESS_SHOW_CAP]
+        mapped = self._anime_cour_targets([c for c in ordered if c[4] and c[1] not in seen], scope)   # {tmdb id: (id, season, episode, how)} for the anime rows the season rule cannot place
         rows = []
-        for ts, tmdb_id, show, nxt, cour in sorted(candidates, key=lambda c: c[0], reverse=True)[:_INPROGRESS_SHOW_CAP]:
+        for ts, tmdb_id, show, nxt, cour in ordered:
             if tmdb_id in seen:
                 continue
             details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {} if (nxt or cour or scope) else {}
             if nxt and not _exists_in_tmdb(details, *nxt):
                 continue
-            if cour and _anime_next_unaired(details, *cour):
+            unaired = _anime_next_unaired(details, *cour) if cour else False
+            if unaired is None and tmdb_id in mapped:   # the season rule could not tell: the AniList / Fribb mapping can (only an answer on the same TMDb id counts)
+                target = mapped[tmdb_id]
+                last = details.get('last_episode_to_air') or {}
+                unaired = bool(
+                    target[0] == tmdb_id and last.get('season_number') is not None and last.get('episode_number') is not None
+                    and (target[1], target[2]) > (last['season_number'], last['episode_number']))
+            if unaired:
                 kodi_log(f'Simkl In Progress: anime tmdb {tmdb_id} left out, its next episode E{cour[0]} has not aired on TMDb', 1)
                 continue
             if scope and not _in_scope(details, scope, 'tv'):
@@ -669,9 +737,27 @@ class ListInProgress(ContainerDirectory):
             rows.append((ts, {'id': tmdb_id, 'mediatype': 'show', 'title': show.get('title'), 'release_year': show.get('year')}))
         return rows
 
+    def _drop_watched_pauses(self, raw):
+        """raw (GET /sync/playback) without the shows whose paused episodes are all marked watched in the local Simkl data (a
+        show then has to qualify through the watching list like any other). Unchanged when that data cannot be read. """
+        try:
+            syncdata = self.simkl_api.simkl_syncdata
+            if not syncdata:
+                return raw
+            kept = _drop_watched_episode_pauses(
+                raw, lambda tmdb_id, season, episode: syncdata.get_value('tv', tmdb_id, season=season, episode=episode, key='plays'))
+        except Exception:
+            return raw
+        if len(kept) != len(raw):
+            ids = sorted({((i.get('show') or {}).get('ids') or {}).get('tmdb') for i in raw if i not in kept} - {None})
+            kodi_log(f'Simkl In Progress: {len(raw) - len(kept)} paused entries on already watched episodes (tmdb {ids}) do not keep their show in progress', 1)
+        return kept
+
     def get_items(self, tmdb_type=None, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
         from tmdbhelper.lib.api.mdblist.lists import _get_scope
         raw = _simkl_get(self.simkl_api, '/sync/playback')
+        if isinstance(raw, list) and tmdb_type != 'movie':
+            raw = self._drop_watched_pauses(raw)
         normalized = _normalize_inprogress(raw if isinstance(raw, list) else [])
         scope = _get_scope(anime_only, asian_only, other_only)
         if tmdb_type != 'movie':

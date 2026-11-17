@@ -71,7 +71,10 @@ class SeasonLayoutDisplay:
             return season_layout.get_layout(self.tmdb_api, tmdb_id)
         if self.params.get('info') == 'trakt_upnext' and str(self.params.get('tmdb_id')) == str(tmdb_id):
             return season_layout.get_layout(self.tmdb_api, tmdb_id)
-        return None
+        # No fresh answer on file (it is trusted for a day) and nothing that may ask TMDb: draw the numbers of the last answer instead of
+        # TMDb's real ones (S1E55 for the S3E7 of the same show's own page); the show's own page and its show row refresh the answer.
+        known, layout = season_layout.cached_layout(tmdb_id, stale=True)
+        return layout if known else None
 
     def _watched_count(self, tmdb_id, season, source=None):
         """Episodes of a layout season that count as watched: the highest of Trakt, MDBList and Simkl per episode, as the list does,

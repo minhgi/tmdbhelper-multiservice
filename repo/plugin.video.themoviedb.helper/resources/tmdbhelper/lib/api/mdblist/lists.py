@@ -629,8 +629,9 @@ def _pick_next_episode(seasons, last_aired, watched, bulk_seasons=(), bulk_show=
     watched       {(season, number)} individually watched episodes
     bulk_seasons  season numbers marked watched as a whole on MDBList
     bulk_show     last_watched_at of a whole-show mark, or None
-    get_air_dates callable(season) -> {episode_number: air_date}; only called for the
-                  last aired season, when a whole-show mark has to be dated per episode
+    get_air_dates callable(season) -> {episode_number: air_date}; called for the last aired
+                  season when a whole-show mark has to be dated per episode, and for the
+                  season of the episode about to be returned, to make sure TMDb lists it
 
     A season mark credits the whole season. A whole-show mark credits what had aired by the
     mark's date: everything aired if the mark is at/after the last aired episode, otherwise
@@ -660,12 +661,26 @@ def _pick_next_episode(seasons, last_aired, watched, bulk_seasons=(), bulk_show=
         return bool(air_date and air_date[:10] <= mark)
 
     for season, count, premiere in sorted(s for s in seasons if s[0]):
-        for number in range(1, (count or 0) + 1):
-            if (season, number) > (last_season, last_episode):
-                return None
-            if (season, number) in watched or _credited(season, number, premiere):
-                continue
-            return season, number
+        numbers = range(1, (count or 0) + 1)
+        for attempt in (0, 1):
+            found = None
+            for number in numbers:
+                if (season, number) > (last_season, last_episode):
+                    return None
+                if (season, number) in watched or _credited(season, number, premiere):
+                    continue
+                found = number
+                break
+            if found is None:
+                break   # nothing left in this season: the next one
+            if attempt or not get_air_dates:
+                return season, found
+            # TMDb's season can skip a number (Star Trek: Enterprise S1 lists 1, 3-26 under an episode_count of 25), so 1..count
+            # would land on an episode that does not exist: walk the numbers TMDb really lists instead. An empty answer keeps the walk.
+            listed = {n for n in (get_air_dates(season) or {}) if isinstance(n, int)}
+            if not listed or found in listed:
+                return season, found
+            numbers = sorted(listed)
     return None
 
 

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.104" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.107" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,20 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.107
+- Fixed: Simkl In Progress kept a multi-season anime listed although its next episode has not aired yet (a show whose seasons have the same length, for example two seasons of 12 episodes, where the season length cannot tell which one Simkl means). The cour's AniList start date is now also used to see that the next episode is still ahead of the last one TMDb has aired, and the row is left out. Next Up is unchanged: it still never offers an episode that has not aired.
+
+v7.0.106
+- Fixed: MDBList Next Up and In Progress could list an episode that does not exist. TMDb numbers some seasons with a gap (Star Trek: Enterprise season 1 has no episode 2), so a started show showed "1x02" with no title. The next episode is now taken from the numbers TMDb really lists, and if TMDb gives no list the old numbering is used.
+- Fixed: the unwatched episode count (the badge) on a show or season in the Trakt lists counted an episode Trakt marks as aired although its air date is still ahead (A Tale of the Secret Saint showed 1 unwatched with every aired episode watched). Episodes with a known future date are no longer counted; with no cached date it follows Trakt's count as before.
+- Fixed: the Anime TV Calendar days that Simkl's file does not cover (earlier days and yesterday) left out an anime you follow when Trakt's All calendar does not list it (A Tale of the Secret Saint on 11/14). The anime episodes of your own Trakt calendar are added to those days, each episode once. Needs a Trakt login; without one nothing changes.
+- Fixed: Simkl In Progress kept a show listed for a pause left on an episode you had already watched. Now only a pause on an unwatched episode does (the episode's watched mark has to be in the local Simkl data, otherwise the show stays as before). A Simkl anime with several TMDb seasons and none of the cour's length is now left out when the AniList / Fribb mapping puts its next episode after TMDb's last aired episode of the same show.
+- Fixed: episode numbers in Next Up, In Progress and the calendars could show a show's real TMDb numbering (The Apothecary Diaries 1x55) instead of its season layout numbering (3x07), most often right after Kodi started. The list of known layouts (season_layouts.json) was read once per run and written back from that old copy, so shows other runs had added were lost, and a read that failed at the wrong moment emptied it. It is now read again when it changes, merged before it is saved and never overwritten when it cannot be read, and a layout older than a day is still used to draw the numbers (the show's own page refreshes it). Playback was never affected: only the label changed.
+
+v7.0.105
+- Fixed: Next Up (Trakt) listed a show's next episode even when it airs later (A Tale of the Secret Saint showed episode 8 on 11/21 while episode 7 was the last aired). Trakt Next Up now leaves out an episode that has a future air date; an episode with no date is kept, and MDBList and Simkl Next Up already behaved this way.
+- Fixed: your calendar (Today, This Week and the other "my" calendar rows) could miss an episode of a show you follow because Trakt's calendar can file an episode a week away from its real air date (episode 8 of A Tale of the Secret Saint came back for 11/14 although it airs 11/21). The request now covers a wider span and keeps only the episodes whose own air date is in the window, in air-date order.
+
 v7.0.104
 - Fixed: the same caught-up show stayed in MDBList and Simkl In Progress. MDBList: a pause left on an episode you had already marked watched (a partly replayed episode) kept the show in the list; now only a pause on an unwatched episode does. The pause itself still shows in In-Progress Episodes. Simkl: Simkl counts one episode too many as aired for a show that airs weekly, so its next episode was one that had not aired yet; an anime row is now left out when TMDb says that episode has not aired. When TMDb cannot tell (no matching season, unknown last aired episode) the row stays as before.
 

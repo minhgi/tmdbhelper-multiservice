@@ -24,6 +24,7 @@ CACHE_TTL = 86400            # seconds a layout (or the answer 'none') is truste
 
 _memo = {}
 _file_cache = None
+_file_stamp = None   # (mtime_ns, size) of the file _file_cache was read from
 
 
 def _cache_path():
@@ -34,40 +35,81 @@ def _cache_path():
         return None
 
 
+def _cache_stamp(path):
+    try:
+        import os
+        stat = os.stat(path)
+        return stat.st_mtime_ns, stat.st_size
+    except Exception:
+        return None
+
+
+def _cache_read(path):
+    """(True, entries) from the file; no file is a clean (True, {}); a file that cannot be read or parsed right now (another process is
+    replacing it) is (False, {}): that is NOT the same as an empty cache and must never be written back as one."""
+    if not path:
+        return True, {}
+    import os
+    if not os.path.exists(path):
+        return True, {}
+    try:
+        import json
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return (True, data) if isinstance(data, dict) else (False, {})
+    except Exception:
+        return False, {}
+
+
 def _cache_load():
-    global _file_cache
-    if _file_cache is None:
-        _file_cache = {}
-        path = _cache_path()
-        try:
-            import json
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            if isinstance(data, dict):
-                _file_cache = data
-        except Exception:
-            pass
+    """The layouts on file. Every Kodi call of the add-on is a process of its own (or a long running one), each used to read the file once
+    and keep that snapshot: a show another process had added since was unknown, so its rows lost the layout numbering (S3E7 shown as
+    S1E55) until the next refresh. The file is read again whenever it has changed; one that cannot be read keeps the snapshot. """
+    global _file_cache, _file_stamp
+    path = _cache_path()
+    stamp = _cache_stamp(path) if path else None
+    if _file_cache is None or stamp != _file_stamp:
+        ok, data = _cache_read(path)
+        if ok:
+            _file_cache, _file_stamp = data, stamp
+        elif _file_cache is None:
+            _file_cache = {}   # nothing known yet, but _file_stamp stays unset, so the next call tries to read the file again
     return _file_cache
 
 
 def _cache_save(tmdb_id, layout):
-    """Remember a layout (None = the show keeps its seasons) for CACHE_TTL. Never raises; a lost write only costs a TMDb request."""
+    """Remember a layout (None = the show keeps its seasons) for CACHE_TTL. Never raises; a lost write only costs a TMDb request.
+    The file is read again right before it is written and the answer is added to what other processes put there meanwhile (the newer
+    entry of a show wins); a file that cannot be read is not overwritten, so one failed read never wipes every other show. """
     import time
+    global _file_cache, _file_stamp
     try:
         import json
-        cache = _cache_load()
+        import os
+        path = _cache_path()
         now = time.time()
-        cache[str(tmdb_id)] = {'t': now, 'layout': layout}
+        entry = {'t': now, 'layout': layout}
+        if not path:
+            _cache_load()[str(tmdb_id)] = entry
+            return
+        ok, disk = _cache_read(path)
+        if not ok:
+            time.sleep(0.05)
+            ok, disk = _cache_read(path)
+        if not ok:
+            return
+        cache = dict(disk)
+        for key, value in (_file_cache or {}).items():   # what this process learnt and the file does not have (a write that was lost earlier)
+            if key not in cache or (value or {}).get('t', 0) > (cache[key] or {}).get('t', 0):
+                cache[key] = value
+        cache[str(tmdb_id)] = entry
         for key in [k for k, v in cache.items() if now - (v or {}).get('t', 0) > 7 * CACHE_TTL]:
             del cache[key]
-        path = _cache_path()
-        if not path:
-            return
-        import os
         tmp = f'{path}.{os.getpid()}.tmp'
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(cache, f)
         os.replace(tmp, path)
+        _file_cache, _file_stamp = cache, _cache_stamp(path)
     except Exception:
         return
 
@@ -134,11 +176,12 @@ def set_layout_art(tmdb_id, number, art_type, url):
         return False
 
 
-def cached_layout(tmdb_id):
-    """(True, layout or None) when a fresh answer for the show is on file, else (False, None). No network, for lists that must stay fast."""
+def cached_layout(tmdb_id, stale=False):
+    """(True, layout or None) when a fresh answer for the show is on file, else (False, None). No network, for lists that must stay fast.
+    With stale=True an older answer counts too (up to the 7 days an entry is kept): for drawing numbers only, never to decide a layout. """
     import time
     entry = _cache_load().get(str(tmdb_id))
-    if not entry or time.time() - entry.get('t', 0) > CACHE_TTL:
+    if not entry or time.time() - entry.get('t', 0) > (7 * CACHE_TTL if stale else CACHE_TTL):
         return False, None
     layout = entry.get('layout')
     if layout:

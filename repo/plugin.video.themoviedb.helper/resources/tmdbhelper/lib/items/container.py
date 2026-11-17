@@ -3,7 +3,7 @@ from jurialmunkey.parser import try_int, boolean
 from tmdbhelper.lib.addon.consts import NO_UNAIRED_LABEL, NO_UNAIRED_CHECK, REMOVE_EPISODE_COUNT
 from tmdbhelper.lib.addon.plugin import get_setting, executebuiltin, get_localized, get_condvisibility
 from tmdbhelper.lib.api.contains import CommonContainerAPIs
-from tmdbhelper.lib.addon.logger import TimerList
+from tmdbhelper.lib.addon.logger import TimerList, kodi_log
 from tmdbhelper.lib.items.season_layout_display import SeasonLayoutDisplay
 
 # Menus that are deliberately blank for now: the container is finished with no items so Kodi opens an empty list
@@ -16,6 +16,11 @@ EMPTY_FINISHED = ('crew',)
 
 # In Progress lists whose shows open the seasons list, and the service whose watched data decides what that list hides
 HIDE_SOURCES = {'trakt_inprogress': 'trakt', 'mdblist_upnext': 'mdblist', 'simkl_upnext': 'simkl'}
+
+# Lists that always leave out an episode with a future air date, whatever "Hide unaired episodes" says: Trakt's Next Up names the show's
+# next episode even when it airs later (A Tale of the Secret Saint E8 on 11/21 while E7 was the last aired), which is nothing to watch
+# yet; MDBList and Simkl Next Up already skip such an episode. Only an episode that HAS a future date is left out, never one without a date.
+HIDE_UNAIRED_ALWAYS = ('trakt_nextepisodes',)
 
 # Rows that ask for typing or act (an empty result there is a cancelled prompt or an action, not an empty list)
 EMPTY_NO_NOTICE = (
@@ -217,6 +222,17 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         return self.parent_params.get('info') not in NO_UNAIRED_LABEL
 
     @cached_property
+    def hide_unaired_always(self):
+        return self.parent_params.get('info') in HIDE_UNAIRED_ALWAYS
+
+    @staticmethod
+    def is_future_dated_episode(li):
+        """ An episode whose own premiered date is after today. No date means not known to be unaired, so it is kept. """
+        from tmdbhelper.lib.addon.tmdate import is_unaired_timestamp
+        premiered = li.infolabels.get('premiered')
+        return li.infolabels.get('mediatype') == 'episode' and bool(premiered) and bool(is_unaired_timestamp(premiered, no_date=False))
+
+    @cached_property
     def remove_episode_counts(self):
         return self.parent_params.get('info') in REMOVE_EPISODE_COUNT
 
@@ -237,6 +253,9 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             if self.format_unaired_labels and not li.infoproperties.get('specialseason'):
                 is_unaired = li.is_unaired(no_date=self.nodate_is_unaired)
                 if self.remove_unaired_object and is_unaired:
+                    return
+                if self.hide_unaired_always and self.is_future_dated_episode(li):
+                    kodi_log(f'Next Up: {li.infolabels.get("tvshowtitle")} S{li.infolabels.get("season")}E{li.infolabels.get("episode")} left out, it airs {li.infolabels.get("premiered")}', 1)
                     return
 
             # Add details from Kodi library

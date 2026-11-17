@@ -6,9 +6,10 @@ episode, so the TMDb episode airing within START_WINDOW days of it is that cour'
 episode n-1 places after it in TMDb's order. When the offline Fribb index names the TMDb season of the cour and the episodes
 before it (anchor_in_season), only that one season has to be fetched, and only an answer that agrees with the air dates is used.
 
-The answer is only used when the episode it lands on has aired and airs about where a weekly show would (start date +
-(n-1) weeks, with room for breaks that grows with n); batch releases and irregular shows therefore fail and the row is
-left out, as it was before.
+The answer is only used when the episode it lands on has aired (unless the caller passes allow_unaired, as Simkl In Progress
+does to learn that the next episode has not aired) and airs about where a weekly show would (start date + (n-1) weeks, with
+room for breaks that grows with n); batch releases and irregular shows therefore fail and the row is left out, as it was
+before.
 """
 import datetime
 
@@ -83,7 +84,7 @@ def tmdb_episodes(tmdb_api, details):
     return episodes
 
 
-def anchor_in_season(tmdb_api, tmdb_id, season, offset, start, n, today=None):
+def anchor_in_season(tmdb_api, tmdb_id, season, offset, start, n, today=None, allow_unaired=False):
     """(season, episode) of Simkl's cour-episode n using ONE TMDb season, the one the Fribb index lists for the cour with the
     number of TMDb episodes before the cour (offset), or None.
 
@@ -96,12 +97,16 @@ def anchor_in_season(tmdb_api, tmdb_id, season, offset, start, n, today=None):
         return None
     data = tmdb_api.get_request_sc('tv', tmdb_id, 'season', season) or {}
     episodes = [(season, e.get('episode_number'), _date(e.get('air_date'))) for e in data.get('episodes') or []]
-    found = anchor_episode(episodes, start, n, today)
+    found = anchor_episode(episodes, start, n, today, allow_unaired)
     return found if found == (season, (offset or 0) + n) else None
 
 
-def anchor_episode(episodes, start, n, today=None):
-    """(season, episode) of Simkl's cour-episode n when the cour starts on `start`, or None when it cannot be told safely."""
+def anchor_episode(episodes, start, n, today=None, allow_unaired=False):
+    """(season, episode) of Simkl's cour-episode n when the cour starts on `start`, or None when it cannot be told safely.
+
+    An episode whose TMDb air date is still ahead is refused (None) unless allow_unaired is set: Next Up must never show one.
+    Simkl In Progress sets it to learn that a show's next episode has NOT aired (the answer then comes after TMDb's last aired
+    episode); the weekly date check below still has to agree."""
     if not start or n < 1:
         return None
     near = [(abs((d - start).days), i) for i, (_, _, d) in enumerate(episodes) if d and abs((d - start).days) <= START_WINDOW]
@@ -111,7 +116,7 @@ def anchor_episode(episodes, start, n, today=None):
     if target >= len(episodes):
         return None
     season, episode, aired = episodes[target]
-    if aired is None or aired > (today or datetime.date.today()):
+    if aired is None or (aired > (today or datetime.date.today()) and not allow_unaired):
         return None
     expected = start + datetime.timedelta(weeks=n - 1)
     if abs((aired - expected).days) > BASE_TOLERANCE + PER_EPISODE_TOLERANCE * (n - 1):
