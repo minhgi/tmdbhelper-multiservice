@@ -250,6 +250,38 @@ class ItemListSyncDataToWatch(ItemListSyncData):
         return [self.make_item(i) for i in self.sort_data(data) if i]
 
 
+def count_aired_by_date(episodes, trakt_aired, now=None):
+    """ Number of regular episodes that have aired by their own Trakt air date (UTC), or None when the list cannot be trusted.
+
+    episodes is [(season_number, episode_number, first_aired)] from the local Trakt episode cache. Trakt's show-level
+    aired_episodes can run ahead of the episode air dates (A Tale of the Secret Saint 2026-11-16: aired_episodes 8, but episode 8
+    airs 11/21), so In Progress cross-checks it. The cache holds single episodes too, so a gappy list would undercount and hide a
+    show that still has unwatched aired episodes: it is used only when it has at least trakt_aired episodes, every season runs
+    1..N without a gap and no episode lacks an air date while a later one has one. The cache is written once and never
+    refreshed, so an episode stored before its date was announced keeps reading "no date" (tmdb 286171 on the Shield test
+    account: 19 undated rows that have since aired). """
+    import datetime
+    if not episodes or not trakt_aired or len(episodes) < trakt_aired:
+        return None
+    seasons = {}
+    for season, episode, _ in episodes:
+        seasons.setdefault(season, set()).add(episode)
+    if any(numbers != set(range(1, max(numbers) + 1)) for numbers in seasons.values()):
+        return None
+    ordered = [bool(first_aired) for _, _, first_aired in sorted(episodes, key=lambda e: (e[0], e[1]))]
+    if any(not dated and any(ordered[i + 1:]) for i, dated in enumerate(ordered)):
+        return None
+    now = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    aired = 0
+    for _, _, first_aired in episodes:
+        try:
+            if datetime.datetime.strptime(first_aired[:19], '%Y-%m-%dT%H:%M:%S') <= now:
+                aired += 1
+        except (TypeError, ValueError):  # no air date yet (to be announced) counts as not aired
+            continue
+    return aired
+
+
 class ItemListSyncDataInProgress(ItemListSyncData):
     """ Partially watched shows that are inprogress """
 
@@ -258,8 +290,37 @@ class ItemListSyncDataInProgress(ItemListSyncData):
         sd.additional_keys = self.additional_keys
         return sd
 
+    def get_episode_air_rows(self, tmdb_id):
+        """ Cached Trakt episode air dates of a show, read only: no request is made for episodes that are not cached """
+        episodedata = self._class_instance_trakt_api.trakt_episodedata
+        if not episodedata:
+            return
+        rows = episodedata.cache.get_list_values(
+            keys=('season_number', 'episode_number', 'first_aired', ), values=(tmdb_id, ), conditions='tmdb_id=? AND season_number>0')
+        return [(r[0], r[1], r[2]) for r in rows or []]
+
+    def is_all_aired_watched(self, item):
+        """ True for a show Trakt's aired count keeps in progress but whose episodes that have really aired are all watched.
+        Only removes shows (the date count is never higher than Trakt's); the shared in-progress getter feeds the Next Up
+        syncs too, so this filter lives on the widget list only. """
+        try:
+            aired, watched = item['aired_episodes'], item['watched_episodes']
+            if aired is None or watched is None or aired <= watched:
+                return False  # unknown, or is_inprogress_show already decided it with the calendar check
+            by_date = count_aired_by_date(self.get_episode_air_rows(item['tmdb_id']), aired)
+            if by_date is None or by_date != watched:
+                return False  # more watched than the dates say aired (or still unwatched aired ones): the cached dates are stale, keep the show
+            if not self.syncdata_getter.is_calendar_watched(item['tmdb_id']):
+                return False
+            from tmdbhelper.lib.addon.logger import kodi_log
+            kodi_log(f'Trakt In Progress: tmdb {item["tmdb_id"]} left out, Trakt aired {aired} but {by_date} aired by date, {watched} watched', 1)
+            return True
+        except Exception:
+            return False
+
     def get_presorted_items(self):
-        return sorted(self.syncdata_getter.items, key=lambda x: x['last_watched_at'], reverse=True)
+        items = sorted(self.syncdata_getter.items, key=lambda x: x['last_watched_at'], reverse=True)
+        return [i for i in items if not self.is_all_aired_watched(i)]
 
     def get_items(self):
         data = [self.namedtuple_basic(i, 'show', ) for i in self.presorted_items]

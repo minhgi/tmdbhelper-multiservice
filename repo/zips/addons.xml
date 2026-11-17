@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.102" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.103" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,9 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.103
+- Fixed: a show you had watched up to the latest aired episode stayed in TV Shows - In Progress. Trakt can count one more episode as aired than its own episode air dates allow (A Tale of the Secret Saint: Trakt counted 8 aired while episode 8 airs a week later), so the show looked one episode behind. In Progress now also counts the episodes by their air dates and leaves the show out once all of those are watched; it returns when the next episode airs. This is used only when the saved episode dates are complete and agree with what you have watched; otherwise Trakt's own count decides as before.
+
 v7.0.102
 - Fixed: the same wrong "Resume S1: Ep. 1" in a show's info dialog for anyone who uses MDBList or Simkl without Trakt. Without Trakt the show has no next episode on file, so the Up Next list still started at season 1 episode 1. It now starts at the first episode (aired or not) your MDBList or Simkl data does not mark as watched (seasons it counts as fully watched are skipped; nothing is requested from MDBList or Simkl for this). A show with no such episode still falls back to season 1.
 
