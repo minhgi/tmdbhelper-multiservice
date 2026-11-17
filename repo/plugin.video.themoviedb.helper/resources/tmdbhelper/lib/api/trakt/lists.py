@@ -382,6 +382,52 @@ class ListNextEpisodes(ListSync):
 
 
 class ListUpNext(ListSync):
+    def _get_season_from_episode(self, tmdb_id, season, episode):
+        """ Episodes of one season from TMDb, from the given episode number on """
+        items = self.tmdb_api.get_episode_list(tmdb_id, season, get_detailed=True)
+        return [i for i in (items or []) if try_int((i.get('infolabels') or {}).get('episode')) >= episode]
+
+    def _get_next_episode_trakt(self, tmdb_id):
+        """ (season, episode) from the show's synced Trakt next_episode_id (tv.<tmdb>.<season>.<episode>), else None """
+        syncdata = self.trakt_api.trakt_syncdata
+        next_id = syncdata.get_value('tv', tmdb_id, key='next_episode_id') if syncdata else None
+        parts = str(next_id or '').split('.')
+        season, episode = (try_int(parts[2]), try_int(parts[3])) if len(parts) == 4 else (0, 0)
+        return (season, episode) if season and episode else None
+
+    def _get_items_first_unwatched(self, tmdb_id, syncdata):
+        """ Without Trakt: the first episode (aired or not) this service (MDBList or Simkl, local synced data only) has not marked watched, and the rest of its season.
+        Seasons the service counts as fully watched are skipped without a TMDb request. Empty when there is none. """
+        details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {}
+        seasons = sorted(
+            (try_int(i.get('season_number')), try_int(i.get('episode_count')))
+            for i in details.get('seasons') or [] if try_int(i.get('season_number')) > 0)
+        for season, count in seasons:
+            if count and (syncdata.get_episode_watchedcount(tmdb_id, season) or 0) >= count:
+                continue
+            items = list(self.tmdb_api.get_episode_list(tmdb_id, season, get_detailed=True) or [])  # a generator
+            for n, i in enumerate(items):
+                il = i.get('infolabels') or {}
+                if not syncdata.get_episode_playcount(tmdb_id, season, try_int(il.get('episode'))):
+                    return items[n:]
+        return []
+
+    def _get_items_from_next_episode(self, tmdb_id):
+        """ A show with no Up Next rows: its next episode and the rest of that season (Trakt's synced next episode; without one, the first episode
+        MDBList or Simkl has not marked watched), from TMDb. Empty when none is known. """
+        try:
+            nxt = self._get_next_episode_trakt(tmdb_id)
+            if nxt:
+                return self._get_season_from_episode(tmdb_id, *nxt)
+            for playdata, attr in ((self.mdblist_playdata, 'mdblist_syncdata'), (self.simkl_playdata, 'simkl_syncdata')):
+                syncdata = getattr(playdata, attr, None) if playdata._watchedindicators else None
+                items = self._get_items_first_unwatched(tmdb_id, syncdata) if syncdata else None
+                if items:
+                    return items
+        except Exception:  # never worse than the season 1 fallback in get_items
+            pass
+        return []
+
     def get_items(self, info, tmdb_type, tmdb_id, page=None, fallback_season=None, **kwargs):
         if tmdb_type != 'tv':
             return
@@ -392,6 +438,8 @@ class ListUpNext(ListSync):
             item_type='episode',
             tmdb_id=tmdb_id,
             page=page)
+        if not items and not fallback_season:  # a followed show with no Up Next rows (next episode not aired yet): start at its next episode, not at season 1 episode 1
+            items = self._get_items_from_next_episode(tmdb_id)
         if not items:  # nothing synced for the show (not followed): list the season the caller names (the show calendar passes the airing one), else season 1
             items = self.tmdb_api.get_episode_list(tmdb_id, try_int(fallback_season) or 1, get_detailed=True)
             items = list(items) if items else []

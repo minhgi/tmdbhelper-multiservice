@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.100"
+version="7.0.102"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,12 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.102
+- Fixed: the same wrong "Resume S1: Ep. 1" in a show's info dialog for anyone who uses MDBList or Simkl without Trakt. Without Trakt the show has no next episode on file, so the Up Next list still started at season 1 episode 1. It now starts at the first episode (aired or not) your MDBList or Simkl data does not mark as watched (seasons it counts as fully watched are skipped; nothing is requested from MDBList or Simkl for this). A show with no such episode still falls back to season 1.
+
+v7.0.101
+- Fixed: a show's info dialog could offer "Resume" on episode 1 although you had watched other episodes. The dialog starts from the first entry of the show's Up Next list. When the show had no entry there (for example when its next episode has not aired yet), the list fell back to season 1 from episode 1, and an old resume point left on episode 1 made the button read Resume S1: Ep. 1. The list now starts at the show's own next episode instead, and only a show with no next episode at all falls back to season 1.
+
 v7.0.100
 - Fixed: the unwatched-episode badge on a show in In Progress and other widget rows could stay too high, and never reach zero when you were caught up. The widget rows were kept as they were built, and a viewing that this add-on did not see (another device, another app, or Kodi closed) did not refresh them; a restart served the same rows again for up to 6 hours. The add-on now checks, at start and every 3 minutes, Trakt's newest watched time against the watched data it last synced and against the time each widget was built. If either is behind, the rows stay on screen and are rebuilt in the background, then the skin reloads. It asks once per new viewing, so it does not rebuild again and again. Needs Trakt signed in with watched indicators on; MDBList and Simkl already refreshed the widgets when their own sync found a change. The check adds one small Trakt request every 3 minutes.
 
