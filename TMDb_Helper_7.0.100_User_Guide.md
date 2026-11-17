@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.95 — Complete Features & Functions Guide
+# TMDb Helper 7.0.100 — Complete Features & Functions Guide
 
-**Version:** 7.0.95 (Enhanced Fork — Personal Build)
+**Version:** 7.0.100 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.95_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.100_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.95. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.100. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -347,6 +347,16 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.9
 - **A list opened without a type no longer ends in an error** (7.0.92). A skin that builds a list such as Similar from the focused row can send a path with no movie or show type (the Next page row has none). The list now opens empty and the log gets one short line, instead of a TypeError traceback and a Kodi 'Error getting' line.
 - **OMDb is paused for 30 minutes after a 401** (7.0.93). OMDb answers 401 for a wrong API key and for a used-up daily limit. TMDb Helper used to ask OMDb again for every item in a list (222 requests for 59 titles in one log). It now writes one line to the log, stops asking for 30 minutes, and the ratings and awards that come from OMDb are simply missing meanwhile. Entering a new key in the settings starts clean.
 - **An empty Crew list opens as an empty list** (7.0.94). TMDb has no crew credits for many episodes, for example Chinese shows. Before, the list was never finished, so Kodi wrote a 'GetDirectory - Error getting' line to the log each time a skin asked for it, and a list opened by hand showed an 'empty list' popup.
+
+### Fixes in 7.0.96–7.0.100
+
+- **Menus are no longer shown from Kodi's saved copy** (7.0.96). Kodi kept a copy of the add-on's own menu pages and showed it again when you went Back, so a service or main-menu row you switched on or off stayed until Kodi was restarted. Menu pages are no longer saved, and a menu that is on screen when you close Settings refreshes at once.
+- **Simkl In-Progress Episodes shows Simkl's own percentage** (7.0.96). An episode paused on simkl.com or in another app used to show no percentage or a wrong one. Other Simkl lists still show only the pauses made in TMDb Helper on that device.
+- **Episode marks with Simkl only** (7.0.97, 7.0.99). With Simkl as the only service, the episodes of a show you are watching now show as watched, and a regular show Simkl lists as completed shows its aired episodes as watched. An anime gets its marks where the episode can be matched with certainty; an anime you completed in one go carries only a total on Simkl, so its episodes are not marked.
+- **Set as watched / unwatched on an anime episode goes to the right Simkl entry** (7.0.99). Simkl keeps each cour of an anime as its own entry numbered from 1, so the TMDb numbers could land on another episode. A show that cannot be matched keeps the old behaviour; if the lookup cannot be done right now, nothing is sent and you are told.
+- **A wrong Trakt watched count no longer sticks** (7.0.97). A show could stay in In Progress TV Shows for ever after one episode was missed in a Trakt sync. The count is now checked against the show's plays and the show is fetched again when they do not add up; the first sync after the update checks every show once.
+- **Resume points pass between MDBList and Simkl** (7.0.98). A movie or episode you paused on one of them and that Trakt does not hold continues from the same place on the other. Only a missing or older, clearly different point is sent (more than 2 %), points under 4 % or over 96 %, items watched after the pause and anime are left alone, and a point you clear is not copied back.
+- **Widget badges follow your viewing** (7.0.100). The unwatched-episode badge on a widget row such as In Progress could stay too high, and never reach zero, when a viewing was recorded somewhere this add-on did not see (another device, another app, or Kodi closed): the rows were kept as built and a restart showed the same rows for up to 6 hours. At start and every 3 minutes the add-on now compares Trakt's newest watched time with its synced data and with the time each widget was built; if either is behind, the rows stay on screen and are rebuilt in the background, then the skin reloads. It needs Trakt signed in with watched indicators on and adds one small Trakt request every 3 minutes.
 
 ## 3. First-Time Setup
 

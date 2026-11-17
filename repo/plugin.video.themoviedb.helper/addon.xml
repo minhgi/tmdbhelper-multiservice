@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.96"
+version="7.0.100"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,21 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.100
+- Fixed: the unwatched-episode badge on a show in In Progress and other widget rows could stay too high, and never reach zero when you were caught up. The widget rows were kept as they were built, and a viewing that this add-on did not see (another device, another app, or Kodi closed) did not refresh them; a restart served the same rows again for up to 6 hours. The add-on now checks, at start and every 3 minutes, Trakt's newest watched time against the watched data it last synced and against the time each widget was built. If either is behind, the rows stay on screen and are rebuilt in the background, then the skin reloads. It asks once per new viewing, so it does not rebuild again and again. Needs Trakt signed in with watched indicators on; MDBList and Simkl already refreshed the widgets when their own sync found a change. The check adds one small Trakt request every 3 minutes.
+
+v7.0.99
+- Fixed: with Simkl as the only service, the episodes of a show Simkl lists as completed now show as watched. Before, Simkl sends such a show as a count only, so its episode list showed every episode unwatched. Only the aired episodes of a regular (not anime) show whose watched count reaches Simkl's own aired total are marked, specials are not, and an episode you set as unwatched here stays unwatched. A show that gains new episodes, or loses a watched one, stops being marked by itself at the next sync. The first sync after the update reads your Simkl library once more to do this.
+- Fixed: Set as watched and Set as unwatched on an anime episode now go to the right Simkl entry. Simkl keeps each cour of an anime as its own entry numbered from 1, so the TMDb season and episode numbers this add-on sent could land on another episode. It now sends the anime entry and the number inside it, as the Simkl scrobbler already did. An episode that fits no entry is sent with the TMDb numbers as before; if the entry cannot be looked up right now, nothing is sent or marked and you are told so.
+
+v7.0.98
+- New: the sync between your services now also passes resume points between MDBList and Simkl. A movie or episode you paused on one of them and that Trakt does not hold continues from the same place on the other (Trakt's resume points were already passed to both). Only a point that is missing on the other service, or older and clearly different (more than 2 %), is sent, so the two never keep overwriting each other. Points under 4 % or over 96 %, items you watched after the pause, and anime (Simkl numbers every cour from 1) are left alone; Simkl keeps one resume point per show, so only the newest MDBList episode of a show is sent, and an episode is passed in either direction only for a show whose season has the same episode numbers on both. A point you clear on the service it started on is not copied back from the other one. The log line "BridgeSync (resume mirror)" lists what was sent and what was left out.
+
+v7.0.97
+- Fixed: with Simkl as the only service, the episode list of a show you are watching now shows the episodes you watched on Simkl. Before, the season and the show showed the right watched count but every episode of the list looked unwatched, so Season View and Episode View disagreed. For a regular show, an episode you unwatch on simkl.com now loses its mark here as well, and the Unwatch menu clears the episode marks of the seasons it removes. An anime you are watching gets its episode marks too, where the episode can be matched with certainty (Simkl numbers every cour from 1). Shows and anime you completed in one go carry only a total on Simkl, so their episodes are not marked.
+- Fixed: a show could keep a wrong watched-episode count for ever after one of its episodes was missed in a Trakt sync (it stayed in In Progress TV Shows although everything was watched). The count is now checked against the show's plays and the show is fetched again when they do not add up; the first sync after the update checks every show once.
+- Fixed: a Trakt resume point that MDBList ignores (it keeps nothing for an episode it has just marked watched) is no longer sent again at every start.
+
 v7.0.96
 - Fixed: the add-on's own menus no longer stay as they were after a service (Trakt, MDBList, Simkl) or a main-menu row is switched on or off. Kodi kept a saved copy of the menu page and showed it again when you went Back, without asking TMDb Helper, so the row stayed until Kodi was restarted. Menu pages are no longer saved, and a menu that is on screen when you close Settings is refreshed at once.
 - Fixed: Simkl In-Progress Episodes now shows the playback percentage Simkl itself holds for each episode. Before, the percentage came from TMDb Helper's own copy, which only knows the episodes paused in TMDb Helper, so an episode paused on simkl.com or in another app showed no percentage or a wrong one.

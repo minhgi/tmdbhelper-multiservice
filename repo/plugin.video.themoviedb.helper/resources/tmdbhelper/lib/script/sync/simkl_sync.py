@@ -14,7 +14,9 @@ class ItemSimklSyncBase:
     for both /sync/history and /sync/add-to-list endpoints.
     Bearer token required for all user-data writes.
     Episode-level writes (Watched / Unwatched, Reset resume position) use TMDb season / episode numbers like the scrobbler;
-    Simkl numbers anime episodes the TVDB way, so an anime episode can land on a different episode. Status items, ratings
+    Simkl numbers anime episodes the TVDB way, so an anime episode (a show the Fribb index knows) is sent the way the scrobbler
+    sends it instead: the AniList / MAL ids of its entry (cour) and the number inside that entry (see anime_target); when no entry
+    fits (a permanent answer) the TMDb numbers are sent as before, when the lookup cannot be done right now nothing is sent. Status items, ratings
     (an episode rating comes back not_found) and the other season / episode actions stay off.
     """
 
@@ -97,10 +99,49 @@ class ItemSimklSyncBase:
             return {'shows': [item]}
 
         if self.simkl_type == 'episode':
+            if self.anime_target is not None:
+                # an anime episode: its entry and the number inside it, never the TMDb numbers (same body for history and history/remove)
+                status, found = self.anime_target
+                if status == 'later':
+                    return {}
+                if status == 'ok':
+                    return {'anime': [{'ids': found['ids'], 'episodes': [{'number': found['number']}]}]}
+                # 'none': no entry fits this episode (a permanent answer, e.g. a show the index lists with no usable offset): the TMDb numbers, as before
             # TMDb season / episode numbers, as the scrobbler sends them (live-probed 2026-11-01: history add and remove accept it)
             return {'shows': [{'ids': ids, 'seasons': [{'number': int(self.season), 'episodes': [{'number': int(self.episode)}]}]}]}
 
         return {}
+
+    @cached_property
+    def anime_target(self):
+        """For an episode of a show the Fribb anime index knows: ('ok', {'ids', 'number', ...}) with the entry (cour) it belongs to and
+        its number inside it, ('later', None) when the lookup could not be done right now (nothing is sent then), ('none', None) when no
+        entry fits (the TMDb numbers are sent, as before 7.0.99). None when the show is not an anime (the TMDb numbers are right) or this
+        is not an episode. Resolved with forward_entry, which checks that what is sent reads back as the very episode it came from."""
+        if self.simkl_type != 'episode':
+            return None
+        try:
+            from tmdbhelper.lib.api.anilist import fribb
+            if not fribb.tv_entries(self.tmdb_id):
+                return None
+            from tmdbhelper.lib.api.anilist.entry_map import forward_entry
+            from tmdbhelper.lib.api.tmdb.api import TMDb
+            status, found = forward_entry(int(self.tmdb_id), int(self.season), int(self.episode), TMDb())
+        except Exception as exc:
+            kodi_log(f'Simkl: anime entry lookup for {self.tmdb_id} S{self.season}E{self.episode} failed - {type(exc).__name__}: {exc}', 1)
+            return ('later', None)
+        if status == 'none':
+            kodi_log(f'Simkl: no anime entry fits {self.tmdb_id} S{self.season}E{self.episode} - sending the TMDb numbers', 1)
+        return (status, found)
+
+    @cached_property
+    def anime_unresolved(self):
+        """True for an anime episode whose Simkl entry could not be looked up right now: nothing is sent and nothing is marked locally."""
+        return self.anime_target is not None and self.anime_target[0] == 'later'
+
+    def tell_anime_unresolved(self):
+        kodi_log(f'Simkl: anime episode {self.tmdb_id} S{self.season}E{self.episode} not sent - the entry lookup could not be done right now', 1)
+        Dialog().ok(self.name, get_localized(32791))
 
     # --- API call ---
 
@@ -131,8 +172,9 @@ class ItemSimklSyncBase:
 
     def episode_is_watched(self):
         """Whether an episode counts as watched, for the Set as watched / unwatched menu - local data only, no API call.
-        Simkl's sync stores no episode rows, so the answer is the local mark this add-on wrote (a play it scrobbled or an
-        action it ran) or else what the focused list item shows (Kodi's play count for the same season and episode)."""
+        The answer is the local episode mark: one this add-on wrote (a play it scrobbled or an action it ran) or, since 7.0.97,
+        one the watched sync stored for a regular show in progress (anime and completed shows carry no episode list on Simkl),
+        or else what the focused list item shows (Kodi's play count for the same season and episode)."""
         if self.get_sync_value('plays'):
             return True
         try:
@@ -198,6 +240,13 @@ class ItemSimklSyncBase:
                         (item_id,))
                     if before:
                         adjust_totals(cache, tmdb_id, season, -1)
+                    # the show-level flag stays: this episode now has its explicit 0 row, the other episodes are still watched on Simkl,
+                    # and the next sync drops the flag by itself (watched is then below the aired total)
+
+            elif self.simkl_type == 'season' and not value:
+                # a whole season of a completed show is unwatched: no episode rows to carry that, so drop the show-level flag at once
+                self.simkl_syncdata.cache.execute_sql(
+                    'UPDATE simplecache SET plays=0 WHERE id=?', (f'tv.{int(self.tmdb_id)}',))
 
             elif self.simkl_type == 'show':
                 item_id = f'tv.{int(self.tmdb_id)}'
@@ -211,12 +260,12 @@ class ItemSimklSyncBase:
                     # get_playcount() returns min(9999, air_count) = air_count.
                     # Next periodic sync overwrites with the real count.
                     cache.execute_sql(
-                        'UPDATE simplecache SET last_watched_at=?, watched_episodes=?,'
+                        'UPDATE simplecache SET plays=1, last_watched_at=?, watched_episodes=?,'
                         ' item_type=?, tmdb_type=?, tmdb_id=? WHERE id=?',
                         (ts, 9999, 'show', 'tv', int(self.tmdb_id), item_id))
                 else:
                     cache.execute_sql(
-                        'UPDATE simplecache SET last_watched_at=NULL, watched_episodes=0 WHERE id=?',
+                        'UPDATE simplecache SET plays=0, last_watched_at=NULL, watched_episodes=0 WHERE id=?',
                         (item_id,))
         except Exception:
             pass
@@ -372,7 +421,7 @@ class ItemSimklSyncBase:
         try:
             resp_json = self.sync_response.json()
             not_found = resp_json.get('not_found', {})
-            for key in ('movies', 'shows', 'episodes'):
+            for key in ('movies', 'shows', 'episodes', 'anime'):
                 if not_found.get(key):
                     return False
         except Exception:
@@ -468,7 +517,8 @@ class ItemSimklWatched(ItemSimklSyncBase):
         if self.simkl_type == 'show':
             return self.call_api('sync', 'add-to-list', payload=self.build_payload(to='completed'))
         if self.simkl_type in ('season', 'episode'):
-            return self.call_api('sync', 'history', payload=self.build_payload())
+            payload = self.build_payload()
+            return self.call_api('sync', 'history', payload=payload) if payload else None
         return None
 
     def _cross_sync(self):
@@ -483,6 +533,9 @@ class ItemSimklWatched(ItemSimklSyncBase):
             clear_resume_point(self.tmdb_type, self.tmdb_id, self.season, self.episode)
 
     def sync(self):
+        if self.anime_unresolved:
+            self.tell_anime_unresolved()
+            return
         _ = self.sync_response
         self.update_watched_in_db(True, force=True)
         self.clear_resume_point()
@@ -518,7 +571,8 @@ class ItemSimklUnwatched(ItemSimklSyncBase):
         return get_localized(16104)  # "Set as unwatched"
 
     def get_sync_response(self):
-        return self.call_api('sync', 'history', 'remove', payload=self.build_payload())
+        payload = self.build_payload()
+        return self.call_api('sync', 'history', 'remove', payload=payload) if payload else None
 
     def _cross_sync(self):
         from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_mdblist
@@ -526,6 +580,9 @@ class ItemSimklUnwatched(ItemSimklSyncBase):
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
 
     def sync(self):
+        if self.anime_unresolved:
+            self.tell_anime_unresolved()
+            return
         _ = self.sync_response
         self.update_watched_in_db(False, force=True)
         self.display_dialog()

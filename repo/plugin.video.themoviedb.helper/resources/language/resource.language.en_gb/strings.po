@@ -4024,3 +4024,7 @@ msgstr ""
 msgctxt "#32790"
 msgid "Size of the fanart downloaded from TMDb, instead of the TMDb artwork quality above. Default follows that setting. Landscape, thumbnails and logos always follow the TMDb artwork quality."
 msgstr ""
+
+msgctxt "#32791"
+msgid "Simkl keeps every season of an anime as its own entries, and the entry for this episode could not be worked out right now, so nothing was changed on Simkl. Try again later."
+msgstr ""

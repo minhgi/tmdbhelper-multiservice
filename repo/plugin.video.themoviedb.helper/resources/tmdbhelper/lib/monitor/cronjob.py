@@ -31,6 +31,7 @@ class CronJobMonitor(SafeThread):
             self._do_delete_old_databases,
             self._do_recache_kodidb,
             self._do_trakt_authorization,
+            self._do_check_widget_freshness,
             self._do_bridge_sync_startup,
             self._do_anime_fribb_update,
         ), 'startup')
@@ -39,6 +40,7 @@ class CronJobMonitor(SafeThread):
         self._run_steps((
             self._do_library_update_check,
             self._do_reset_trakt_lastactivities,
+            self._do_check_widget_freshness,  # after the reset above: it reads Trakt's activities fresh and leaves them for the next sync
             self._do_trakt_token_refresh_check,
             self._do_cleanup_widget_cache,   # Item 5: delete widget_cache/*.json older than 24h
             self._do_cleanup_image_cache,    # Item 4: prune blur_v2/crop_v2/desaturate_v2 dirs
@@ -196,6 +198,49 @@ class CronJobMonitor(SafeThread):
         from jurialmunkey.window import get_property
         from tmdbhelper.lib.addon.consts import LASTACTIVITIES_DATA
         get_property(LASTACTIVITIES_DATA, clear_property=True)
+
+    _widget_stamp_handled = ''  # the newest Trakt watched time this thread already asked the widgets to catch up with (once each: no rebuild loop)
+
+    def _do_check_widget_freshness(self):
+        """A viewing that Trakt holds but this add-on did not see leaves the cached widget rows with the old watched counts, so every
+        badge reads too high and never reaches zero. Nothing but a play stop, a menu action or a settings change refreshed the caches,
+        and a cache under 6 h old is served again at every start. Here Trakt's newest watched time (movies, episodes) is compared with
+        (a) the watched data this add-on last synced and (b) the time each cached widget was built; either one behind asks for a
+        soft refresh: the rows stay up and the widget warmer rebuilds them in the background, then the skins reload.
+        Once per watched time: if the sync could not catch up, the check does not run the rebuild over and over."""
+        from tmdbhelper.lib.addon.plugin import get_setting
+        if not get_setting('service_trakt') or not get_setting('trakt_watchedindicators'):
+            return
+        from jurialmunkey.parser import boolean
+        from jurialmunkey.window import get_property
+        if not boolean(get_property('TraktIsAuth')) or not self.trakt_api.authorization:
+            return
+        from datetime import datetime, timezone
+        from tmdbhelper.lib.addon.logger import kodi_log
+        from tmdbhelper.lib.api.trakt.sync.activity import SyncLastActivities
+        from tmdbhelper.lib.api.trakt.sync.datasync import SyncData
+        from tmdbhelper.lib.items.widget_cache import caches_older_than
+        syncdata = SyncData(self.trakt_api)
+        activities = SyncLastActivities(syncdata)
+        stamps = [((activities.json.get(k) or {}).get('watched_at') or '') for k in ('episodes', 'movies')]
+        newest = max(stamps)
+        if not newest or newest == self._widget_stamp_handled:
+            return
+        sync_behind = any(
+            s and activities.is_expired(syncdata.cache.get_activity(item_type, 'watched'), keys=(key, 'watched_at'))
+            for s, item_type, key in ((stamps[0], 'show', 'episodes'), (stamps[1], 'movie', 'movies')))
+        try:
+            newest_time = datetime.strptime(newest[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            newest_time = 0
+        cache_behind = bool(newest_time) and caches_older_than(newest_time)
+        if not sync_behind and not cache_behind:
+            self._widget_stamp_handled = newest  # nothing is behind: nothing to ask for until Trakt reports a newer viewing
+            return
+        self._widget_stamp_handled = newest
+        from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
+        kodi_log(f'CronJob: Trakt watched at {newest} is newer than the {"synced data" if sync_behind else "widget caches"}, widgets refreshing in the background', 2)
+        reload_widgets(soft=True)
 
     def _do_trakt_token_refresh_check(self):
         """Periodically check if the Trakt token is expired or about to expire and refresh it.

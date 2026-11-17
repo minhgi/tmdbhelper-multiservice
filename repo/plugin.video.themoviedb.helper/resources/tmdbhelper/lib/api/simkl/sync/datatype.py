@@ -220,8 +220,10 @@ class SimklSyncWatched(SimklDataType):
     # Marks a sync that also read the account's list statuses (plan-to-watch / hold / dropped / watching).
     # Syncs stamped before that existed are stale for the status flags, so without the marker the first
     # sync after an upgrade would wait for the next change on the account. v2: 6.0.115 reads anime rows and
-    # the watched_episodes_count of completed shows, again stale until a re-sync.
-    status_marker = 'watched.status_v2'
+    # the watched_episodes_count of completed shows, again stale until a re-sync. v3: 7.0.97 stores the watched
+    # episodes of regular shows in progress, so an install synced by 7.0.96 re-syncs once instead of waiting for a change.
+    # v4: 7.0.99 flags a completed regular show whose aired episodes are all watched (show row plays = 1), same reason.
+    status_marker = 'watched.status_v4'
 
     @property
     def is_expired(self):
@@ -251,25 +253,35 @@ class SimklSyncWatched(SimklDataType):
     def clear_unconfirmed_episode_marks(self, data, started):
         """Drop the local watched mark of every episode of a show that Simkl now reports with no watched episodes.
 
-        Episode rows are written locally only (a scrobble or the Set as watched action) because Simkl numbers episodes
-        the TVDB way, so the sync above never touches them and an episode unwatched on simkl.com kept its mark for ever.
-        What can be checked without that numbering is the show as a whole: when Simkl lists no watched episode for it
-        (not in the library, or a count of 0) none of its episodes can be watched. A show with some watched episodes is
-        left alone - which of its episodes changed cannot be told. A mark newer than the start of this sync is kept: the
-        scrobbler may have written it after the library was read. Anime is counted: it is in `data` as a show row. """
+        Episode rows are written locally by a scrobble or the Set as watched action, and (7.0.97) by this sync for the watched
+        episodes Simkl lists for a regular show in progress. What can be checked for every show is the show as a whole: when
+        Simkl lists no watched episode for it (not in the library, or a count of 0) none of its episodes can be watched. For a
+        show whose watched episodes Simkl did list (they are in `data` as episode rows) an episode that is not among them is
+        unwatched too, so an episode unwatched on simkl.com loses its mark. A show with only a count (completed) is left alone -
+        which of its episodes changed cannot be told - and so is an anime (its mapped episodes may be only some of the cours). A mark newer than the start
+        of this sync is kept: the scrobbler may have written it after the library was read. Anime is counted: it is in `data`
+        as a show row. """
         from tmdbhelper.lib.addon.logger import kodi_log
         try:
             index = self.keys.index('watched_episodes')
             confirmed = {int(item_id[3:]) for item_id, row in data.items()
                          if item_id.startswith('tv.') and item_id.count('.') == 1 and row[index]}
+            anime = getattr(self, 'anime_tmdb_ids', set())   # mapped anime keeps its local marks: a cour the mapper left out is not "unwatched"
+            confirmed |= anime   # Simkl listed watched episodes for them, also when no Simkl entry carries their TMDb id (the mapper took it from Fribb)
+            listed = {}  # tmdb id -> {(season, episode)} of the shows whose watched episodes Simkl listed
+            for item_id in data:
+                parts = item_id.split('.')
+                if item_id.startswith('tv.') and len(parts) == 4 and int(parts[1]) not in anime:
+                    listed.setdefault(int(parts[1]), set()).add((int(parts[2]), int(parts[3])))
             rows = self.cache.execute_sql(
-                "SELECT id, tmdb_id, last_watched_at FROM simplecache WHERE item_type='episode' AND plays > 0")
+                "SELECT id, tmdb_id, last_watched_at, season_number, episode_number FROM simplecache WHERE item_type='episode' AND plays > 0")
             stale = [(row[0],) for row in (rows.fetchall() if rows else [])
-                     if row[1] not in confirmed and not (row[2] and row[2] >= started)]
+                     if (row[1] not in confirmed or (row[1] in listed and (row[3], row[4]) not in listed[row[1]]))
+                     and not (row[2] and row[2] >= started)]
             if not stale:
                 return
             self.cache.execute_sql('UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE id=?', stale)
-            kodi_log(f'Simkl Sync: cleared {len(stale)} local episode marks of shows with no watched episodes on Simkl', 1)
+            kodi_log(f'Simkl Sync: cleared {len(stale)} local episode marks that Simkl no longer lists as watched', 1)
         except Exception as error:
             kodi_log(f'Simkl Sync: episode marks not reconciled - {error}', 1)
 
@@ -338,8 +350,47 @@ class SimklSyncWatched(SimklDataType):
                     'user_rated_at': entry.get('user_rated_at'),
                 })
 
+        anime_mapped = self.map_anime_episodes((anime_all_data or {}).get('anime') or [])
+        self.anime_tmdb_ids = {int(i) for i in anime_mapped}
+
         kodi_log(f'Simkl Sync: {len(movies)} movies, {len(shows)} shows, {len(statuses)} on a status list', 1)
 
         if not movies and not shows and not statuses:
             return None
-        return {'movies': movies, 'shows': shows, 'statuses': statuses}
+        return {'movies': movies, 'shows': shows, 'statuses': statuses, 'anime_mapped': anime_mapped}
+
+    @staticmethod
+    def map_anime_episodes(anime_rows):
+        """{TMDb id: {season: [episode numbers]}} of the watched episodes of the 'tv' anime entries Simkl lists, in TMDb numbering.
+        Simkl numbers every cour from 1 inside its own entry; entry_map.map_entries (the mapper the cross-service bridge uses: the Fribb
+        index, with an air-date check of AniZip against TMDb wherever an offset is needed) turns them into TMDb season / episode
+        numbers and leaves out what it cannot confirm. Any failure means 'not mapped': it never stops the sync. """
+        from tmdbhelper.lib.addon.logger import kodi_log
+        try:
+            entries = {}
+            for entry in anime_rows:
+                show_obj = entry.get('show') or entry
+                if (entry.get('anime_type') or show_obj.get('anime_type')) != 'tv':
+                    continue
+                ids = show_obj.get('ids') or {}
+                try:
+                    anilist_id = int(ids.get('anilist'))
+                except (TypeError, ValueError):
+                    continue
+                eps = {str(e['number']): e.get('watched_at') or '' for s in (entry.get('seasons') or [])
+                       for e in (s.get('episodes') or []) if e.get('number') is not None}
+                if eps:
+                    entries[anilist_id] = {'tmdb': ids.get('tmdb'), 'eps': eps}
+            if not entries:
+                return {}
+            from tmdbhelper.lib.api.anilist.entry_map import map_entries
+            from tmdbhelper.lib.api.tmdb.api import TMDb
+            mapped = map_entries(entries, TMDb(), None, None)[0]
+            result = {}
+            for key in mapped:
+                tmdb_id, season, episode = (int(i) for i in key.split(':'))
+                result.setdefault(tmdb_id, {}).setdefault(season, []).append(episode)
+            return result
+        except Exception as error:
+            kodi_log(f'Simkl Sync: anime episodes not mapped - {type(error).__name__}: {error}', 1)
+            return {}

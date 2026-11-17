@@ -79,19 +79,40 @@ class SimklPlayData:
             return min(watched, air_count) if air_count else watched
 
         if li.infolabels.get('mediatype') == 'episode':
-            # Simkl's watched list carries no episode rows (TVDB numbering), so this is the local mark written when an
-            # episode is finished (scrobble) or set as watched here, in TMDb numbering. It is only used when Trakt and
-            # MDBList show no watched marks: the lists take the highest count of all services and an episode unwatched
+            # The episode mark is a local row in TMDb numbering: written when an episode is finished (scrobble) or set as
+            # watched here, and (7.0.97) by the watched sync for the episodes Simkl lists for a regular show in progress.
+            # Anime carries only a count on Simkl, so its episodes are marked by the first two only; the aired episodes of a regular show Simkl lists as completed with all aired episodes watched count as watched (no mark of their own needed).
+            # It is only used when Trakt and MDBList show no watched marks: the lists take the highest count of all services and an episode unwatched
             # from the Trakt or MDBList menu is not mirrored to Simkl, so this mark could not be cleared from there.
             from tmdbhelper.lib.addon.plugin import get_setting
             if any(get_setting(s) and get_setting(i) for s, i in (
                     ('service_trakt', 'trakt_watchedindicators'), ('service_mdblist', 'mdblist_watchedindicators'))):
                 return
-            return self.simkl_syncdata.get_value(
+            mark = self.simkl_syncdata.get_value(
                 'tv', li.unique_ids.get('tvshow.tmdb'),
                 season=li.infolabels.get('season'),
                 episode=li.infolabels.get('episode'),
-                key='plays') or 0
+                key='plays')
+            if mark is not None:
+                return mark or 0  # a mark of its own, also an explicit 0 (set as unwatched here), always wins
+            return self._episode_of_completed_show(li)
+
+    def _episode_of_completed_show(self, li):
+        """1 for an aired, regular (not season 0) episode with no mark of its own whose show Simkl lists as completed with every aired
+        episode watched (the show row's plays flag, see SimklSyncWatched._is_completed_show): Simkl sends such a show as a count only.
+        An episode with no air date counts as not watched."""
+        try:
+            if int(li.infolabels.get('season')) < 1:
+                return 0
+        except (TypeError, ValueError):
+            return 0
+        aired = str(li.infolabels.get('premiered') or '')[:10]
+        if not aired:
+            return 0
+        from datetime import date
+        if aired > date.today().isoformat():
+            return 0
+        return 1 if self.simkl_syncdata.get_value('tv', li.unique_ids.get('tvshow.tmdb'), key='plays') else 0
 
     @is_sync
     def set_playprogress(self, li):

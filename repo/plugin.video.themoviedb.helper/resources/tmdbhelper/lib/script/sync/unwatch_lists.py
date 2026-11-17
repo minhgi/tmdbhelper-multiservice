@@ -256,13 +256,16 @@ class _Simkl(_Service):
         return self.api.get_api_request(url, postdata=payload, method='json', headers=self.api.auth_headers)
 
     def after_removal(self, tmdb_id, seasons, episodes, removed, whole=False):
-        """Simkl keeps season totals only: zero the removed seasons and take their counts off the show total (a bulk mark stays as it is)."""
+        """Simkl keeps season totals: zero the removed seasons and take their counts off the show total (a bulk mark stays as it is).
+        The local episode marks of the removed seasons (the watched sync stores them for a regular show, 7.0.97) go with them."""
         try:
             cache, tmdb_id = self.cache(), int(tmdb_id)
             if whole:
                 cache.execute_sql("UPDATE simplecache SET watched_episodes=0 WHERE tmdb_id=? AND item_type IN ('season','show')", (tmdb_id,))
+                cache.execute_sql("UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE tmdb_id=? AND item_type='episode'", (tmdb_id,))
                 return
             for season in {int(s) for s in seasons}:
+                cache.execute_sql("UPDATE simplecache SET plays=0, last_watched_at=NULL WHERE tmdb_id=? AND season_number=? AND item_type='episode'", (tmdb_id, season))
                 row = cache.execute_sql('SELECT watched_episodes FROM simplecache WHERE id=?', (f'tv.{tmdb_id}.{season}',), read_only=True).fetchone()
                 count = int(row[0] or 0) if row else 0
                 cache.execute_sql('UPDATE simplecache SET watched_episodes=0 WHERE id=?', (f'tv.{tmdb_id}.{season}',))

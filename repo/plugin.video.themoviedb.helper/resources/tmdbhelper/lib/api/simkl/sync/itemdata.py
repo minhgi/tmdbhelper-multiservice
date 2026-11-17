@@ -72,6 +72,19 @@ class SimklSyncItem:
         return [*base_values, item_type, tmdb_type, tmdb_id, season_number, episode_number]
 
     @staticmethod
+    def _is_completed_show(item, watched):
+        """True for a regular show Simkl lists as completed with every aired episode watched (watched >= total - not aired, in Simkl's
+        own counts, both sent with extended=full). Anime entries are never flagged: Simkl numbers each cour on its own."""
+        if item.get('anime_type') or item.get('status') != 'completed':
+            return False
+        try:
+            total = int(item.get('total_episodes_count') or 0)
+            not_aired = int(item.get('not_aired_episodes_count') or 0)
+        except (ValueError, TypeError):
+            return False
+        return total > 0 and watched >= total - not_aired
+
+    @staticmethod
     def _rating(item):
         """(rating, rated_at) of a library entry: user_rating is 1-10 or null when never rated."""
         try:
@@ -163,9 +176,12 @@ class SimklSyncItem:
         # seasons[].episodes[] = WATCHED episodes (TVDB numbers), sent only for entries still in progress
         # (watching / hold). A completed or dropped entry carries just "watched_episodes_count", which then
         # stands in for the show-level count (live check 2026-10-14).
-        # We write show-level and season-level watched counts only (no episode rows). Anime entries
-        # (anime_type set) are one cour each and always number it season 1, which says nothing about the TMDb
-        # season, so they get the show-level count only.
+        # We write show-level and season-level watched counts, and (7.0.97) one episode row per watched episode of a
+        # regular show: its season numbers already stand in for TMDb's in the season rows, and live checks (2026-11-16,
+        # two shows) found Simkl's watched episode numbers identical to Trakt's, so an episode list agrees with its season
+        # row. Anime entries (anime_type set) are one cour each and always number it season 1, which says nothing about
+        # the TMDb season, so here they get the show-level count only; their episodes are mapped separately, below.
+        entry_totals = {}   # tmdb id -> watched count summed over EVERY entry of that id (an anime show can have several cours)
         for item in (meta.get('shows') or []):
             ids = (item.get('show') or {}).get('ids', {})
             tmdb_id = ids.get('tmdb')
@@ -189,6 +205,15 @@ class SimklSyncItem:
                 data[season_id] = self._row(
                     [None, None, season_watched, None, None, *self._NO_STATUS],
                     'season', 'tv', tmdb_id, season_num)
+                for episode in (season.get('episodes') or []):
+                    try:
+                        episode_num = int(episode.get('number'))
+                    except (ValueError, TypeError):
+                        continue
+                    # plays only: ifnull() in the write keeps the last_watched_at a local mark already has
+                    data[f'{season_id}.{episode_num}'] = self._row(
+                        [1, None, None, None, None, *self._NO_STATUS],
+                        'episode', 'tv', tmdb_id, season_num, episode_num)
 
             if not total_watched:
                 try:
@@ -196,10 +221,33 @@ class SimklSyncItem:
                 except (ValueError, TypeError):
                     total_watched = 0
 
+            entry_totals[tmdb_id] = entry_totals.get(tmdb_id, 0) + total_watched
             show_id = f'tv.{tmdb_id}'
+            # plays = 1 on a show row means "every aired episode of this show is watched": a regular (non-anime) show Simkl lists as
+            # completed whose watched count reaches its own aired total. A completed entry sends no episode list, so this is what lets
+            # the episode lists show its episodes as watched (items/simkl.py). It is derived from Simkl's counts on every sync, so a show
+            # that gains aired episodes (or loses a watched one) stops being flagged by itself.
             data[show_id] = self._row(
-                [None, None, total_watched, *self._rating(item), *self._NO_STATUS],
+                [1 if self._is_completed_show(item, total_watched) else None, None, total_watched, *self._rating(item), *self._NO_STATUS],
                 'show', 'tv', tmdb_id)
+
+        # --- Anime, mapped to TMDb numbers by the sync (SimklSyncWatched.map_anime_episodes): one episode row per mapped episode.
+        # Season rows (a season's watched count = the episodes mapped into it) only when the mapping accounts for all of the show's
+        # count on Simkl: a cour Simkl completed in one go carries a total and no episode list, so a partial season count would be
+        # wrong (Apothecary Diaries: 49 watched, one mapped). The show-level count above stays Simkl's own total. ---
+        for tmdb_id, seasons in (meta.get('anime_mapped') or {}).items():
+            mapped_total = sum(len(set(episodes)) for episodes in seasons.values())
+            complete = bool(entry_totals.get(tmdb_id)) and entry_totals[tmdb_id] == mapped_total
+            for season_num, episodes in seasons.items():
+                season_id = f'tv.{tmdb_id}.{season_num}'
+                if complete:
+                    data[season_id] = self._row(
+                        [None, None, len(set(episodes)), None, None, *self._NO_STATUS],
+                        'season', 'tv', tmdb_id, season_num)
+                for episode_num in set(episodes):
+                    data[f'{season_id}.{episode_num}'] = self._row(
+                        [1, None, None, None, None, *self._NO_STATUS],
+                        'episode', 'tv', tmdb_id, season_num, episode_num)
 
         # --- List status (plantowatch / hold / dropped / watching), from collect_statuses ---
         self._apply_statuses(data, meta.get('statuses') or [])

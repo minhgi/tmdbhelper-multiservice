@@ -142,6 +142,23 @@ def get_hard_invalidated():
         return 0.0
 
 
+def caches_older_than(timestamp):
+    """True if a widget cache the warmer keeps up (opened within INDEX_MAX_AGE) was built before this time (epoch seconds).
+    Used with the newest watched time Trakt reports: such a cache still holds the watched counts (the badges) of before that viewing."""
+    import time
+    index = read_index() or {}
+    now = time.time()
+    for key, entry in index.items():
+        if now - entry.get('used', 0) >= INDEX_MAX_AGE:
+            continue
+        try:
+            if os.path.getmtime(_get_cache_path(key)) < timestamp:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _index_path():
     return os.path.join(_get_cache_dir(), '_index.dat')  # not .json: the cleanups only touch *.json
 

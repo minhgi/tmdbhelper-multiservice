@@ -237,6 +237,7 @@ class SyncWatched(DataTypeEpisodes):
     so SyncItem parses it as before. Shows whose last_watched_at/reset_at/plays/last_updated_at are unchanged are rebuilt from the rows already stored.
     """
     progress_marker = 'watched_progress_v1'  # lactivities entry (show only): 'ok' or 'partial:<retry timestamp>'; missing forces a full rebuild
+    progress_guard_marker = 'watched_progress_guard_v1'  # lactivities entry (show only): set once the play-total check of 7.0.97 has run; missing forces ONE sync so an install that is already stale is checked
     progress_retry_after = 1800  # seconds before retrying shows whose progress request failed
     progress_threads = 2  # get_setting('max_threads') is 0 (unlimited) by default - never fire one request per show at once; a 429 shows a toast and blocks all Trakt requests for 15s (reqapi.py)
     progress_state = 'ok'
@@ -255,7 +256,7 @@ class SyncWatched(DataTypeEpisodes):
 
     @property
     def is_expired(self):
-        if self.item_type == 'show' and self.is_progress_due:
+        if self.item_type == 'show' and (self.is_progress_due or not self.cache.get_activity(self.item_type, self.progress_guard_marker)):
             return True
         return super().is_expired
 
@@ -286,6 +287,19 @@ class SyncWatched(DataTypeEpisodes):
                 stored[self.get_progress_key(trakt_id, last_watched_at, reset_at, plays, last_updated_at)] = [
                     {'number': k, 'episodes': v} for k, v in sorted(seasons.items())]
         return stored
+
+    @staticmethod
+    def is_progress_complete(item, seasons):
+        """ False when the stored episodes cannot be all of the show's plays: the show says 8 plays but the stored episodes add up
+        to 6, so one was missed (an incomplete /progress/watched answer is stored under the show's key, which then never changes
+        and the stale list was reused for ever). Specials are not stored, so a show with watched specials is fetched again each
+        time the watched sync runs - two shows out of 92 on the account this was found on. A show without a plays count is kept. """
+        try:
+            plays = int(item.get('plays'))
+        except (TypeError, ValueError):
+            return True
+        stored = sum(int(e.get('plays') or 1) for s in seasons for e in s.get('episodes') or [])
+        return stored == plays
 
     @staticmethod
     def get_progress_seasons(progress):
@@ -328,7 +342,7 @@ class SyncWatched(DataTypeEpisodes):
             seasons = stored.get(self.get_progress_key(
                 self.get_progress_trakt_id(item), item.get('last_watched_at'), item.get('reset_at'),
                 item.get('plays'), item.get('last_updated_at') or item.get('updated_at')))
-            if seasons:
+            if seasons and self.is_progress_complete(item, seasons):
                 item['seasons'] = seasons
                 reused += 1
                 continue
@@ -369,6 +383,7 @@ class SyncWatched(DataTypeEpisodes):
         super().store_last_activity()
         if self.item_type == 'show':
             self.cache.set_activity(self.item_type, self.progress_marker, self.progress_state)
+            self.cache.set_activity(self.item_type, self.progress_guard_marker, '1')
 
 
 class SyncPlayback(DataTypeEpisodes):
