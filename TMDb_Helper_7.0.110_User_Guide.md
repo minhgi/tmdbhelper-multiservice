@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.100 — Complete Features & Functions Guide
+# TMDb Helper 7.0.110 — Complete Features & Functions Guide
 
-**Version:** 7.0.100 (Enhanced Fork — Personal Build)
+**Version:** 7.0.110 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.100_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.110_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.100. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.110. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -357,6 +357,17 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **A wrong Trakt watched count no longer sticks** (7.0.97). A show could stay in In Progress TV Shows for ever after one episode was missed in a Trakt sync. The count is now checked against the show's plays and the show is fetched again when they do not add up; the first sync after the update checks every show once.
 - **Resume points pass between MDBList and Simkl** (7.0.98). A movie or episode you paused on one of them and that Trakt does not hold continues from the same place on the other. Only a missing or older, clearly different point is sent (more than 2 %), points under 4 % or over 96 %, items watched after the pause and anime are left alone, and a point you clear is not copied back.
 - **Widget badges follow your viewing** (7.0.100). The unwatched-episode badge on a widget row such as In Progress could stay too high, and never reach zero, when a viewing was recorded somewhere this add-on did not see (another device, another app, or Kodi closed): the rows were kept as built and a restart showed the same rows for up to 6 hours. At start and every 3 minutes the add-on now compares Trakt's newest watched time with its synced data and with the time each widget was built; if either is behind, the rows stay on screen and are rebuilt in the background, then the skin reloads. It needs Trakt signed in with watched indicators on and adds one small Trakt request every 3 minutes.
+
+### Fixes in 7.0.101–7.0.110
+
+- **Show info dialog: no wrong Resume on episode 1** (7.0.101–7.0.102). The dialog offered Resume S1: Ep. 1 for a show whose next episode had not aired yet, or for anyone using MDBList or Simkl without Trakt, because the Up Next list fell back to season 1 episode 1. It now starts at the show's own next episode, or, without Trakt, at the first episode your MDBList or Simkl data does not mark as watched. Only a show with no next episode at all falls back to season 1.
+- **A caught-up show leaves the In Progress lists** (7.0.103–7.0.107). Trakt can count one episode too many as aired, so a show you had watched up to the latest aired episode stayed in TV Shows - In Progress; the episodes are now also counted by their air dates, and the show returns when the next one airs (7.0.103). On MDBList a pause left on an episode you had already watched no longer keeps the show listed, and neither does one on Simkl (7.0.104, 7.0.106). A Simkl anime whose next episode has not aired yet is left out, also for a multi-season show whose seasons have the same length (7.0.104, 7.0.106, 7.0.107). Where the dates cannot tell, the lists behave as before.
+- **Next Up and calendars follow the real air date** (7.0.105–7.0.106). Trakt Next Up no longer offers an episode that airs later (an episode with no date is kept). Your own calendars (Today, This Week, …) ask Trakt for a wider span, because Trakt can file an episode a week away from its real air date, and keep only the episodes whose own air date is in the window. The unwatched-episode badge no longer counts an episode with a known future date. The Anime TV Calendar days that Simkl's file does not cover now also show the anime episodes of your own Trakt calendar (needs a Trakt login).
+- **MDBList Next Up and In Progress no longer list an episode that does not exist** (7.0.106). TMDb numbers some seasons with a gap (Star Trek: Enterprise season 1 has no episode 2), so a started show could show "1x02" with no title. The next episode is now taken from the numbers TMDb really lists.
+- **Episode numbers follow the season layout** (7.0.106). Next Up, In Progress and the calendars could show a show's real TMDb number (The Apothecary Diaries 1x55) instead of its season layout number (3x07), mostly right after Kodi started, because the saved list of layouts could lose entries. Only the label was affected, never playback.
+- **MDBList with only its API key** (7.0.108). Tools → Sync Tools was missing, and Force a sync and Rebuild Database skipped MDBList, when MDBList was set up with just the API key. MDBList counts as connected with either the sign-in token or the API key (GitHub issue #13).
+- **Simkl episode progress bars in every list** (7.0.109). An episode you stopped part-way on simkl.com or in another app now shows its bar in every list, not only in In Progress Episodes, and the bar goes when the pause is finished or removed there. A show is used only when its season numbering on Simkl matches TMDb's, so a bar never lands on the wrong episode; anime are left out because Simkl numbers every cour from 1. Every widget is rebuilt once after the update (GitHub issue #13).
+- **The watch services decide the resume bar** (7.0.110). Kodi keeps its own resume point for every item it played and draws it on the list item, so a skin could show a 60% bar from Kodi next to an episode your service shows as watched. While a service with its playback progress indicator is on, connected and has synced, a movie or episode that no service holds a resume point for now has Kodi's own resume point cleared when the list is built (through Kodi's own file-details call; the same as *Reset resume position*). Nothing is sent to or changed on a service and no watched mark changes. A movie or episode that no service shows as watched keeps Kodi's bar for 24 hours after Kodi last played it, in case the service has not received that pause yet. Switch: Settings → Accounts → Kodi's own resume points → *Let the watch services decide the resume bar* (on by default). Limits: lists shown from a saved widget or row copy are checked only when they are rebuilt; the calendar and recommendation windows are not checked (GitHub issue #13).
 
 ## 3. First-Time Setup
 
@@ -820,6 +831,7 @@ OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / se
 | **Simkl API** | Enable Simkl (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) |
 | **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) |
 | **Playback started by other add-ons** | Scrobble items played by other add-ons (**on**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
+| **Kodi's own resume points** | Let the watch services decide the resume bar (**on**; clears Kodi's own resume point for items no service holds progress for, 7.0.110) |
 
 ### Players
 
@@ -854,7 +866,8 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Bridge removes** | Removals made directly on trakt.tv, mdblist.com or simkl.com are copied only while *Copy removals made elsewhere* is on (7.0.32; the default copies watchlist and collection removals, unwatching needs the highest option) and only after an item is missing on two runs in a row (and for 3 minutes). Context-menu unwatches are mirrored at once; anime un-watches have their own setting (section 12). |
 | **Anime in Bridge Sync** | Anime episodes are matched with the offline Fribb list and the AniZip air date, so a series the list files without a TMDb season, or one whose episodes TMDb numbers differently, can stay unsynced until the list or TMDb is corrected. An entry that loses every episode at once on Simkl looks like a status change and nothing is removed. All three anime settings default to *Log only*, and they have been tested on one set of accounts only. |
 | **Season layout** | Applies only to a show whose single long TMDb season is split exactly by a season-style episode group. Other add-ons keep TMDb's numbers, and a fully watched laid-out season is hidden from Kodi's season list like a fully watched real season. Select artwork on a laid-out season changes that season only; its episodes and *Refresh all artwork* still use real season 1's artwork. |
-| **Progress sync direction** | Trakt → MDBList / Simkl only (Trakt's `/sync/playback` is read-only). MDBList and Simkl **movie** progress is read from the server; Simkl **episode** progress is recorded locally by the scrobbler. |
+| **Progress sync direction** | Trakt → MDBList / Simkl, and between MDBList and Simkl for the resume points only those two hold (7.0.98); Trakt's `/sync/playback` is read-only. MDBList and Simkl **movie** progress is read from the server; Simkl **episode** progress is read from the server for regular shows whose season numbering matches TMDb's (7.0.109), never for anime. |
+| **Kodi's own resume bars** | With a service's playback progress indicator on, Kodi's own resume point is cleared for a movie or episode no service holds progress for (7.0.110). It does not run for lists shown from a saved widget or row copy until they are rebuilt, nor in the calendar and recommendation windows, and only covers items Kodi stored under TMDb Helper's own play address. An item no service shows as watched keeps Kodi's bar for 24 hours after Kodi last played it. Without a service nothing is cleared. The switch is in Settings → Accounts → Kodi's own resume points. |
 | **Ratings** | No MDBList endpoint to read ratings back; they sync only through the on-action mirror. |
 | **Simkl episode numbering** | TMDb episode numbers are used. Other shows whose TVDB and TMDb numbering differ can land on the wrong episode. Anime cours are placed by season length or by start date (section 7); batch releases and irregular anime stay out of Next Up. |
 | **Anime matching** | Titles TMDb does not list (mostly shorts and ONAs) do not appear in the Anime lists, and a rare entry can still be matched to the wrong show. Clear Anime and Asian Lists Cache resets the saved matches. |
