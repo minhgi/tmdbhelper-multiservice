@@ -4028,3 +4028,15 @@ msgstr ""
 msgctxt "#32791"
 msgid "Simkl keeps every season of an anime as its own entries, and the entry for this episode could not be worked out right now, so nothing was changed on Simkl. Try again later."
 msgstr ""
+
+msgctxt "#32792"
+msgid "Kodi's own resume points"
+msgstr ""
+
+msgctxt "#32793"
+msgid "Let the watch services decide the resume bar"
+msgstr ""
+
+msgctxt "#32794"
+msgid "While a watch service with its playback progress indicator is connected, lists show that service's progress only. For a movie or episode the services hold no progress for, a resume point that Kodi itself stored for it (for example from a play stopped part-way on this device) is removed, so a skin does not show a different bar next to the services' watched mark. Needs at least one service with its playback progress indicator on. A movie or episode that no service shows as watched keeps Kodi's own resume point for 24 hours after Kodi last played it. Only Kodi's own resume point is removed; nothing on the services and no watched mark changes."
+msgstr ""

@@ -1163,6 +1163,13 @@
                     <control type="toggle"/>
                 </setting>
             </group>
+            <group id="6" label="32792">
+                <setting id="kodi_marks_follow_services" type="boolean" label="32793" help="32794">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
         </category>
         <category id="players" label="32014" help="32607">
             <group id="1" label="32033">

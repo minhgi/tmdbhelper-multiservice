@@ -475,6 +475,23 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         except Exception:
             pass
 
+    def _stale_kodi_marks(self, items):
+        """Items whose own Kodi resume point is to be reset because no watch service holds one (GitHub issue #13, 7.0.110)."""
+        try:
+            if self.handle == -1:
+                return []
+            from tmdbhelper.lib.items.kodi_marks import stale_marks
+            return stale_marks(items)
+        except Exception:
+            return []
+
+    def _reset_kodi_marks(self, marks, limit_name):
+        try:
+            from tmdbhelper.lib.items import kodi_marks
+            return kodi_marks.reset_marks(marks, getattr(kodi_marks, limit_name))
+        except Exception:
+            return []
+
     def _notify_empty(self):
         """True for an empty list the user opened by hand: not a widget, not a row that prompts or acts."""
         if self.is_widget or self.container_update or self.container_refresh:
@@ -526,6 +543,9 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                 elif self.is_skin_row and not (self.container_update or self.container_refresh):
                     from tmdbhelper.lib.items.widget_cache import save_cache
                     save_cache(self.paramstring, items, self.plugin_category, self.container_content, row=True)
+                marks = self._stale_kodi_marks(items)  # normally []: only items Kodi still holds a resume point for that no service has one for
+                if marks:
+                    marks = self._reset_kodi_marks(marks, 'BEFORE_LIST')
                 self.add_items(items)
                 if not self.is_widget:
                     self._warm_next_page(items)
@@ -537,6 +557,8 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             executebuiltin(f'Container.Update({self.container_update})')
         if self.container_refresh:
             executebuiltin('Container.Refresh')
+        if marks:
+            self._reset_kodi_marks(marks, 'AFTER_LIST')  # last of all: the list is already shown, the rest of the resets hold nothing up
 
 
 class ContainerDirectoryItemBuilder(ContainerDirectoryCommon):

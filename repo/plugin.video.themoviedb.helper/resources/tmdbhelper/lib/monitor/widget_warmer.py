@@ -50,6 +50,13 @@ class WidgetWarmer(SafeThread):
         container.row_build = True if row else None
         container.get_tmdb_id()
         items = container.get_directory(items_only=True)
+        try:  # a background build is a list build too: clear Kodi's own resume points the services do not hold (7.0.110)
+            from tmdbhelper.lib.items import kodi_marks
+            marks = kodi_marks.stale_marks(items) if items else []
+            if marks:
+                kodi_marks.reset_marks(marks, kodi_marks.BEFORE_LIST + kodi_marks.AFTER_LIST)
+        except Exception:
+            pass
         return items, container
 
     def _warm_next(self):
