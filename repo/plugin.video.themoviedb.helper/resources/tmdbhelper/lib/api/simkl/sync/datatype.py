@@ -152,11 +152,14 @@ class SimklDataType:
 class SimklSyncPaused(SimklDataType):
     """Resume progress from GET /sync/playback.
 
-    Movies only — Simkl returns TVDB episode numbers for episode entries
-    which diverge from TMDb numbering for anime.  Parsing episode rows would
-    overwrite the locally-correct TMDb-numbered rows the scrobbler writes,
-    actively degrading episode resume for anime.  Episode support deferred
-    until _simkl_resolve_episode (external_ids + airdate fallback) is built.
+    Movies, and (7.0.109) the episodes of regular shows. Simkl numbers episodes the TVDB way, so an episode entry is only
+    written after the show's season has been checked against TMDb's (simkl_numbering_agrees: same season, about the same episode
+    count); a season that does not agree, or cannot be checked, is left out, so a bar never lands on the wrong episode. Anime
+    entries (an 'anime' block, numbered per cour) are never written: the rows the scrobbler wrote for them stay as they are.
+
+    Stale rows: a row (movie or episode) whose Simkl session id (paused_id) is no longer listed by a successful read is cleared,
+    whoever wrote it, because the pause was finished or deleted on Simkl. A row without a session id (a local pause Simkl never
+    saw) is not touched, nor is a row of an entry that is listed but was left out above.
 
     Expiry: no dedicated 'paused_at' field in /sync/activities.  Store a
     local UTC timestamp and re-sync after 180 s rather than on every browse.
@@ -165,15 +168,82 @@ class SimklSyncPaused(SimklDataType):
     keys = ('paused_progress', 'paused_at', 'paused_id',)
     last_activities_key = 'playback'
     method = 'playback'
+    NUMBERING_BUDGET = 6                # show seasons whose numbering is checked in one sync (3 requests each), the rest wait for the next one
+    NUMBERING_AGREE_SECONDS = 14 * 86400   # an agreeing season is trusted this long
+    NUMBERING_RETRY_SECONDS = 3 * 3600     # a season that did not agree (or could not be checked) is checked again after this
 
     def __init__(self, class_instance_syncdata, item_type):
         super().__init__(class_instance_syncdata, 'all')
+        self._playback_ids = None   # session ids of the last successful read; None = no successful read, so nothing is cleared
 
     def clear_columns(self, keys):
-        # Clear movie rows only — episode paused rows are scrobbler-owned
-        # (TMDb-numbered) and must not be wiped by a server sync that returns
-        # TVDB-numbered episode data.
+        # Movie rows are all rewritten from the read. Episode rows are only cleared when their session is gone (see the class docstring).
         self.cache.del_column_values(keys=keys, item_type='movie')
+        self._clear_gone_episodes()
+
+    def _clear_gone_episodes(self):
+        ids = self._playback_ids
+        if ids is None or len(ids) > 500:   # no successful read (or a list too long for one statement): clear nothing
+            return
+        ids = sorted(ids)
+        condition = f' AND paused_id NOT IN ({",".join("?" * len(ids))})' if ids else ''
+        self.cache.execute_sql(
+            "UPDATE simplecache SET paused_progress=NULL, paused_at=NULL, paused_id=NULL "
+            f"WHERE id LIKE 'tv.%.%.%' AND paused_id IS NOT NULL{condition}", tuple(ids))
+
+    def _numbering_known(self, tmdb_id, season):
+        """True / False from the stored answer for this show season, None when there is none or it is too old to trust."""
+        import time
+        stored = self.cache.get_activity(self.item_type, f'paused_numbering_v1.{tmdb_id}.{season}')
+        try:
+            agrees, at = str(stored).split('|')
+            age = time.time() - float(at)
+        except (ValueError, TypeError):
+            return None
+        if age < 0 or age > (self.NUMBERING_AGREE_SECONDS if agrees == '1' else self.NUMBERING_RETRY_SECONDS):
+            return None
+        return agrees == '1'
+
+    def _check_numbering(self, tmdb_id, season):
+        import time
+        from tmdbhelper.lib.addon.logger import kodi_log
+        try:
+            from tmdbhelper.lib.script.sync.unwatch_lists import simkl_numbering_agrees
+            agrees = bool(simkl_numbering_agrees(tmdb_id, [season], self.simkl_api))
+        except Exception as exc:
+            kodi_log(f'Simkl Sync: playback numbering check for {tmdb_id} season {season} failed: {exc}', 2)
+            agrees = False
+        self.cache.set_activity(self.item_type, f'paused_numbering_v1.{tmdb_id}.{season}', f'{int(agrees)}|{time.time()}')
+        return agrees
+
+    def _gate_episodes(self, data):
+        """The playback entries without the regular-show episodes whose season numbering is not confirmed (nor the ones at 0 %,
+        which are only a started player). Movies and anime entries pass through, the parser handles them."""
+        budget = self.NUMBERING_BUDGET
+        verdicts = {}
+        kept = []
+        for item in data:
+            if not (isinstance(item, dict) and item.get('type') == 'episode' and isinstance(item.get('show'), dict)):
+                kept.append(item)
+                continue
+            try:
+                if float(item.get('progress')) <= 0:
+                    continue
+                key = (int(((item.get('show') or {}).get('ids') or {}).get('tmdb')), int((item.get('episode') or {}).get('season')))
+            except (TypeError, ValueError):
+                continue
+            if key not in verdicts:
+                known = self._numbering_known(*key)
+                if known is None:
+                    if budget > 0:
+                        budget -= 1
+                        known = self._check_numbering(*key)
+                    else:
+                        known = False   # not checked in this sync, so not written yet: a later sync checks it
+                verdicts[key] = known
+            if verdicts[key]:
+                kept.append(item)
+        return kept
 
     def store_last_activity(self):
         from datetime import datetime, timezone
@@ -198,12 +268,22 @@ class SimklSyncPaused(SimklDataType):
         with TimerFunc('Simkl Sync: playback', inline=True, log_threshold=0.001):
             url = f'{BASE_URL}/sync/playback?client_id={self.simkl_api.client_id}'
             response = self.simkl_api.get_api_request(url, headers=self.simkl_api.auth_headers)
-            if response is None:
+            if response is None or getattr(response, 'status_code', 200) != 200:
                 return None
             try:
-                return response.json()
+                data = response.json()
             except (ValueError, AttributeError):
+                # an empty body is an account with nothing paused; anything else unreadable is a failed read
+                data = [] if not (getattr(response, 'text', None) or '').strip() else None
+            if data is None and (getattr(response, 'text', None) or '').strip() == 'null':
+                data = []   # HTTP 200 with a literal null: nothing paused (so the last paused item can be cleared)
+            if not isinstance(data, list):
                 return None
+            try:
+                self._playback_ids = {int(e['id']) for e in data if isinstance(e, dict) and e.get('id') is not None}
+            except (TypeError, ValueError):
+                self._playback_ids = None   # an id that is not a number: do not risk clearing rows
+            return self._gate_episodes(data)
 
 
 class SimklSyncWatched(SimklDataType):

@@ -80,6 +80,7 @@ def _get_settings_salt(row=False):
         sort += '|svc=' + ''.join('1' if get_setting(i) else '0' for i in (
             'service_trakt', 'service_mdblist', 'service_simkl', 'trakt_watchedindicators', 'mdblist_watchedindicators',
             'simkl_watchedindicators', 'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress'))
+        sort += '|skep=1'  # Simkl episode resume points are in the local data from 7.0.109, so rows built before show no Simkl bar; always present, so every cache built before it is rebuilt once
         sort += '|hw=1' if get_setting('widgets_hidewatched') else '|hw=0'  # In Progress show paths changed in 7.0.74 and carry this setting; always present, so every cache built before it is rebuilt once
         sort += '|wftv=1' if not row and get_setting('widget_fanarttv_lookup') else ''  # default off (rows already carry the lookup setting below)
     except Exception:

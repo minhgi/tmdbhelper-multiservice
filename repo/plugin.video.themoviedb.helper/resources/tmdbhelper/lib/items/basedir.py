@@ -1727,7 +1727,7 @@ def _tools_action(label, plot, icon, action):
 
 def _get_basedir_tools():
     rows = []
-    if any(get_setting(f'service_{n}') and get_setting(f'{n}_token', 'str') for n in ('trakt', 'mdblist', 'simkl')):   # local settings only, as Seren gates it; a service that is switched off does not count
+    if any(get_setting(f'service_{n}') and (get_setting(f'{n}_token', 'str') or (n == 'mdblist' and get_setting('mdblist_apikey', 'str'))) for n in ('trakt', 'mdblist', 'simkl')):   # local settings only, as Seren gates it; a service that is switched off does not count; MDBList counts with just its API key
         rows.append(_tools_row('Sync Tools', 'Tools for the Trakt, MDBList and Simkl sync data', 'refresh.png', 'dir_tools_sync'))
     rows += [
         _tools_row('Clear Cache Tool', 'Clear cached data and search history', 'default.png', 'dir_tools_cache'),

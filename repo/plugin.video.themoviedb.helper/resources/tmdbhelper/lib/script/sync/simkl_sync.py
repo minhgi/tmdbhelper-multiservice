@@ -772,8 +772,8 @@ class ItemSimklClearProgress(ItemSimklSyncBase):
     """Remove the Simkl playback session (resume point) of a movie / episode without marking it unwatched.
 
     Endpoint: DELETE /sync/playback/{id}  (204).
-    Shown only while a local row holds the session id (paused_id, written by the scrobbler and, for
-    movies, by the playback sync): without the id there is nothing to delete.
+    Shown only while a local row holds the session id (paused_id, written by the scrobbler and by the playback
+    sync: movies and, since 7.0.109, the episodes of regular shows): without the id there is nothing to delete.
     Episodes are allowed here although the other Simkl items skip them: the row the scrobbler wrote
     is TMDb-numbered, and the delete is by id, so the TVDB numbering mismatch does not matter.
     If the DELETE fails the id is looked up in GET /sync/playback; an id the server no longer lists

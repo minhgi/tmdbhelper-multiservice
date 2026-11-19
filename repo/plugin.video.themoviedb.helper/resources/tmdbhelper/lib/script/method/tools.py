@@ -10,7 +10,8 @@ from tmdbhelper.lib.addon.logger import kodi_log
 from tmdbhelper.lib.addon.plugin import ADDON, ADDONDATA, get_setting
 
 TITLE = 'TMDb Helper'
-SERVICES = (('Trakt', 'trakt_token'), ('MDBList', 'mdblist_token'), ('Simkl', 'simkl_token'))
+# (name, settings that count as a sign-in). MDBList also answers with just the API key (api/mdblist/api.py sends it with every request), so either one counts.
+SERVICES = (('Trakt', ('trakt_token',)), ('MDBList', ('mdblist_token', 'mdblist_apikey')), ('Simkl', ('simkl_token',)))
 BRIDGE_RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'   # window property monitor/bridge_sync.py sets while a cycle runs
 LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json', 'anime_idmap_cache.json', 'simkl_calendar_tv.json', 'simkl_calendar_anime.json', 'anime_scores_cache.json')   # the Asian / Anime list caches + saved AniList->TMDb ids (addon_data)
 # Same data types as script/method/trakt.py refresh_trakt_sync offers: (sync keys, item types)
@@ -29,7 +30,7 @@ SIMKL_FORCE = (('movie', ('plays', 'paused_progress')), ('show', ('plays', 'watc
 
 def connected_services():
     """Names of the services that have a stored sign-in (local settings only: never builds an API object, never logs in)."""
-    return [name for name, setting in SERVICES if get_setting(setting, 'str')]
+    return [name for name, settings in SERVICES if any(get_setting(setting, 'str') for setting in settings)]
 
 
 def _syncdata(name):

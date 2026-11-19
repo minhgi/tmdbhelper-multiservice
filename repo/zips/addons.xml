@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.107" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.109" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.109
+- Fixed: Simkl episodes you stopped part-way now show their progress bar in every list, not only in In Progress Episodes. Simkl's resume points for the episodes of regular shows are now read with the rest of your Simkl data, so an episode paused on simkl.com or in another app shows its bar here, and the bar goes when the pause is finished or removed there. A show whose season numbering on Simkl does not match TMDb's is left out (the bar could land on the wrong episode), and so are anime (Simkl numbers every cour from 1) (GitHub issue #13). Every widget is rebuilt once after the update, so the first load is a little slower.
+
+v7.0.108
+- Fixed: Tools &gt; Sync Tools was missing, and Force a sync / Rebuild Database skipped MDBList, when MDBList was set up with only its API key (no sign-in token). MDBList now counts as connected with either one, as it already does everywhere else (GitHub issue #13).
+
 v7.0.107
 - Fixed: Simkl In Progress kept a multi-season anime listed although its next episode has not aired yet (a show whose seasons have the same length, for example two seasons of 12 episodes, where the season length cannot tell which one Simkl means). The cour's AniList start date is now also used to see that the next episode is still ahead of the last one TMDb has aired, and the row is left out. Next Up is unchanged: it still never offers an episode that has not aired.
 

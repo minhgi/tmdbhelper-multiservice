@@ -255,28 +255,49 @@ class SimklSyncItem:
         return data
 
     def _parse_playback(self, meta):
-        """GET /sync/playback response (movies only).
+        """GET /sync/playback response (movies, and the episodes of regular shows).
 
         Response shape:
           [{"type": "movie"|"episode",
             "movie": {"ids": {"tmdb": "76341"}},   (if movie)
-            "show":  {"ids": {"tmdb": "1399"}},    (if episode — skipped, see below)
-            "episode": {"season": N, "number": N}, (if episode — skipped)
+            "show":  {"ids": {"tmdb": "1399"}},    (if a regular show's episode)
+            "anime": {"ids": {"tmdb": "..."}},     (if an anime's episode — skipped, see below)
+            "episode": {"season": N, "number": N}, (if episode)
             "progress": 75.5, "paused_at": "...", "id": N}]
 
-        Episode entries are intentionally skipped: Simkl stores episodes under
-        TVDB season/episode numbers, but set_playprogress() looks up by TMDb
-        numbers (from li.infolabels).  Writing TVDB-numbered episode rows would
-        miss on lookup or hit the wrong episode for anime.  The scrobbler already
-        writes locally-correct TMDb-numbered episode rows; those are preserved by
-        clearing only movie rows in clear_columns().
+        Anime episode entries are skipped: Simkl numbers an anime per cour, so the number cannot be matched to a TMDb episode
+        (the scrobbler writes the locally-correct TMDb-numbered row for those). A regular show's episode is written under its
+        Simkl (TVDB) numbers, which SimklSyncPaused only lets through for a show season whose numbering agrees with TMDb's
+        (7.0.109, SimklSyncPaused._gate_episodes). A pause at 0 % is only a started player and is skipped; the newest pause of
+        the same episode wins.
         """
         if not meta:
             return {}
         data = {}
+        episode_at = {}
         for item in (meta if isinstance(meta, list) else []):
+            if item.get('type') == 'episode':
+                if not isinstance(item.get('show'), dict):
+                    continue  # anime entry — see docstring
+                try:
+                    progress = float(item.get('progress'))
+                    tmdb_id = int(((item.get('show') or {}).get('ids') or {}).get('tmdb'))
+                    season, number = int((item.get('episode') or {}).get('season')), int((item.get('episode') or {}).get('number'))
+                except (TypeError, ValueError):
+                    continue
+                if progress <= 0:
+                    continue
+                item_id = f'tv.{tmdb_id}.{season}.{number}'
+                at = str(item.get('paused_at') or '')
+                if item_id in episode_at and at <= episode_at[item_id]:
+                    continue
+                episode_at[item_id] = at
+                data[item_id] = self._row(
+                    [int(round(progress)), item.get('paused_at'), item.get('id')],
+                    'episode', 'tv', tmdb_id, season, number)
+                continue
             if item.get('type') != 'movie':
-                continue  # episode entries skipped — see docstring
+                continue
             progress = item.get('progress')
             if progress is None:
                 continue

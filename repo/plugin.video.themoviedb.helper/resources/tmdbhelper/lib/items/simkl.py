@@ -42,6 +42,10 @@ class SimklPlayData:
         if self._pauseplayprogress:
             if tmdb_type in ('movie', 'both',) or info in ('trakt_userlist',):
                 self.simkl_syncdata.sync('movie', ('paused_progress',))
+            if tmdb_type in ('tv', 'season', 'both',) or info in ('trakt_userlist', 'trakt_calendar'):
+                # the episode resume points come with the same read (7.0.109); started here, in the list's background thread, so the
+                # first episode of the list does not wait for it
+                self.simkl_syncdata.sync('show', ('paused_progress',))
 
     @is_sync
     def pre_sync_start(self, **kwargs):

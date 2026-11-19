@@ -85,9 +85,9 @@ class SimklSyncDataBase(DataBase):
             'data': 'TEXT',
             'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncWatched',)
         },
-        # Phase D: resume progress synced from GET /sync/playback (movies only;
-        # episode rows deferred — Simkl returns TVDB episode numbers which
-        # diverge from TMDb for anime, causing wrong-episode lookups).
+        # Phase D: resume progress synced from GET /sync/playback (movies, and since 7.0.109 the episodes of
+        # regular shows whose season numbering agrees with TMDb's; anime episodes are never written, Simkl
+        # numbers them per cour).
         'paused_progress': {
             'data': 'INTEGER',
             'sync': ('tmdbhelper.lib.api.simkl.sync.datatype', 'SimklSyncPaused',)
