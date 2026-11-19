@@ -579,7 +579,7 @@ class MDbListScrobbler(PlayerScrobbler):
 
     @property
     def _is_authorized(self):
-        return bool(self.mdblist_api.user_token.value or self.mdblist_api.api_key)
+        return bool(self.mdblist_api and (self.mdblist_api.user_token.value or self.mdblist_api.api_key))
 
     @property
     def _resume_ready(self):
@@ -1730,7 +1730,7 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         self.scrobbler_stop()
         external = self.get_external_playerstrings()
         self.scrobbler = PlayerScrobbler(trakt_api=self.trakt_api, total_time=self.getTotalTime(), playerstring=external.get('trakt'))
-        self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_api, total_time=self.getTotalTime(), playerstring=external.get('mdblist'))
+        self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_scrobble_api, total_time=self.getTotalTime(), playerstring=external.get('mdblist'))
         self.simkl_scrobbler = SimklScrobbler(simkl_api=self.simkl_api, total_time=self.getTotalTime(), playerstring=external.get('simkl'))
         self.log_external_plan()
         self.log_scrobble_plan()

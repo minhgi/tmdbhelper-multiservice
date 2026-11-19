@@ -82,8 +82,27 @@ class CommonContainerAPIs():
         except AttributeError:
             from tmdbhelper.lib.api.mdblist.api import MDbList
             from tmdbhelper.lib.addon.plugin import get_setting
-            self._mdblist_api = MDbList() if get_setting('mdblist_apikey', 'str') else None
+            api_key = get_setting('mdblist_apikey', 'str')
+            if not api_key:
+                return None  # not remembered: a key typed in while Kodi runs must be picked up (GitHub issue #13)
+            self._mdblist_api = MDbList(api_key=api_key)  # the key given here: the module's own copy was read when it was first imported
             return self._mdblist_api
+
+    @property
+    def mdblist_scrobble_api(self):
+        """ MDBList connection for the scrobbler: the API key OR the signed-in token is enough (mdblist_api needs the key because the ratings lookup is gated on it) """
+        api = self.mdblist_api
+        if api:
+            return api
+        try:
+            return self._mdblist_token_api
+        except AttributeError:
+            from tmdbhelper.lib.addon.plugin import get_setting
+            if not get_setting('mdblist_token', 'str'):
+                return None  # not remembered: signing in while Kodi runs must be picked up
+            from tmdbhelper.lib.api.mdblist.api import MDbList
+            self._mdblist_token_api = MDbList()
+            return self._mdblist_token_api
 
     @property
     def simkl_api(self):
@@ -92,5 +111,7 @@ class CommonContainerAPIs():
         except AttributeError:
             from tmdbhelper.lib.api.simkl.api import SimklAPI
             from tmdbhelper.lib.addon.plugin import get_setting
-            self._simkl_api = SimklAPI() if get_setting('service_simkl') else None
+            if not get_setting('service_simkl'):
+                return None  # not remembered: the running service must pick Simkl up when it is switched on later (GitHub issue #13)
+            self._simkl_api = SimklAPI()
             return self._simkl_api

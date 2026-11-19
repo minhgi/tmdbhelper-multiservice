@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.0.110" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.0.112" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,12 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.112
+- Fixed: MDBList scrobbling now also works at once after you enter your MDBList API key while Kodi is running, and for an MDBList account that is signed in without an API key (before, the player part of TMDb Helper remembered "no MDBList" for the whole session, and with no key at all it did not get an MDBList connection) (GitHub issue #13).
+
+v7.0.111
+- Fixed: Simkl scrobbling did nothing after switching from another service to Simkl until Kodi was restarted. When Simkl was off while Kodi started, the player part of TMDb Helper remembered "no Simkl" for the whole session; it now checks the switch every time, so Simkl works as soon as it is turned on (GitHub issue #13).
+
 v7.0.110
 - New: the watch services now decide the resume bar. While a service with its playback progress indicator is connected and has synced, a movie or episode that no service holds a resume point for no longer shows the old resume bar Kodi itself stored for it (for example from a play stopped part-way on this device), so a skin no longer shows a different bar next to the services' watched mark. A movie or episode no service shows as watched keeps Kodi's own resume point for 24 hours after Kodi last played it. Only Kodi's own resume point for that item is removed, with Kodi's own file-details call; nothing on the services and no watched mark changes. On by default, Settings &gt; Accounts &gt; Kodi's own resume points (GitHub issue #13).
 
