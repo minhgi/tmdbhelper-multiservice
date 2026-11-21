@@ -1,4 +1,5 @@
 import re
+import time
 from tmdbhelper.lib.items.artselect import _ArtworkSelector
 from tmdbhelper.lib.addon.plugin import get_setting, fanarttv_art_enabled, get_artwork_quality, get_artwork_quality_key
 from tmdbhelper.lib.items.listitem import ListItem
@@ -195,14 +196,36 @@ class ItemBuilder(_ArtworkSelector):
                 item['artwork']['tvdb'] = tvdb_art
         return item
 
+    MISSING_DAYS = 1 / 24  # a season or episode TMDb answered "not found" for is not asked again for an hour
+
+    @staticmethod
+    def _missing_name(tmdb_type, tmdb_id, season, episode):
+        return f'missing.v1.{tmdb_type}.{tmdb_id}.{season}.{episode}'
+
+    def _is_missing(self, tmdb_type, tmdb_id, season, episode):
+        """ TMDb said "not found" for this season / episode lately (a season it lacks has no episodes either) """
+        names = [self._missing_name(tmdb_type, tmdb_id, season, episode)]
+        if episode is not None:
+            names.append(self._missing_name(tmdb_type, tmdb_id, season, None))
+        return any(self._cache.get_cache(name) for name in names)
+
     def get_tmdb_item(
             self, tmdb_type, tmdb_id, season=None, episode=None, base_item=None, manual_art=None,
             base_is_season=False, cache_refresh=False):
         if season == -1:
             return
+        # Seasons / episodes a list builds from Trakt's numbering often do not exist at TMDb (a year as the season number, an episode past the end): TMDb
+        # answers 404, which is not cached, so every build of every page asked again. Only a 404 is remembered (a timeout or an outage is not a "not
+        # found"), only for seasons / episodes (a show or a movie missing at TMDb must not vanish from every list), and never when a refresh was asked for.
+        remember = season is not None and not cache_refresh
+        if remember and self._is_missing(tmdb_type, tmdb_id, season, episode):
+            return
+        started = time.monotonic()
         with TimerList(self.timer_lists, 'item_tmdb', log_threshold=0.05, logging=self.log_timers) as tl:
             details = self.tmdb_api.get_details_request(tmdb_type, tmdb_id, season, episode, cache_refresh=cache_refresh)
             if not details:
+                if remember and getattr(self.tmdb_api, 'last_404', 0.0) >= started:
+                    self._cache.set_cache({'missing': 1}, self._missing_name(tmdb_type, tmdb_id, season, episode), cache_days=self.MISSING_DAYS)
                 if self.log_timers and tl.total_time > tl.log_threshold:  # TMDb API missing item so log fail time
                     kodi_log(f'item_tmdb -- get_details_request({tmdb_type},{tmdb_id},{season},{episode}) FAILED after {tl.total_time:.3f} sec', 1)
                 return

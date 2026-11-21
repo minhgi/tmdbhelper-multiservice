@@ -1,14 +1,18 @@
 import re
 import datetime
+import xbmc
+from functools import partial
 import xbmcgui
 from tmdbhelper.lib.items.router import Router
-from tmdbhelper.lib.addon.dialog import BusyDialog
+from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
-from tmdbhelper.lib.addon.plugin import ADDONPATH
+from tmdbhelper.lib.addon.plugin import ADDON, ADDONPATH, SHOW_CALENDAR_PROPERTY, WARM_CALENDAR_PROPERTY
+from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
 
 """ Your TV Calendar window: every show you follow on one scrollable page. A header row per show, its episodes under it
 (aired and not yet aired); Select on a show lists that show's unwatched episodes, Select on an episode opens its information
-(with Play and the other buttons). The episodes are the ones the day-by-day calendar builds (info=trakt_calendar, unstacked) for a
+(with Play and the other buttons); the Context Menu key on a row opens the same options as the regular lists (Trakt / MDBList / Simkl
+Options with Watched, Unwatched, Drop ...), and the page reloads when one of them finishes. The episodes are the ones the day-by-day calendar builds (info=trakt_calendar, unstacked) for a
 span around today; a show's unwatched list comes from its Up Next list (info=trakt_upnext).
 The All TV Calendar (user=false) uses the same page for ONE DAY at a time: Left / Right (or the < > buttons) change the day.
 """
@@ -18,13 +22,21 @@ BACK_BUTTON_ID = 3003
 PREV_BUTTON_ID = 3001
 NEXT_BUTTON_ID = 3002
 TODAY_BUTTON_ID = 3004
+SCROLLBAR_ID = 1111
+OPEN_PROPERTY = SHOW_CALENDAR_PROPERTY  # Home window property: the id of the calendar window that is open
+ROWS_PER_PAGE = 12  # the list is 900 px high, a row 72 px: the scrollbar (showonepage=false) is there only for a longer list
 CLOSE_BUTTON_ID = 2999
 ACTION_MOVE_LEFT = 1
 ACTION_MOVE_RIGHT = 2
+ACTION_CONTEXT_MENU = 117
 ACTION_CLOSEWINDOW = (9, 10, 92, 216, 247, 257, 275, 61467, 61448,)
 DAYS_BACK = 14
-DAYS_SPAN = 33  # Trakt's calendar allows at most 33 days in one request: 14 back and about 19 ahead
+DAYS_AHEAD = 30  # 7.0.127: was 18 (one 33-day request); the page now asks for as many windows as it takes, like Seren's My Watch List calendar
+DAYS_SPAN = 31  # days one window asks for: Trakt's calendar answers at most 33 days in one request and the list builder adds a day on each side
 MAX_PAGES = 10  # stop a runaway paging loop
+PREFETCH_FORWARD_DELAY = 3.0  # All calendar: land on a day, build the next day after this many seconds ...
+PREFETCH_BACKWARD_DELAY = 8.0  # ... and the previous day 5 seconds after that
+PAGE_KEY = 'page'  # the one page of Your TV Calendar / Premieres / New in the page cache (the All calendars use the day offset)
 
 VIEW_SHOWS = 'shows'
 VIEW_UNWATCHED = 'unwatched'
@@ -46,8 +58,40 @@ def _today():
     return get_datetime_today().date()
 
 
-def calendar_path(endpoint=None, page=1):
-    path = f'info=trakt_calendar&startdate=-{DAYS_BACK}&days={DAYS_SPAN}&unstacked=true'
+def _region_date(date, region='dateshort'):
+    """ A date in the user's Kodi regional format ('dateshort' / 'datelong'), day and month names in the Kodi interface language.
+    (strftime alone writes English names; Kodi's own strings 11-17 / 41-47 are Monday-Sunday long / short and 21-32 / 51-62 January-December long / short.) """
+    names = {
+        '%A': xbmc.getLocalizedString(11 + date.weekday()), '%a': xbmc.getLocalizedString(41 + date.weekday()),
+        '%B': xbmc.getLocalizedString(21 + date.month - 1), '%b': xbmc.getLocalizedString(51 + date.month - 1)}
+    names = {code: name for code, name in names.items() if name}  # a name Kodi does not give: strftime's own (English) name stays
+    tokens = {code: f'@@{code[1]}@@' for code in names}  # ASCII placeholders survive strftime; the names go in afterwards
+    fmt = xbmc.getRegion(region) or '%Y-%m-%d'
+    for code, token in tokens.items():
+        fmt = fmt.replace(code, token)
+    try:
+        text = date.strftime(fmt)
+    except (ValueError, TypeError):
+        return date.isoformat()
+    for code, token in tokens.items():
+        text = text.replace(token, names[code])
+    return text
+
+
+def calendar_windows():
+    """ (first day offset, number of days) of each request that together cover DAYS_BACK days back to DAYS_AHEAD days ahead, DAYS_SPAN days at most each """
+    windows, start = [], -DAYS_BACK
+    while start <= DAYS_AHEAD:
+        days = min(DAYS_SPAN, DAYS_AHEAD - start + 1)
+        windows.append((start, days))
+        start += days
+    return windows
+
+
+def calendar_path(endpoint=None, page=1, start=None, days=None):
+    """ One window of Your TV Calendar (the first one by default) """
+    start = -DAYS_BACK if start is None else start
+    path = f'info=trakt_calendar&startdate={start}&days={DAYS_SPAN if days is None else days}&unstacked=true'
     return f'{path}&endpoint={endpoint}&page={page}' if endpoint else f'{path}&page={page}'
 
 
@@ -65,14 +109,21 @@ def unwatched_path(tmdb_id, page=1, season=None):
     return f'{path}&fallback_season={season}' if season else path
 
 
-def _load(path_for_page):
-    """ Build every page of a list path into Kodi ListItems (the item builders' output, as a plugin directory would show it) """
+def _load(path_for_page, menus=None):
+    """ Build every page of a list path into Kodi ListItems (the item builders' output, as a plugin directory would show it).
+    menus: when given, each ListItem's context menu entries [(label, command)] are stored in it under id(listitem). """
     listitems = []
     for page in range(1, MAX_PAGES + 1):
         items = Router(-1, path_for_page(page)).get_directory(items_only=True) or []
         items = [i for i in items if i]
         has_next = any(i.next_page for i in items)
-        listitems += [i.get_listitem(offscreen=True) for i in items if not i.next_page]
+        for i in items:
+            if i.next_page:
+                continue
+            listitem = i.get_listitem(offscreen=True)
+            if menus is not None:
+                menus[id(listitem)] = list(i.context_menu or [])
+            listitems.append(listitem)
         if not has_next:
             break
     return listitems
@@ -83,6 +134,25 @@ def _tag(listitem):
         return listitem.getVideoInfoTag()
     except Exception:
         return None
+
+
+def _episode_key(listitem):
+    """ Who an episode row is, to drop the ones two neighbouring windows both return (their edges overlap by a day) """
+    tag = _tag(listitem)
+    return (_show_tmdb_id(listitem), tag.getSeason() if tag else 0, tag.getEpisode() if tag else 0, listitem.getProperty('calendar_code'), listitem.getLabel(), _premiered(listitem))
+
+
+def _load_windows(endpoint, menus=None):
+    """ Every window of Your TV Calendar, each one built page by page like _load does; an episode two windows both return is listed once """
+    listitems, seen = [], set()
+    for start, days in calendar_windows():
+        for listitem in _load(lambda page: calendar_path(endpoint, page, start, days), menus):
+            key = _episode_key(listitem)
+            if key in seen:
+                continue
+            seen.add(key)
+            listitems.append(listitem)
+    return listitems
 
 
 def _show_tmdb_id(listitem):
@@ -120,19 +190,24 @@ def _days_until(premiered, today):
     return (premiered - today).days if premiered else None
 
 
+def _string(string_id):
+    """ A localized string: Kodi's own below 32000 (Today 33006, Tomorrow 33007, Watched 16102), this add-on's from 32000 """
+    return (ADDON.getLocalizedString(string_id) if string_id >= 32000 else xbmc.getLocalizedString(string_id)) or ''
+
+
 def _status(days, watched):
     """ (state, text) for the right-hand badge of an episode row """
     if watched:
-        return 'watched', 'Watched'
+        return 'watched', _string(16102) or 'Watched'
     if days is None:  # no air date known: not "Aired", and not a date to count down to
-        return 'unaired', 'No air date'
+        return 'unaired', _string(32796) or 'No air date'
     if days < 0:
-        return 'aired', 'Aired'
+        return 'aired', _string(32795) or 'Aired'
     if days == 0:
-        return 'today', 'Today'
+        return 'today', _string(33006) or 'Today'
     if days == 1:
-        return 'unaired', 'Tomorrow'
-    return 'unaired', f'In {days} days'
+        return 'unaired', _string(33007) or 'Tomorrow'
+    return 'unaired', (_string(32797) or 'In {} days').format(days)
 
 
 def _episode_row(listitem, today):
@@ -150,7 +225,12 @@ def _episode_row(listitem, today):
     listitem.setProperty('row_type', 'episode')
     listitem.setProperty('air_state', state)
     listitem.setProperty('air_status', text)
-    listitem.setProperty('row_date', premiered.strftime('%d %b %Y') if premiered else '')
+    listitem.setProperty('row_date', _region_date(premiered) if premiered else '')
+    try:
+        rating = tag.getRating() if tag else 0
+    except Exception:
+        rating = 0
+    listitem.setProperty('row_rating', f'{rating:.1f}' if rating and rating > 0 else '')  # shown under the poster of the selected row (7.0.127)
     badge = EPISODE_BADGES.get(listitem.getProperty('calendar_episode_type'))  # only calendar rows carry it; the Unwatched list has no badges
     if badge:
         listitem.setProperty('row_badge', badge)
@@ -185,6 +265,14 @@ def _header_row(title, tmdb_id, episodes, today):
     return header
 
 
+def _show_menu(tmdb_id):
+    """ The context menu of a show header row: the options the regular lists give a TV show (Trakt / MDBList / Simkl Options, ...) """
+    from types import SimpleNamespace
+    from tmdbhelper.lib.items.context import ContextMenu
+    show = SimpleNamespace(ftv_id=None, tmdb_id=tmdb_id, tmdb_type='tv', trakt_type='show', season=None, episode=None, infolabels={'mediatype': 'tvshow'})
+    return ContextMenu(show).get()
+
+
 def build_overview(listitems, today):
     """ Group the calendar episodes by show: header row, then that show's episodes oldest first. Shows sorted by name. """
     shows = {}
@@ -202,24 +290,53 @@ def build_overview(listitems, today):
     return rows
 
 
+def _build_page(load, today):
+    """ One page of the calendar as (rows, menus): the rows build_overview makes and the context menu entries of each row by id(ListItem).
+    load(menus) builds the list items (and stores their context menus in menus). Runs in the window and, for the All calendar, in the prefetch thread. """
+    menus = {}
+    items = build_overview(load(menus), today)
+    for item in items:
+        if item.getProperty('row_type') == 'show' and item.getProperty('show_tmdb_id'):
+            menus[id(item)] = _show_menu(item.getProperty('show_tmdb_id'))
+    return items, menus
+
+
+def _build_overview(key, endpoint, extra, day_mode):
+    """ The page cache's build function (a plain function, so the cache holds no window): the All calendars build the day `key`, the others their one page """
+    if day_mode:
+        return _build_page(lambda menus: _load(lambda page: day_path(key, endpoint, page, extra), menus), _today())
+    return _build_page(lambda menus: _load_windows(endpoint, menus), _today())
+
+
+def _day_neighbours(day):
+    return [(PREFETCH_FORWARD_DELAY, day + 1), (PREFETCH_BACKWARD_DELAY, day - 1)]
+
+
 class WindowShowCalendar(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         self._title = kwargs.get('window_title') or 'Your TV Calendar'
         self._endpoint = kwargs.get('endpoint')  # premieres / new: the same page for those calendars
         self._day_mode = kwargs.get('user') == 'false'  # the All calendar: one day per page
         self._extra = {k: kwargs[k] for k in ('countries', 'calendar_filter', 'genres') if kwargs.get(k)}
+        # the built pages (and, for the All calendars, the prefetch of the days around the open one)
+        self._pages = PageCache(partial(_build_overview, endpoint=self._endpoint, extra=self._extra, day_mode=self._day_mode),
+                                _day_neighbours if self._day_mode else None, 'Show calendar', stamp=sync_stamp)
         self._day = 0  # days from today
         self._initialised = False
         self._view = VIEW_SHOWS
         self._list = None
         self._items = []
+        self._menus = {}  # id(ListItem) -> its context menu entries [(label, command)]
         self._saved_position = 0
+        self._unwatched = None  # (tmdb_id, title, season) of the Unwatched view that is open
 
     def onInit(self):
         # Coming back from the info dialog calls onInit again: keep the view and the selected row
         if self._initialised:
             return
         self._initialised = True
+        xbmcgui.Window(10000).setProperty(OPEN_PROPERTY, str(xbmcgui.getCurrentWindowDialogId()))
+        xbmcgui.Window(10000).clearProperty(WARM_CALENDAR_PROPERTY)  # a menu asked the service to warm this page: the window builds it itself now
         self.setProperty('window_title', self._title)
         if self._day_mode:
             self.setProperty('day_mode', 'True')
@@ -247,40 +364,48 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
                 self.setProperty('not_today', 'True')
             else:
                 self.clearProperty('not_today')
-            self.setProperty('center_label', f'{day.strftime("%A %d %B %Y")}' + (' (today)' if not self._day else ''))
-            path_for_page, empty_text = (lambda page: day_path(self._day, self._endpoint, page, self._extra)), 'No episodes on this day'
+            self.setProperty('center_label', _region_date(day, 'datelong') + (f' ({_string(33006) or "Today"})' if not self._day else ''))
+            empty_text = 'No episodes on this day'
         else:
-            self.setProperty('center_label', f'{(today - datetime.timedelta(days=DAYS_BACK)).strftime("%d %b")} - {(today + datetime.timedelta(days=DAYS_SPAN - DAYS_BACK - 1)).strftime("%d %b")}')
-            path_for_page, empty_text = (lambda page: calendar_path(self._endpoint, page)), 'No episodes in your calendar for these dates'
-        with BusyDialog():
-            try:
-                items = build_overview(_load(path_for_page), today)
-            except Exception as exc:  # a failed load must not leave the window dead
-                kodi_log(f'Show calendar: could not load the calendar: {exc}', 1)
-                items = []
+            self.setProperty('center_label', f'{_region_date(today - datetime.timedelta(days=DAYS_BACK))} - {_region_date(today + datetime.timedelta(days=DAYS_AHEAD))}')
+            empty_text = 'No episodes in your calendar for these dates'
+        self._menus = {}
+        self._pages.cancel()  # the pages around the one just left are not wanted any more
+        key = self._day if self._day_mode else PAGE_KEY
+        try:
+            with CalendarBusyDialog():  # the dialog appears only when the page takes longer than a moment (not for a page built before or by the prefetch)
+                items, self._menus = self._pages.page(key)
+        except Exception as exc:  # a failed load must not leave the window dead
+            kodi_log(f'Show calendar: could not load the calendar: {exc}', 1)
+            items, self._menus = [], {}
         self._set_items(items, empty_text)
-        if items and 0 < position < len(items):
-            self._list.selectItem(position)
+        if items and position > 0:
+            self._list.selectItem(min(position, len(items) - 1))
         elif not items and self._day_mode:
             self.setFocusId(NEXT_BUTTON_ID)  # an empty day: land on the day buttons, not on Close
+        self._pages.schedule(key)  # the All calendars: build the next day and then the previous one in the background
 
     def _navigate_day(self, delta):
         self._day += delta
         self._show_overview()
 
-    def _show_unwatched(self, tmdb_id, title, season=None):
+    def _show_unwatched(self, tmdb_id, title, season=None, position=0):
         self._view = VIEW_UNWATCHED
+        self._unwatched = (tmdb_id, title, season)
         self.setProperty('view_unwatched', 'True')
         self.setProperty('center_label', f'{title} - unwatched')
         today = _today()
-        with BusyDialog():
+        self._menus = {}
+        with CalendarBusyDialog():
             try:
-                items = [i for i in _load(lambda page: unwatched_path(tmdb_id, page, season)) if not (_tag(i) and _tag(i).getPlayCount())]
+                items = [i for i in _load(lambda page: unwatched_path(tmdb_id, page, season), self._menus) if not (_tag(i) and _tag(i).getPlayCount())]
                 items = [_episode_row(i, today) for i in items]
             except Exception as exc:
                 kodi_log(f'Show calendar: could not load the unwatched episodes of {tmdb_id}: {exc}', 1)
                 items = []
         self._set_items(items, 'No unwatched episodes')
+        if items and position > 0:
+            self._list.selectItem(min(position, len(items) - 1))
 
     def onClick(self, control_id):
         if control_id == PREV_BUTTON_ID:
@@ -300,6 +425,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         action_id = action.getId()
         if action_id in ACTION_CLOSEWINDOW:
             return self._go_back()
+        if action_id == ACTION_CONTEXT_MENU and self.getFocusId() == LIST_ID:
+            return self._context_menu()
         # All calendar: Left / Right on the list is the previous / next day (the list's own left / right point back at it).
         # An empty day has no list to focus, so there Left / Right change the day from whichever button has the focus.
         if self._day_mode and self._view == VIEW_SHOWS and (self.getFocusId() == LIST_ID or not self._items):
@@ -307,6 +434,39 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
                 return self._navigate_day(-1)
             if action_id == ACTION_MOVE_RIGHT:
                 return self._navigate_day(1)
+        # Everywhere else Right on the list goes to the scrollbar (Left from the scrollbar is wired back to the list in the skin file)
+        if action_id == ACTION_MOVE_RIGHT and self.getFocusId() == LIST_ID and len(self._items) > ROWS_PER_PAGE:
+            return self.setFocusId(SCROLLBAR_ID)
+
+    def _context_menu(self):
+        """ The options the regular lists give this row, then a reload of the page so the row shows the new state (watched tick, gone from Unwatched, ...) """
+        position = self._list.getSelectedPosition()
+        if position < 0 or position >= len(self._items):
+            return
+        entries = [entry for entry in self._menus.get(id(self._items[position])) or [] if 'related_lists' not in str(entry[1])]  # Browse lists opens a list in the window under this one: nothing happens here
+        if not entries:
+            return
+        choice = xbmcgui.Dialog().contextmenu([xbmc.getInfoLabel(name) or name for name, _ in entries])  # names are $ADDON[...] / $LOCALIZE[...] strings
+        if choice < 0:
+            return
+        command = str(entries[choice][1])
+        script = re.match(r'(?is)^\s*runscript\(\s*plugin\.video\.themoviedb\.helper\s*,(.*)\)\s*$', command)
+        if not script:  # Play with ... and the like: nothing on the page changes
+            return xbmc.executebuiltin(command)
+        # RunScript would start the script in its own thread and return at once, before its dialogs and the sync are done: run it here instead,
+        # so the page reloads only after the Trakt / MDBList / Simkl option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
+        try:
+            from tmdbhelper.lib.script.router import Script
+            Script(*[arg.strip() for arg in script.group(1).split(',')]).router()
+        except Exception as exc:
+            kodi_log(f'Show calendar: the context menu option {command} failed: {exc}', 1)
+        self._refresh(position)
+
+    def _refresh(self, position):
+        self._pages.clear()  # the option that just ran may have changed rows on other days too
+        if self._view == VIEW_UNWATCHED and self._unwatched:
+            return self._show_unwatched(*self._unwatched, position=position)
+        return self._show_overview(position)
 
     def _go_back(self):
         if self._view == VIEW_UNWATCHED:
@@ -325,11 +485,22 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             self._saved_position = position
             return self._show_unwatched(tmdb_id, item.getLabel(), item.getProperty('show_season'))
         xbmcgui.Dialog().info(item)
+        self._pages.clear()  # Play / Watched in the information dialog change what every day shows
 
 
 def open_show_calendar(window_title=None, endpoint=None, user=None, countries=None, calendar_filter=None, genres=None):
+    home = xbmcgui.Window(10000)
+    open_id = home.getProperty(OPEN_PROPERTY)
+    if open_id and xbmc.getCondVisibility(f'Window.IsActive({open_id})'):
+        # Already open: a sync script's Container.Refresh re-runs the path that opened the window (a skin shortcut / favourite that points at it)
+        # and would stack a second calendar on top of this one
+        return
     window = WindowShowCalendar(
         'script-tmdbhelper-showcalendar.xml', ADDONPATH, 'default', '1080i', window_title=window_title, endpoint=endpoint, user=user,
         countries=countries, calendar_filter=calendar_filter, genres=genres)
-    window.doModal()
+    try:
+        window.doModal()
+    finally:
+        home.clearProperty(OPEN_PROPERTY)
+        window._pages.close()  # stop the prefetch before the script ends
     del window

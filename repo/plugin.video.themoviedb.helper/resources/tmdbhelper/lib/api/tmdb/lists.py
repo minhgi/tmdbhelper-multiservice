@@ -3,6 +3,19 @@ from tmdbhelper.lib.addon.plugin import convert_type, get_plugin_category, get_s
 from tmdbhelper.lib.items.container import ContainerDirectory
 
 
+def person_id_missing(tmdb_id, *paths):
+    """True for a person list (person/{tmdb_id}/...) asked for without a person id: the request would be person/None/..., which TMDb
+    answers with a 404 and the user with a "nothing here" popup. A skin can ask for a person's credits before it knows the person
+    (GitHub issue #14: Bingie's director list for an episode)."""
+    return not tmdb_id and any(str(p).startswith('person/{tmdb_id}') for p in paths)
+
+
+def nothing_to_look_up(params):
+    """True when the request names no person at all (no query or imdb / tvdb id): an empty answer is then not "no such person"
+    (a lookup that found nobody keeps its normal popup), it is a skin asking too early."""
+    return not (params.get('query') or params.get('imdb_id') or params.get('tvdb_id'))
+
+
 class ListLists(ContainerDirectory):
     def get_items(self, info, page=None, limit=None, **kwargs):
         from tmdbhelper.lib.api.tmdb.users import TMDbUser
@@ -19,6 +32,11 @@ class ListBasic(ContainerDirectory):
     def get_items(self, info, tmdb_type, tmdb_id=None, page=None, limit=None, sort_key=None, sort_key_order=None, length=None, **kwargs):
         info_model = TMDB_BASIC_LISTS.get(info)
         info_tmdb_type = info_model.get('tmdb_type') or tmdb_type
+
+        if person_id_missing(tmdb_id, info_model.get('path', '')):
+            self.empty_quiet = nothing_to_look_up(kwargs)
+            self.cache_to_disc = False
+            return []
 
         tmdb_api = self.tmdb_api
         if info_model.get('tmdb_v4_user_list'):
@@ -66,6 +84,12 @@ class ListCombo(ContainerDirectory):
         sort_type = TMDB_SORT_TYPES.get(sort_type) or str
 
         info_path_models = info_model.get('info_path_models') or []
+
+        if person_id_missing(tmdb_id, *(i.get('path', '') for i in info_path_models)):
+            self.empty_quiet = nothing_to_look_up(kwargs)
+            self.cache_to_disc = False
+            return []
+
         self.tmdb_api.mapper.imagepath_quality = info_model.get('imagepath_quality', 'IMAGEPATH_ORIGINAL')
         items = []
 

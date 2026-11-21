@@ -7,7 +7,8 @@
            window: window_title, center_label, view_unwatched, empty_text
            window: also day_mode (the All calendar), not_today (set when another day than today is open: shows the Today button)
            rows:   row_type (show / episode), show_summary, air_state (watched / aired / today / unaired), air_status, row_date,
-                   air_time (the local air time, from the calendar episode item; empty on Unwatched rows) -->
+                   air_time (the local air time, from the calendar episode item; empty on Unwatched rows),
+                   row_rating (the episode's rating, one decimal; empty when it has none) -->
     <coordinates>
         <left>0</left>
         <top>0</top>
@@ -60,8 +61,9 @@
                 <width>150</width>
                 <height>50</height>
                 <font>font12</font>
-                <label>Today</label>
+                <label>$LOCALIZE[33006]</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -79,6 +81,7 @@
                 <font>font12</font>
                 <label>&lt;</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -97,6 +100,7 @@
                 <font>font12</font>
                 <label>&gt;</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -113,8 +117,9 @@
                 <width>150</width>
                 <height>50</height>
                 <font>font12</font>
-                <label>Back</label>
+                <label>$ADDON[plugin.video.themoviedb.helper 32798]</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -130,8 +135,9 @@
                 <width>150</width>
                 <height>50</height>
                 <font>font12</font>
-                <label>Close</label>
+                <label>$LOCALIZE[15067]</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -151,11 +157,21 @@
             <aspectratio>keep</aspectratio>
             <texture background="true">$INFO[Container(1000).ListItem.Art(poster)]</texture>
         </control>
+        <control type="label">
+            <left>40</left>
+            <top>692</top>
+            <width>440</width>
+            <height>28</height>
+            <font>font12</font>
+            <textcolor>FF0F89AE</textcolor>
+            <label>[B][UPPERCASE]$LOCALIZE[563]: $INFO[Container(1000).ListItem.Property(row_rating)][/UPPERCASE][/B]</label>
+            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating))</visible>
+        </control>
         <control type="textbox">
             <left>40</left>
-            <top>710</top>
+            <top>725</top>
             <width>440</width>
-            <height>300</height>
+            <height>285</height>
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Plot]</label>
@@ -202,9 +218,9 @@
 
         <!-- Shows and episodes -->
         <control type="list" id="1000">
-            <left>540</left>
+            <left>520</left>
             <top>130</top>
-            <width>1380</width>
+            <width>1360</width>
             <height>900</height>
             <pagecontrol>1111</pagecontrol>
             <scrolltime>200</scrolltime>
@@ -236,7 +252,7 @@
                 <control type="label">
                     <left>800</left>
                     <top>0</top>
-                    <width>550</width>
+                    <width>530</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>B3FFFFFF</textcolor>
@@ -337,7 +353,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FF8FDDA6</textcolor>
@@ -349,7 +365,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FFFFC857</textcolor>
@@ -361,7 +377,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>B3FFFFFF</textcolor>
@@ -373,7 +389,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>66FFFFFF</textcolor>
@@ -387,7 +403,7 @@
                 <control type="image">
                     <left>0</left>
                     <top>0</top>
-                    <width>1380</width>
+                    <width>1360</width>
                     <height>72</height>
                     <texture>white.png</texture>
                     <colordiffuse>FF0F89AE</colordiffuse>
@@ -396,7 +412,7 @@
                 <control type="image">
                     <left>0</left>
                     <top>0</top>
-                    <width>1380</width>
+                    <width>1360</width>
                     <height>72</height>
                     <texture>white.png</texture>
                     <colordiffuse>330F89AE</colordiffuse>
@@ -425,7 +441,7 @@
                 <control type="label">
                     <left>800</left>
                     <top>0</top>
-                    <width>550</width>
+                    <width>530</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
@@ -504,7 +520,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
@@ -516,7 +532,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
@@ -528,7 +544,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>FFFFFFFF</textcolor>
@@ -540,7 +556,7 @@
                 <control type="label">
                     <left>1170</left>
                     <top>0</top>
-                    <width>190</width>
+                    <width>170</width>
                     <height>72</height>
                     <font>font12</font>
                     <textcolor>CCFFFFFF</textcolor>

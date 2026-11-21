@@ -2013,6 +2013,23 @@ def _get_tmdb_v4():
     return _build_basedir(None, _get_basedir_tmdb_v4())
 
 
+def _warm_your_calendar(items):
+    """A menu that lists Your TV Calendar is open: ask the service to warm that page's data, so that opening it is not a cold build."""
+    try:
+        if not any(
+                isinstance(i, dict) and i.get('params', {}).get('info') == 'dir_calendar_shows_window'
+                and not i['params'].get('user') and not i['params'].get('endpoint') for i in items or []):
+            return
+        from tmdbhelper.lib.items.widget_cache import prewarm_enabled
+        if not prewarm_enabled() or not get_setting('service_trakt'):
+            return
+        import xbmcgui
+        from tmdbhelper.lib.addon.plugin import WARM_CALENDAR_PROPERTY
+        xbmcgui.Window(10000).setProperty(WARM_CALENDAR_PROPERTY, 'true')
+    except Exception:
+        pass
+
+
 class ListBaseDir(ContainerDirectory):
     def get_items(self, info=None, **kwargs):
         # A menu is built from the service / menu switches every time it opens. Kodi kept a saved copy of the page and served it
@@ -2065,6 +2082,8 @@ class ListBaseDir(ContainerDirectory):
         }
         func = route.get(info, lambda: _build_basedir(None, _get_basedir_main()))
         items = func()
+        if not self.is_widget:  # a skin widget is not the user opening the menu
+            _warm_your_calendar(items)
         return items if info == 'dir_custom_node' else add_descriptions(items)   # user nodes keep exactly what they define
 
 

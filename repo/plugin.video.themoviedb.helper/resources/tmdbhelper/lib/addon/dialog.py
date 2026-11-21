@@ -8,6 +8,53 @@ BusyDialog = jurialmunkey_dialog.BusyDialog
 busy_decorator = jurialmunkey_dialog.busy_decorator
 
 
+class CalendarBusyDialog:
+    """ BusyDialog of the calendar windows. It appears only when the block takes longer than SHOW_AFTER seconds: a load that is answered at
+    once shows nothing and a load with a delay always shows the dialog (no guessing beforehand which one it will be). It is opened from a
+    timer thread and closed with force: a plain Dialog.Close leaves a dialog that was on screen for about a second after the load is done
+    (measured 1.05 s in a calendar window). The shared jurialmunkey BusyDialog is not changed, the other users of it keep it. """
+
+    SHOW_AFTER = 0.5
+
+    def __init__(self, is_enabled=True, delay=None):
+        import threading
+        self.is_enabled = is_enabled
+        self._delay = self.SHOW_AFTER if delay is None else delay
+        self._lock = threading.Lock()
+        self._timer = None
+        self._shown = False
+        self._stopped = False
+
+    def __enter__(self):
+        if self.is_enabled:
+            import threading
+            timer = threading.Timer(self._delay, self._show)
+            timer.daemon = True
+            with self._lock:
+                self._timer = timer
+            timer.start()
+        return self
+
+    def _show(self):
+        from xbmc import executebuiltin
+        with self._lock:
+            if self._stopped:
+                return
+            self._shown = True
+            executebuiltin('ActivateWindow(busydialognocancel)')
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        with self._lock:
+            self._stopped = True
+            shown = self._shown
+            timer = self._timer
+        if timer is not None:
+            timer.cancel()
+        if shown:
+            from xbmc import executebuiltin
+            executebuiltin('Dialog.Close(busydialognocancel,true)')
+
+
 def progress_bg(func):
     def wrapper(self, *args, **kwargs):
         self.dialog_progress_bg = DialogProgressSyncBG()

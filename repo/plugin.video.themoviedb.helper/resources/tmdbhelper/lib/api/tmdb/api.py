@@ -1,3 +1,4 @@
+import time
 from tmdbhelper.lib.addon.plugin import get_mpaa_prefix, get_language, get_setting
 from tmdbhelper.lib.addon.consts import CACHE_SHORT, CACHE_MEDIUM
 from tmdbhelper.lib.api.request import RequestAPI
@@ -16,6 +17,7 @@ class TMDbAPI(RequestAPI):
     append_to_response = ''
     artlang_fallback = False
     api_name = 'TMDbAPI'
+    last_404 = 0.0  # time.monotonic() of the last "not found" TMDb answered: the shared request code returns nothing for it, as for every other failure
 
     def __init__(
             self,
@@ -35,6 +37,12 @@ class TMDbAPI(RequestAPI):
         self._mpaa_prefix = mpaa_prefix
         self.page_length = max(get_setting('pagemulti_tmdb', 'int'), page_length)
         TMDb.api_key = api_key
+
+    def get_simple_api_request(self, *args, **kwargs):
+        response = super().get_simple_api_request(*args, **kwargs)
+        if getattr(response, 'status_code', None) == 404:
+            self.last_404 = time.monotonic()
+        return response
 
     @property
     def language(self):

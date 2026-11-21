@@ -1,10 +1,12 @@
 import calendar
 import datetime
 import xbmcgui
+from functools import partial
 from tmdbhelper.lib.items.router import Router
-from tmdbhelper.lib.addon.dialog import BusyDialog
+from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
 from tmdbhelper.lib.addon.plugin import ADDONPATH
+from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
 
 """ Movie Calendar window: a month poster grid in the style of Seren's Movie Calendar.
 Opened from the Movies menu row (info=dir_calendar_window); its items are the same ones the day-bucket calendar lists build
@@ -20,6 +22,8 @@ ACTION_MOVE_RIGHT = 2
 ACTION_SELECT = (7, 100,)
 ACTION_CLOSEWINDOW = (9, 10, 92, 216, 247, 257, 275, 61467, 61448,)
 MAX_PAGES = 10  # a month holds at most a few hundred titles; stop a runaway paging loop
+PREFETCH_FORWARD_DELAY = 3.0  # land on a month, build the next month after this many seconds ...
+PREFETCH_BACKWARD_DELAY = 8.0  # ... and the previous month 5 seconds after that
 
 
 def _today():
@@ -52,6 +56,25 @@ def _premiered(listitem):
         return ''
 
 
+def _build_month(key, user, endpoint, extra):
+    """ The page cache's build function (a plain function, so the cache holds no window): the movies of month key = (year, month), by release date """
+    year, month = key
+    listitems = []
+    for page in range(1, MAX_PAGES + 1):
+        items = Router(-1, month_path(year, month, user, endpoint, page, extra)).get_directory(items_only=True) or []
+        items = [i for i in items if i]
+        has_next = any(i.next_page for i in items)
+        listitems += [i.get_listitem(offscreen=True) for i in items if not i.next_page]
+        if not has_next:
+            break
+    listitems.sort(key=_premiered)
+    return listitems
+
+
+def _month_neighbours(key):
+    return [(PREFETCH_FORWARD_DELAY, shift_month(*key, 1)), (PREFETCH_BACKWARD_DELAY, shift_month(*key, -1))]
+
+
 class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         self._user = kwargs.get('user')
@@ -64,6 +87,8 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
         self._grid = None
         self._items = []
         self._prev_focus = None
+        # the built months, and the prefetch of the months around the open one
+        self._pages = PageCache(partial(_build_month, user=self._user, endpoint=self._endpoint, extra=self._extra), _month_neighbours, 'Movie calendar', stamp=sync_stamp)
 
     def onInit(self):
         # Coming back from the info dialog calls onInit again: keep the month and the selected tile
@@ -72,26 +97,20 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
         self._initialised = True
         self.setProperty('window_title', self._title)
         self._grid = self.getControl(GRID_ID)
-        with BusyDialog():
-            self._populate()
+        self._show_month()
+
+    def _show_month(self):
+        key = (self._year, self._month)
+        self._pages.cancel()  # the months around the one just left are not wanted any more
+        with CalendarBusyDialog():  # the dialog appears only when the month takes longer than a moment (not for a month built before or by the prefetch)
+            self._populate(key)
         self._focus_grid()
+        self._pages.schedule(key)  # build the next month and then the previous one in the background
 
-    def _load_month(self):
-        listitems = []
-        for page in range(1, MAX_PAGES + 1):
-            items = Router(-1, month_path(self._year, self._month, self._user, self._endpoint, page, self._extra)).get_directory(items_only=True) or []
-            items = [i for i in items if i]
-            has_next = any(i.next_page for i in items)
-            listitems += [i.get_listitem(offscreen=True) for i in items if not i.next_page]
-            if not has_next:
-                break
-        listitems.sort(key=_premiered)
-        return listitems
-
-    def _populate(self):
+    def _populate(self, key):
         self.setProperty('month_year_label', f'{calendar.month_name[self._month]} {self._year}')
         try:
-            self._items = self._load_month()
+            self._items = self._pages.page(key)
         except Exception as exc:  # a failed month must not leave the window dead
             kodi_log(f'Movie calendar: could not load {self._year}-{self._month:02d}: {exc}', 1)
             self._items = []
@@ -110,9 +129,7 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
 
     def _navigate_month(self, delta):
         self._year, self._month = shift_month(self._year, self._month, delta)
-        with BusyDialog():
-            self._populate()
-        self._focus_grid()
+        self._show_month()
 
     def onClick(self, control_id):
         if control_id == PREV_BUTTON_ID:
@@ -145,11 +162,15 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
         if position < 0 or position >= len(self._items):
             return
         xbmcgui.Dialog().info(self._items[position])
+        self._pages.clear()  # Play / Watched in the information dialog change what every month shows
 
 
 def open_movie_calendar(user=None, endpoint=None, window_title=None, countries=None, calendar_filter=None, genres=None):
     window = WindowMovieCalendar(
         'script-tmdbhelper-moviecalendar.xml', ADDONPATH, 'default', '1080i',
         user=user, endpoint=endpoint, window_title=window_title, countries=countries, calendar_filter=calendar_filter, genres=genres)
-    window.doModal()
+    try:
+        window.doModal()
+    finally:
+        window._pages.close()  # stop the prefetch before the script ends
     del window

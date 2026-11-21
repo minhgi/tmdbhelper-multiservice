@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.112"
+version="7.0.127"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,42 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.127
+- Changed: Your TV Calendar now covers 14 days back to 30 days ahead (was 18 ahead), built from as many Trakt requests as it takes; the rating of the selected episode is shown under its poster.
+v7.0.126
+- Changed: the busy dialog in the calendar windows now appears when a page takes longer than half a second to load (was 0.3 s), so a short load, such as opening a show's unwatched episodes, no longer flashes it.
+v7.0.125
+- Fixed: the busy dialog in the calendar windows now appears whenever a page takes longer than a moment to load (it is no longer decided beforehand), and a page that loads at once shows no dialog.
+v7.0.124
+- Fixed: the frame around the highlighted poster in the Movie Calendar windows goes around the poster only (the release date and rating bar are outside it again) and is now the same width on all four sides.
+v7.0.123
+- Fixed: the frame around the highlighted poster in the Movie Calendar windows is now the same width on all four sides and also wraps the release date and rating bars. Before, the top and bottom edges were thinner than the sides and the bottom edge was cut by the date bar.
+v7.0.122
+- Fixed: the busy dialog that the calendar windows show while a page loads (a day or month that was not built yet, a show's unwatched episodes) is now closed at once when the page is ready. Before it stayed on screen for about another second.
+v7.0.121
+- Fixed: the buttons in the calendar windows (Close, Today, Back and the previous / next day or month buttons) no longer cut their text off in skins whose default button style has a wide text margin (the Close button read 'Cl...' in Bingie Mod and Titan based skins).
+v7.0.120
+- Fixed: in a calendar window, going Back (or Left) to the page the window opened on could wait about 1.5 seconds with the busy dialog to build it again, most often in the first calendar opened after a start. The page cache saw the sync databases change and threw the page away as out of date: building the page opens those databases (an empty write-ahead log file appears) and starts the window's own sync of the connected services (a Simkl playback sync was seen writing its database). A missing write-ahead log file now counts as an empty one, and a page that is already out of date when you land on it is built again in the background, so the next visit finds a current one and still shows what a sync changed. Real background syncs still rebuild the pages as before.
+v7.0.119
+- Changed (diagnostic): the calendars' page cache now writes to kodi.log when it throws a stored page away because a background sync wrote to a sync database (which database, and the stored and current file times), and, with 'Debug logging' on, when it stores a page. Nothing else changes.
+v7.0.118
+- Fixed: a skin that asks for a person's credits before it knows the person (Bingie's director list on an episode's information dialog sent 'crew_in_both' with no person id, no name and no IMDb / TVDb id) made TMDb Helper ask TMDb for person/None, log a 404 and show a 'Nothing here yet' popup. A person list (stars in / crew in movies, TV shows or both, and a person's images) that names no person at all now finishes empty at once: no TMDb request, no error in the log and no popup. A person looked up by name or IMDb / TVDb id who is not found still shows the usual popup (without the failed person/None request), and a list that has an id behaves exactly as before.
+v7.0.117
+- Fixed: in the TV calendars (Your TV Calendar, All TV Calendar and the premiere / new show pages) the list no longer runs under the scrollbar: it now ends at the same right edge as the header buttons, leaving a gap before the scrollbar (the movie calendar already did).
+v7.0.116
+- Fixed: the calendars, the Unwatched lists and other lists that are built from Trakt's season and episode numbers no longer ask TMDb again and again for seasons and episodes it does not have (a season numbered by year, an episode past the end of a season). TMDb answers 'not found' for them, which was never remembered, so every page build repeated the same failed requests. A season or episode TMDb says 'not found' for is now left alone for an hour. Only a real 'not found' is remembered (not a timeout or an outage), shows and movies are never skipped this way, and a manual refresh asks TMDb again.
+- Fixed: the calendars keep a built day, month or page for up to 10 minutes while the window is open, so something marked as watched by a background sync (Trakt, MDBList or Simkl) could still show as unwatched for that long. A stored page is now thrown away and built again as soon as one of those sync databases has been written to.
+v7.0.115
+- Added: the movie calendar (Your Movies, All Movies, DVD and Anime movie calendars) is quicker to page through. After you open a month, TMDb Helper builds the next month and then the previous month in the background, so Left and Right (or the previous and next month buttons) show a finished page at once. Months you have already seen are kept for a few minutes too (and rebuilt after you close an information dialog, so a watched mark shows).
+- Added: Your TV Calendar (and Your TV Premieres and Your New TV Shows, which use the same page) keep their page while the window is open, so Back from a show's unwatched list shows the page again at once (it rebuilt the page before).
+- Added: when you open a menu that lists Your TV Calendar, TMDb Helper now asks its background service to load that calendar's data (at most every 30 minutes, not while a video plays and only with the widget pre-warm setting on). The first time you open Your TV Calendar after its data has expired (about 6 hours) it opened in about 2.5 seconds instead of 4 to 6 in tests. This only helps when you reach the calendar through a TMDb Helper menu; a skin shortcut that opens the window directly does not ask.
+
+v7.0.114
+- Added: the All TV calendar is quicker to page through. After you open a day, TMDb Helper builds the next day and then the previous day in the background, so Left and Right (or the previous and next day buttons) show a finished page at once instead of making you wait for it. Days you have already seen are kept for a few minutes too (they are rebuilt after you run an option from the Context Menu, so a watched mark shows on every day), and Back from a show's unwatched list no longer rebuilds the day. Your TV Calendar is not changed (it is one page).
+
+v7.0.113
+- Fixed: the Trakt TV calendars (Your TV Calendar and the All TV calendars) are easier to use. The Context Menu key on a show or episode now opens the same options as the regular lists (Trakt, MDBList and Simkl Options with Watched, Unwatched, Drop and so on), and the page shows the new state as soon as you come back. The dates now follow your Kodi regional settings (date format, and day and month names in your language), and the Today, Tomorrow and Watched words and the Today and Close buttons follow your Kodi language (the new Aired, No air date, In n days and Back texts are English until they are translated). Press Right on the list to reach the scrollbar (on the All TV calendars Left and Right still change the day).
+
 v7.0.112
 - Fixed: MDBList scrobbling now also works at once after you enter your MDBList API key while Kodi is running, and for an MDBList account that is signed in without an API key (before, the player part of TMDb Helper remembered "no MDBList" for the whole session, and with no key at all it did not get an MDBList connection) (GitHub issue #13).
 

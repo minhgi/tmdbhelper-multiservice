@@ -58,6 +58,7 @@
                 <font>font12</font>
                 <label>&lt;</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -74,6 +75,7 @@
                 <font>font12</font>
                 <label>&gt;</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -91,6 +93,7 @@
                 <font>font12</font>
                 <label>Close</label>
                 <align>center</align>
+                <textoffsetx>0</textoffsetx>
                 <aligny>center</aligny>
                 <textcolor>FFFFFFFF</textcolor>
                 <focusedcolor>FFFFFFFF</focusedcolor>
@@ -266,12 +269,12 @@
             </itemlayout>
 
             <focusedlayout width="230" height="400">
-                <!-- accent glow behind the poster -->
+                <!-- accent frame around the poster only: 5 px on every side (poster 10..220 x 8..323); the date / rating bars start at 328, below it -->
                 <control type="image">
-                    <left>4</left>
-                    <top>4</top>
-                    <width>222</width>
-                    <height>327</height>
+                    <left>5</left>
+                    <top>3</top>
+                    <width>220</width>
+                    <height>325</height>
                     <texture>white.png</texture>
                     <colordiffuse>FF0F89AE</colordiffuse>
                     <visible>Control.HasFocus(1000)</visible>

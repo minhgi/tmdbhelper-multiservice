@@ -58,6 +58,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         self.cache_to_disc = True  # endOfDirectory(cacheToDisc=) False: Kodi keeps no saved copy of the page (menus, GitHub issue #13)
         self.plugin_category = ''  # Container.PluginCategory / ListItem.Property(widget)
         self.container_content = ''  # Container.Content({})
+        self.empty_quiet = False  # a list that has nothing to look up (a person list with no person id): finish it empty, no TMDb request and no popup (7.0.118)
         self.container_update = ''  # Add path to call Containr.Update({}) at end of directory
         self.container_refresh = False  # True call Container.Refresh at end of directory
         self.library = None  # TODO: FIX -- Currently broken -- SetInfo(library, info)
@@ -520,7 +521,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             with TimerList(self.timer_lists, 'get_list', logging=self.log_timers):
                 items = self.get_items(**self.params)
             if not items:
-                if self.params.get('info') in (*BLANK_MENUS, *EMPTY_FINISHED) and build_items and not items_only:
+                if (getattr(self, 'empty_quiet', False) or self.params.get('info') in (*BLANK_MENUS, *EMPTY_FINISHED)) and build_items and not items_only:
                     self.finish_container()
                     return
                 # Kodi bounces back from a directory that is never finished: tell the user the list is empty instead

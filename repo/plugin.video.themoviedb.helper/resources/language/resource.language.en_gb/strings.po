@@ -4040,3 +4040,19 @@ msgstr ""
 msgctxt "#32794"
 msgid "While a watch service with its playback progress indicator is connected, lists show that service's progress only. For a movie or episode the services hold no progress for, a resume point that Kodi itself stored for it (for example from a play stopped part-way on this device) is removed, so a skin does not show a different bar next to the services' watched mark. Needs at least one service with its playback progress indicator on. A movie or episode that no service shows as watched keeps Kodi's own resume point for 24 hours after Kodi last played it. Only Kodi's own resume point is removed; nothing on the services and no watched mark changes."
 msgstr ""
+
+msgctxt "#32795"
+msgid "Aired"
+msgstr ""
+
+msgctxt "#32796"
+msgid "No air date"
+msgstr ""
+
+msgctxt "#32797"
+msgid "In {} days"
+msgstr ""
+
+msgctxt "#32798"
+msgid "Back"
+msgstr ""

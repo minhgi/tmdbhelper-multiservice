@@ -10,6 +10,7 @@ WARMER_PAUSE = 2  # seconds between two builds
 WARMER_SEED_IDLE = 30  # seconds without input before the lists of pages the user has not opened yet are built
 WARM_NEXT_PROPERTY = 'TMDbHelper.Widgets.WarmNext'
 WARM_NEXT_MEMORY = 200
+WARM_CALENDAR_EVERY = 1800  # seconds between two warm-ups of Your TV Calendar (its TMDb / Trakt data stays cached for 6 hours)
 
 
 class WidgetWarmer(SafeThread):
@@ -27,6 +28,7 @@ class WidgetWarmer(SafeThread):
         self._seeding = False
         self._seed_attempts = {}
         self._warmed_next = []
+        self._calendar_warmed = 0
 
     @property
     def _should_stop(self):
@@ -70,6 +72,35 @@ class WidgetWarmer(SafeThread):
             return
         self._warmed_next = (self._warmed_next + [paramstring])[-WARM_NEXT_MEMORY:]
         self._build(paramstring)  # fills the item caches; the page itself is built again when the user opens it
+
+    def _warm_calendar(self):
+        """Your TV Calendar is built from the TMDb / Trakt caches, which are empty after 6 hours without use (about 6 s to open against 3 s
+        when they are filled). A menu that lists it sets WARM_CALENDAR_PROPERTY; its pages are built here, with the same call the window makes
+        (nothing is shown, no resume points are touched), at most once per WARM_CALENDAR_EVERY. The window clears the request when it opens."""
+        import time
+        import xbmcgui
+        from tmdbhelper.lib.addon.plugin import WARM_CALENDAR_PROPERTY
+        home = xbmcgui.Window(10000)
+        if not home.getProperty(WARM_CALENDAR_PROPERTY):
+            return
+        home.clearProperty(WARM_CALENDAR_PROPERTY)
+        if time.time() - self._calendar_warmed < WARM_CALENDAR_EVERY:
+            return
+        self._calendar_warmed = time.time()
+        from tmdbhelper.lib.items.router import Router
+        from tmdbhelper.lib.window.showcalendar import calendar_path, calendar_windows, MAX_PAGES
+        from tmdbhelper.lib.addon.logger import kodi_log
+        started = time.time()
+        pages = 0
+        for start, days in calendar_windows():  # the page is built from several windows of days (7.0.127)
+            for page in range(1, MAX_PAGES + 1):
+                if self._should_stop or self._paused():
+                    return
+                pages += 1
+                items = Router(-1, calendar_path(None, page, start, days)).get_directory(items_only=True) or []
+                if not any(i and i.next_page for i in items):
+                    break
+        kodi_log(f'WidgetWarmer: Your TV Calendar warmed ({pages} page(s), {time.time() - started:.1f} s)', 2)
 
     def _bump_skins(self):
         from tmdbhelper.lib.script.method.kodi_utils import reload_widgets
@@ -175,6 +206,9 @@ class WidgetWarmer(SafeThread):
             self._seeding = False
             return
         self._warm_next()
+        if self._should_stop:
+            return
+        self._warm_calendar()
         if self._should_stop:
             return
         if self._warm_widgets():

@@ -19,7 +19,20 @@ get_localized = KODIPLUGIN.get_localized
 
 encode_url = jurialmunkey.parser.EncodeURL(u'plugin://plugin.video.themoviedb.helper/').encode_url
 
-executebuiltin = xbmc.executebuiltin
+SHOW_CALENDAR_PROPERTY = 'TMDbHelper.ShowCalendarWindow'  # Home window property: the id of the TV calendar window while it is open
+WARM_CALENDAR_PROPERTY = 'TMDbHelper.Widgets.WarmCalendar'  # Home window property: a menu that lists Your TV Calendar asks the service to warm its page
+
+
+def executebuiltin(function, *args, **kwargs):
+    """ xbmc.executebuiltin, except that a Container.Refresh is dropped while the TV calendar window is open: the list under that window can be the
+    very path that opened it (a skin shortcut / favourite), and refreshing it opens a second calendar (or leaves Kodi waiting for a list that never comes) """
+    if str(function).replace(' ', '').lower() == 'container.refresh':
+        window_id = xbmc.getInfoLabel(f'Window(Home).Property({SHOW_CALENDAR_PROPERTY})')
+        if window_id and xbmc.getCondVisibility(f'Window.IsActive({window_id})'):
+            return
+    return xbmc.executebuiltin(function, *args, **kwargs)
+
+
 get_condvisibility = xbmc.getCondVisibility
 get_infolabel = xbmc.getInfoLabel
 get_skindir = xbmc.getSkinDir

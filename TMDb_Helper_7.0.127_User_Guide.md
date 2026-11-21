@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.110 — Complete Features & Functions Guide
+# TMDb Helper 7.0.127 — Complete Features & Functions Guide
 
-**Version:** 7.0.110 (Enhanced Fork — Personal Build)
+**Version:** 7.0.127 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.110_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.127_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.110. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.127. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -369,6 +369,16 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Simkl episode progress bars in every list** (7.0.109). An episode you stopped part-way on simkl.com or in another app now shows its bar in every list, not only in In Progress Episodes, and the bar goes when the pause is finished or removed there. A show is used only when its season numbering on Simkl matches TMDb's, so a bar never lands on the wrong episode; anime are left out because Simkl numbers every cour from 1. Every widget is rebuilt once after the update (GitHub issue #13).
 - **The watch services decide the resume bar** (7.0.110). Kodi keeps its own resume point for every item it played and draws it on the list item, so a skin could show a 60% bar from Kodi next to an episode your service shows as watched. While a service with its playback progress indicator is on, connected and has synced, a movie or episode that no service holds a resume point for now has Kodi's own resume point cleared when the list is built (through Kodi's own file-details call; the same as *Reset resume position*). Nothing is sent to or changed on a service and no watched mark changes. A movie or episode that no service shows as watched keeps Kodi's bar for 24 hours after Kodi last played it, in case the service has not received that pause yet. Switch: Settings → Accounts → Kodi's own resume points → *Let the watch services decide the resume bar* (on by default). Limits: lists shown from a saved widget or row copy are checked only when they are rebuilt; the calendar and recommendation windows are not checked (GitHub issue #13).
 
+### Fixes and speed-ups in 7.0.111–7.0.127
+
+- **Simkl and MDBList scrobble right after a switch or sign-in** (7.0.111–7.0.112). Turning Simkl on, entering the MDBList API key, or signing in to MDBList without an API key while Kodi was running did nothing until Kodi was restarted, because the player part of TMDb Helper remembered "no Simkl" or "no MDBList" for the whole session. It now checks every time (GitHub issue #13).
+- **Calendar Context Menu, dates and scrollbar** (7.0.113). In the Trakt TV calendars (Your Calendar and the All calendars) the Context Menu key on a show or episode opens the same options as the regular lists (Trakt, MDBList and Simkl Options: Watched, Unwatched, Drop and so on), and the page shows the new state when you come back. Dates follow your Kodi regional settings (date format, day and month names in your language); the Today, Tomorrow and Watched words and the Today and Close buttons follow your Kodi language (Aired, No air date, In n days and Back stay English until they are translated). Press Right on a long list to reach the scrollbar (on the All calendars Left and Right still change the day).
+- **Calendars page faster** (7.0.114–7.0.116, 7.0.119–7.0.120). After you open a day of the All TV calendar, TMDb Helper builds the next day and then the previous day in the background, so Left and Right show a finished page at once; the movie calendars do the same for the next and previous month; Your TV Calendar (and Your TV Premieres and Your New TV Shows) keep their page, so Back from a show's unwatched list shows it at once. Pages are kept for up to 10 minutes while the window is open, and a stored page is thrown away and built again as soon as a Trakt, MDBList or Simkl sync has written new data, so a watched mark shows. Going Back to the page the window opened on no longer waits for it to be built again. Opening a menu that lists Your TV Calendar also asks TMDb Helper's background service to load that calendar's data (at most every 30 minutes, not while a video plays and only with the widget pre-warm setting on), so the first opening after its data expired (about 6 hours) took about 2.5 seconds instead of 4 to 6 in tests; a skin shortcut that opens the window directly does not ask.
+- **Fewer failed TMDb requests** (7.0.116, 7.0.118). The calendars, the Unwatched lists and other lists built from Trakt's season and episode numbers no longer ask TMDb again and again for a season or episode TMDb answers "not found" for (a season numbered by year, an episode past the end of a season): it is left alone for an hour (only a real "not found" is remembered, shows and movies never, and a manual refresh asks TMDb again). A person list that names no person at all (Bingie's director list on an episode's information dialog) now finishes empty at once: no TMDb request for person/None, no error in the log and no "Nothing here yet" popup.
+- **Calendar look** (7.0.117, 7.0.121, 7.0.123–7.0.124). The TV calendar list ends at the same right edge as the header buttons, leaving a gap before the scrollbar; the buttons no longer cut their text off in skins whose button style has a wide text margin (Close read "Cl..." in Bingie Mod and Titan based skins); in the Movie Calendar the frame around the highlighted poster goes around the poster only and is the same width on all four sides.
+- **Busy dialog only when a page is slow** (7.0.122, 7.0.125–7.0.126). The busy dialog in the calendar windows appears when a page takes longer than half a second to load (a page that loads at once shows none, so opening a show's unwatched episodes no longer flashes it), and it is closed at once when the page is ready instead of staying on screen for about another second.
+- **Your TV Calendar covers 14 days back to 30 days ahead, with the episode rating** (7.0.127). It was 14 days back to 18 days ahead (the guide said about 19); it is now built from as many Trakt requests as it takes. The rating of the selected episode is shown under its poster.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -510,7 +520,7 @@ These open a scrollable window instead of a list: a header row per show with its
 
 | Calendar | Window |
 |---|---|
-| **Your Calendar** | Every show you follow on one page: 14 days back to about 19 days ahead; watched episodes stay in the list, dimmed |
+| **Your Calendar** | Every show you follow on one page: 14 days back to 30 days ahead (7.0.127); watched episodes stay in the list, dimmed |
 | **Your Calendar Premieres / New** | The same page, premieres only or new shows only |
 | **All Calendar** | The page one day at a time for all shows airing that day |
 | **All Calendar Premieres / New** | Premieres or new shows, one day at a time |
@@ -525,6 +535,11 @@ These open a scrollable window instead of a list: a header row per show with its
 - A green **tick** and a dimmed row mark an episode you have already watched (on Trakt, MDBList or Simkl). This needs **Get watched indicators and episode counts** switched on for that service. An episode with no air date reads **No air date**.
 - Episode labels read `1x02. Title (Show)`; stacked episodes read `1x01-1x03. 3 Episodes (Show)`.
 - The **Asian Drama and Anime TV pages** read Simkl's public calendar file, kept for 12 hours, for days from yesterday to about five weeks ahead; other days use Trakt. If Simkl cannot be reached they fall back to Trakt at once and try Simkl again after 15 minutes. The file's times are UTC and are shown in your local time. An anime episode TMDb cannot place reads `E3` (the number Simkl gives) with no season, and selecting it opens the show.
+- The **Context Menu** key on a show or episode opens the same options as the regular lists (Trakt, MDBList and Simkl Options with Watched, Unwatched, Drop and so on) (7.0.113); the page shows the new state when you come back.
+- The selected episode's **rating** is shown under its poster (7.0.127).
+- **Dates and words follow Kodi:** dates use your regional date format and your language's day and month names; Today, Tomorrow, Watched and the Today and Close buttons follow your Kodi language (7.0.113). **Right** on a long list reaches the scrollbar (on the day pages Left and Right still change the day).
+- **Quicker paging:** the All TV calendar builds the next and previous day in the background, Your TV Calendar keeps its page so Back from an unwatched list is instant, and a page is built again after a sync wrote new data (7.0.114–7.0.116, 7.0.120).
+- The **busy dialog** appears only when a page takes longer than half a second to load (7.0.122, 7.0.125–7.0.126).
 - The Kodi library **Next Aired** calendar (under TheMovieDb) is unchanged.
 
 ### Movie calendars — the month poster grid
@@ -540,6 +555,8 @@ Each poster shows the **title, release date, a countdown badge** (days until rel
 
 - **Left / Right at the edge of the grid**, or the previous / next month buttons, change the month. On an **empty month** Left / Right change the month from whichever button has focus.
 - **Select** opens the movie's information.
+- **Months load ahead:** after you open a month, the next and then the previous month are built in the background, so Left and Right show a finished page at once; months you have seen are kept for a few minutes (7.0.115).
+- The frame around the highlighted poster goes around the poster only, the same width on all four sides (7.0.123–7.0.124).
 - The *All Calendar* rows show releases whatever country the film was made in; your region setting no longer narrows them.
 - A calendar can be put on a skin as a widget path; old saved day-by-day paths still open the list view.
 
