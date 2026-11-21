@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.127 — Complete Features & Functions Guide
+# TMDb Helper 7.0.131 — Complete Features & Functions Guide
 
-**Version:** 7.0.127 (Enhanced Fork — Personal Build)
+**Version:** 7.0.131 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.127_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.0.131_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.127. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.131. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -379,6 +379,13 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Busy dialog only when a page is slow** (7.0.122, 7.0.125–7.0.126). The busy dialog in the calendar windows appears when a page takes longer than half a second to load (a page that loads at once shows none, so opening a show's unwatched episodes no longer flashes it), and it is closed at once when the page is ready instead of staying on screen for about another second.
 - **Your TV Calendar covers 14 days back to 30 days ahead, with the episode rating** (7.0.127). It was 14 days back to 18 days ahead (the guide said about 19); it is now built from as many Trakt requests as it takes. The rating of the selected episode is shown under its poster.
 
+### Fixes and additions in 7.0.128–7.0.131
+
+- **Calendar episode badges can be translated** (7.0.128). The six badges on the TV calendar episode rows (New show, Premiere, Mid premiere, Mid finale, Finale, Series finale) are translatable strings now. Only English text exists so far, so they still read in English until a translation file has them.
+- **The calendar plot follows your language** (7.0.129). The plot of a TV or movie calendar row is the TMDb plot in the TMDb Helper language. Trakt's English overview is used only when TMDb has no plot in your language and your language is English, or when the English plot fallback setting is on.
+- **Keep menu pages for a quick Back** (7.0.130). A new setting, on by default. Kodi may keep a copy of one of the add-on's own menu pages that it was slow to build and show it at once when you go Back, which removes the loading spinner on a slow device. When a menu switch (Trakt, MDBList, Simkl or a main-menu row) or a sign-in has changed since the page was built, the menu is refreshed once when you come back to it. Switch the setting off to build the menus again on every Back, as in 7.0.96–7.0.129. On a fast device Kodi saves no menu it builds quickly, so nothing changes there.
+- **Two TV calendar settings, both off by default** (7.0.131). "All TV Calendar: Right goes to the scrollbar": Left and Right on the list no longer change the day, Right moves to the scrollbar on a long list, and the < > buttons change the day. "TV calendars: landscape artwork and episode thumbnails": show rows use their landscape artwork (their fanart if there is none) and episode rows their own thumbnail, in the list and in the large image at the side, instead of posters. The calendar looks more crowded with it on. Neither applies to the Movie Calendar.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -540,6 +547,8 @@ These open a scrollable window instead of a list: a header row per show with its
 - **Dates and words follow Kodi:** dates use your regional date format and your language's day and month names; Today, Tomorrow, Watched and the Today and Close buttons follow your Kodi language (7.0.113). **Right** on a long list reaches the scrollbar (on the day pages Left and Right still change the day).
 - **Quicker paging:** the All TV calendar builds the next and previous day in the background, Your TV Calendar keeps its page so Back from an unwatched list is instant, and a page is built again after a sync wrote new data (7.0.114–7.0.116, 7.0.120).
 - The **busy dialog** appears only when a page takes longer than half a second to load (7.0.122, 7.0.125–7.0.126).
+- **Right goes to the scrollbar** (setting, off by default, 7.0.131): on the All TV Calendar, Left and Right on the list no longer change the day; Right moves to the scrollbar on a long list and the < > buttons change the day.
+- **Landscape artwork and episode thumbnails** (setting, off by default, 7.0.131): show rows show their landscape artwork and episode rows their own thumbnail, in the list and in the large image at the side, instead of posters; the page looks more crowded with it on.
 - The Kodi library **Next Aired** calendar (under TheMovieDb) is unchanged.
 
 ### Movie calendars — the month poster grid

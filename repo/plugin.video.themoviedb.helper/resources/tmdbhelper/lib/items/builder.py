@@ -364,7 +364,22 @@ class ItemBuilder(_ArtworkSelector):
         item['listitem']['infoproperties'] = item['infoproperties_basic']  # Set filtered ip to ip
         return item
 
+    def _calendar_trakt_plot(self, li):
+        """ A Trakt calendar row (episode or movie) carries Trakt's overview, which is English, as the property 'calendar_plot' and not as its plot: the plot of the row
+        is TMDb's, in the user's language. Trakt's text is only the last resort when TMDb gave none: always for English, otherwise only while 'English plot
+        fallback' is on. The property is removed either way so no skin sees it. """
+        text = li.infoproperties.pop('calendar_plot', None)
+        if not text or (li.infolabels.get('plot') or '').strip():
+            return
+        if self.tmdb_api.iso_language == 'en' or get_setting('force_english_plot_fallback'):
+            li.infolabels['plot'] = text
+
     def get_listitem(self, i, use_iterprops=True):
+        li = self._get_listitem(i, use_iterprops)
+        self._calendar_trakt_plot(li)
+        return li
+
+    def _get_listitem(self, i, use_iterprops=True):
         li = ListItem(parent_params=self.parent_params, **i)
         mediatype = li.infolabels.get('mediatype')
         tmdb_type = li.tmdb_type

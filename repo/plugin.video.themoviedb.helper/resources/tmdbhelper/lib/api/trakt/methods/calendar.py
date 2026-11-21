@@ -97,7 +97,6 @@ def get_calendar_episode_item(i):
         'season': epsd.get('season'),
         'tvshowtitle': show.get('title'),
         'duration': try_int(epsd.get('runtime', 0)) * 60,
-        'plot': epsd.get('overview'),
         'mpaa': show.get('certification')}
     item['infoproperties'] = {
         'air_date': get_region_date(air_date, 'datelong'),
@@ -105,6 +104,9 @@ def get_calendar_episode_item(i):
         'air_day': air_date.strftime('%A'),
         'air_day_short': air_date.strftime('%a'),
         'air_date_short': air_date.strftime('%d %b')}
+
+    if epsd.get('overview'):  # Trakt's overview is English: kept apart from the plot so TMDb's plot in the user's language wins (ItemBuilder.get_listitem uses this only when TMDb has none)
+        item['infoproperties']['calendar_plot'] = epsd['overview']
 
     if epsd.get('code'):  # an anime episode that could not be placed in TMDb's numbering: the window shows this ("E3") instead of "0x00"
         item['infoproperties']['calendar_code'] = epsd['code']
@@ -335,13 +337,14 @@ def get_calendar_movie_item(i):
         'year': movie.get('year') or release_date.strftime('%Y'),
         'title': item['label'],
         'duration': try_int(movie.get('runtime', 0)) * 60,
-        'plot': movie.get('overview'),
         'mpaa': movie.get('certification')}
     item['infoproperties'] = {
         'air_date': get_region_date(release_date, 'datelong'),
         'air_day': release_date.strftime('%A'),
         'air_day_short': release_date.strftime('%a'),
         'air_date_short': release_date.strftime('%d %b')}
+    if movie.get('overview'):  # Trakt's overview is English: kept apart from the plot so TMDb's plot in the user's language wins (ItemBuilder.get_listitem uses this only when TMDb has none)
+        item['infoproperties']['calendar_plot'] = movie['overview']
     days_to_air, is_aired = get_days_to_air(release_date)
     item['infoproperties']['days_from_aired' if is_aired else 'days_until_aired'] = str(days_to_air)
     item['unique_ids'] = {k: v for k, v in ids.items() if v}

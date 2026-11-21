@@ -6,7 +6,7 @@ import xbmcgui
 from tmdbhelper.lib.items.router import Router
 from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
-from tmdbhelper.lib.addon.plugin import ADDON, ADDONPATH, SHOW_CALENDAR_PROPERTY, WARM_CALENDAR_PROPERTY
+from tmdbhelper.lib.addon.plugin import ADDON, ADDONPATH, SHOW_CALENDAR_PROPERTY, WARM_CALENDAR_PROPERTY, get_setting
 from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
 
 """ Your TV Calendar window: every show you follow on one scrollable page. A header row per show, its episodes under it
@@ -14,7 +14,9 @@ from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
 (with Play and the other buttons); the Context Menu key on a row opens the same options as the regular lists (Trakt / MDBList / Simkl
 Options with Watched, Unwatched, Drop ...), and the page reloads when one of them finishes. The episodes are the ones the day-by-day calendar builds (info=trakt_calendar, unstacked) for a
 span around today; a show's unwatched list comes from its Up Next list (info=trakt_upnext).
-The All TV Calendar (user=false) uses the same page for ONE DAY at a time: Left / Right (or the < > buttons) change the day.
+The All TV Calendar (user=false) uses the same page for ONE DAY at a time: Left / Right (or the < > buttons) change the day; with the setting
+"All TV Calendar: Right goes to the scrollbar" on, only the buttons do and Right on the list moves to the scrollbar.
+With the setting "TV calendars: landscape artwork and episode thumbnails" on, the rows and the large image at the side use the art key row_wide.
 """
 
 LIST_ID = 1000
@@ -42,13 +44,13 @@ VIEW_SHOWS = 'shows'
 VIEW_UNWATCHED = 'unwatched'
 
 # Trakt's episode_type values that get a badge on the row (anything else, "standard" included, gets none). Short, so the badge fits beside the title.
-EPISODE_BADGES = {
-    'series_premiere': 'New show',
-    'season_premiere': 'Premiere',
-    'mid_season_premiere': 'Mid premiere',
-    'mid_season_finale': 'Mid finale',
-    'season_finale': 'Finale',
-    'series_finale': 'Series finale',
+EPISODE_BADGES = {  # episode_type: (string id of this add-on, English text used when the string is missing)
+    'series_premiere': (32799, 'New show'),
+    'season_premiere': (32800, 'Premiere'),
+    'mid_season_premiere': (32801, 'Mid premiere'),
+    'mid_season_finale': (32802, 'Mid finale'),
+    'season_finale': (32803, 'Finale'),
+    'series_finale': (32804, 'Series finale'),
 }
 MIN_YEAR = 1900  # Kodi writes an unknown date as 1601-01-01 (its zero date); nothing real airs before this
 
@@ -231,9 +233,12 @@ def _episode_row(listitem, today):
     except Exception:
         rating = 0
     listitem.setProperty('row_rating', f'{rating:.1f}' if rating and rating > 0 else '')  # shown under the poster of the selected row (7.0.127)
+    wide = _first_art([listitem], 'still', 'thumb', 'tvshow.landscape', 'landscape', 'tvshow.fanart', 'fanart', 'tvshow.poster', 'poster')  # the art the landscape setting shows; always set, so a cached page follows the setting
+    if wide:
+        listitem.setArt({'row_wide': wide})
     badge = EPISODE_BADGES.get(listitem.getProperty('calendar_episode_type'))  # only calendar rows carry it; the Unwatched list has no badges
     if badge:
-        listitem.setProperty('row_badge', badge)
+        listitem.setProperty('row_badge', _string(badge[0]) or badge[1])
     return listitem
 
 
@@ -260,7 +265,9 @@ def _header_row(title, tmdb_id, episodes, today):
     if len(unwatched) - len(unaired):
         parts.append(f'{len(unwatched) - len(unaired)} to watch')
     header.setProperty('show_summary', '  -  '.join(parts))
-    art = {'poster': _first_art(episodes, 'tvshow.poster', 'poster'), 'fanart': _first_art(episodes, 'tvshow.fanart', 'fanart')}
+    art = {'poster': _first_art(episodes, 'tvshow.poster', 'poster'), 'fanart': _first_art(episodes, 'tvshow.fanart', 'fanart'),
+           'landscape': _first_art(episodes, 'tvshow.landscape', 'landscape')}
+    art['row_wide'] = art['landscape'] or art['fanart'] or art['poster']  # a show: its landscape art, else its fanart
     header.setArt({k: v for k, v in art.items() if v})
     return header
 
@@ -328,6 +335,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         self._items = []
         self._menus = {}  # id(ListItem) -> its context menu entries [(label, command)]
         self._saved_position = 0
+        self._right_to_scrollbar = bool(get_setting('calendar_right_scrollbar'))  # read when the window opens
+        self._wide_art = bool(get_setting('calendar_wide_art'))
         self._unwatched = None  # (tmdb_id, title, season) of the Unwatched view that is open
 
     def onInit(self):
@@ -340,6 +349,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         self.setProperty('window_title', self._title)
         if self._day_mode:
             self.setProperty('day_mode', 'True')
+        if self._wide_art:
+            self.setProperty('wide_art', 'True')  # the skin shows the row_wide art instead of the poster
         self._list = self.getControl(LIST_ID)
         self._show_overview()
 
@@ -429,7 +440,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             return self._context_menu()
         # All calendar: Left / Right on the list is the previous / next day (the list's own left / right point back at it).
         # An empty day has no list to focus, so there Left / Right change the day from whichever button has the focus.
-        if self._day_mode and self._view == VIEW_SHOWS and (self.getFocusId() == LIST_ID or not self._items):
+        # With "Right goes to the scrollbar" on this is skipped: Left / Right move the focus as in any other list and the buttons change the day.
+        if self._day_mode and not self._right_to_scrollbar and self._view == VIEW_SHOWS and (self.getFocusId() == LIST_ID or not self._items):
             if action_id == ACTION_MOVE_LEFT:
                 return self._navigate_day(-1)
             if action_id == ACTION_MOVE_RIGHT:

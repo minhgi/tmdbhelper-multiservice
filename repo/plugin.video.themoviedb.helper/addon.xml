@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.127"
+version="7.0.131"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,14 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.131
+- Added: two settings, both off by default, for the TV calendar windows (GitHub issue #14). "All TV Calendar: Right goes to the scrollbar": with it on, Left and Right on the All TV Calendar list no longer change the day; Right moves to the scrollbar on a long list and the day is changed with the &lt; &gt; buttons. With it off, Left and Right change the day as before. "TV calendars: landscape artwork and episode thumbnails": with it on, a show row shows its landscape artwork (its fanart if it has none) and an episode row its own thumbnail (the show artwork if the episode has none yet), in the list and in the large image at the side, instead of posters. With it off, nothing changes. The Movie Calendar is not affected.
+v7.0.130
+- Added: the setting "Keep menu pages for a quick Back" (Settings > General, with the menu switches; on by default) and a fix for the loading spinner that showed every time you went Back to one of the add-on's own menus (GitHub issue #14). Since 7.0.96 the menus were never saved by Kodi, so Back built them again each time, which a slow device shows as a spinner. Now Kodi may keep a menu it was slow to build and show it at once on Back. Each menu is stamped with the menu switches and the signed-in services it was built under, and a new service thread refreshes the menu on screen once when those have changed since (a service or main-menu row switched, a service signed in or out), so the switched-off row of issue #13 does not come back. It works on its own and also for a skin that does not use the service monitor. A menu built before the update has no stamp and is left alone. With the setting off the menus behave as in 7.0.96 to 7.0.129. On a fast device Kodi saves no menu it builds quickly, so nothing changes there.
+v7.0.129
+- Fixed: the plot of the rows in the TV and movie calendars now follows your TMDb Helper language (GitHub issue #14). The rows carried Trakt's overview, which is English, and it replaced TMDb's plot, so changing the language changed the titles but not the plots. TMDb's plot is used now; Trakt's English text is only shown when TMDb has none, always for an English language and otherwise only with 'English plot fallback' on (a language without a TMDb plot and without that setting now shows no plot, like the other lists). Rows already stored by an older version keep their English plot until the calendar's data is read again (up to 6 hours).
+v7.0.128
+- Changed: the labels on the episode rows of the TV calendars (New show, Premiere, Mid premiere, Mid finale, Finale, Series finale) are now translatable strings of TMDb Helper (they were English text written into the code), so they follow the Kodi language wherever a translation exists. Without a translation they stay in English, as before.
 v7.0.127
 - Changed: Your TV Calendar now covers 14 days back to 30 days ahead (was 18 ahead), built from as many Trakt requests as it takes; the rating of the selected episode is shown under its poster.
 v7.0.126

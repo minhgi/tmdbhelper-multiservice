@@ -2031,10 +2031,22 @@ def _warm_your_calendar(items):
 
 
 class ListBaseDir(ContainerDirectory):
+    def _stamp_menu(self):
+        """ A menu is built from the service / menu switches. Kodi may keep a saved copy of a page it was slow to build and serve it again on Back (the add-on is
+        not called at all), so a menu row switched on or off stayed as it was (GitHub issue #13). With "Keep menu pages for a quick Back" on (the default) the page is
+        saved and stamped with the switches it was built under; the service refreshes it when it comes back under other switches (monitor/menurefresh.py). With
+        the setting off the page is never saved, as in 7.0.96 - 7.0.129: Back builds it again (a loading spinner on a slow device). """
+        from tmdbhelper.lib.addon.menustate import menu_fast_back_enabled, get_menu_state_key, MENU_STATE_PROPERTY
+        if not menu_fast_back_enabled():
+            self.cache_to_disc = False
+            return
+        if self.handle == -1:
+            return
+        from xbmcplugin import setProperty
+        setProperty(self.handle, MENU_STATE_PROPERTY, get_menu_state_key())
+
     def get_items(self, info=None, **kwargs):
-        # A menu is built from the service / menu switches every time it opens. Kodi kept a saved copy of the page and served it
-        # again on Back (the add-on was not called at all), so a menu row switched on or off stayed as it was (GitHub issue #13)
-        self.cache_to_disc = False
+        self._stamp_menu()
         route = {
             'dir_movie': lambda: _get_basedir_list('movie', tmdb=True, trakt=True),
             'dir_tv': lambda: _get_basedir_list('tv', tmdb=True, trakt=True),

@@ -248,6 +248,11 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="menu_fast_back" type="boolean" label="32805" help="32806">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
         </category>
         <category id="widgets" label="32092" help="32603">
@@ -316,6 +321,16 @@
                         </options>
                     </constraints>
                     <control type="spinner" format="string"/>
+                </setting>
+                <setting id="calendar_right_scrollbar" type="boolean" label="32807" help="32808">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="calendar_wide_art" type="boolean" label="32809" help="32810">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
                 </setting>
                 <setting id="trakt_nextepisodesort" type="string" label="32093" help="32625">
                     <level>0</level>

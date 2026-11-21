@@ -156,6 +156,16 @@
             <height>560</height>
             <aspectratio>keep</aspectratio>
             <texture background="true">$INFO[Container(1000).ListItem.Art(poster)]</texture>
+            <visible>String.IsEmpty(Window.Property(wide_art))</visible>
+        </control>
+        <control type="image">
+            <left>40</left>
+            <top>130</top>
+            <width>440</width>
+            <height>248</height>
+            <aspectratio>keep</aspectratio>
+            <texture background="true">$INFO[Container(1000).ListItem.Art(row_wide)]</texture>
+            <visible>!String.IsEmpty(Window.Property(wide_art))</visible>
         </control>
         <control type="label">
             <left>40</left>
@@ -165,7 +175,17 @@
             <font>font12</font>
             <textcolor>FF0F89AE</textcolor>
             <label>[B][UPPERCASE]$LOCALIZE[563]: $INFO[Container(1000).ListItem.Property(row_rating)][/UPPERCASE][/B]</label>
-            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating))</visible>
+            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + String.IsEmpty(Window.Property(wide_art))</visible>
+        </control>
+        <control type="label">
+            <left>40</left>
+            <top>388</top>
+            <width>440</width>
+            <height>28</height>
+            <font>font12</font>
+            <textcolor>FF0F89AE</textcolor>
+            <label>[B][UPPERCASE]$LOCALIZE[563]: $INFO[Container(1000).ListItem.Property(row_rating)][/UPPERCASE][/B]</label>
+            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + !String.IsEmpty(Window.Property(wide_art))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -175,7 +195,17 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Plot]</label>
-            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show)</visible>
+            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+        </control>
+        <control type="textbox">
+            <left>40</left>
+            <top>421</top>
+            <width>440</width>
+            <height>589</height>
+            <font>font12</font>
+            <textcolor>E6FFFFFF</textcolor>
+            <label>$INFO[Container(1000).ListItem.Plot]</label>
+            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -185,7 +215,17 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Property(show_summary)]</label>
-            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show)</visible>
+            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+        </control>
+        <control type="textbox">
+            <left>40</left>
+            <top>406</top>
+            <width>440</width>
+            <height>604</height>
+            <font>font12</font>
+            <textcolor>E6FFFFFF</textcolor>
+            <label>$INFO[Container(1000).ListItem.Property(show_summary)]</label>
+            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
         </control>
 
         <!-- Empty page / empty unwatched list -->
@@ -236,7 +276,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(poster)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>92</left>
@@ -247,7 +287,36 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>18</left>
+                    <top>10</top>
+                    <width>92</width>
+                    <height>52</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(row_wide)]</texture>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>12</left>
+                    <top>16</top>
+                    <width>70</width>
+                    <height>40</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(row_wide)]</texture>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>124</left>
+                    <top>0</top>
+                    <width>668</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>[B]$INFO[ListItem.Label][/B]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>800</left>
@@ -425,7 +494,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(poster)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>92</left>
@@ -436,7 +505,36 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show)</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>18</left>
+                    <top>10</top>
+                    <width>92</width>
+                    <height>52</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(row_wide)]</texture>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>12</left>
+                    <top>16</top>
+                    <width>70</width>
+                    <height>40</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture>$INFO[ListItem.Art(row_wide)]</texture>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>124</left>
+                    <top>0</top>
+                    <width>668</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>[B]$INFO[ListItem.Label][/B]</label>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>800</left>

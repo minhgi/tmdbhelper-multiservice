@@ -14,8 +14,6 @@ WIDGET_SETTINGS = (
     'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress')
 
 
-# The switches that show or hide a row of the add-on's own menus (keep in step with SERVICE_MENUS in items/basedir.py)
-MENU_SETTINGS = ('service_trakt', 'service_mdblist', 'service_simkl', 'menu_movies', 'menu_tv', 'menu_anime', 'menu_asian')
 PLUGIN_ROOT = 'plugin://plugin.video.themoviedb.helper/'
 NO_REFRESH_MENUS = ('dir_search', 'dir_multisearch', 'dir_discover')  # routed outside ListBaseDir (addon/consts.py ROUTE_NOID)
 
@@ -50,8 +48,8 @@ class UpdateMonitor(xbmc.Monitor):
 
     @staticmethod
     def _get_menu_state():
-        from tmdbhelper.lib.addon.plugin import get_setting
-        return tuple(bool(get_setting(i)) for i in MENU_SETTINGS)
+        from tmdbhelper.lib.addon.menustate import get_menu_state_key  # the menu switches and whether each service is signed in (addon/menustate.py)
+        return get_menu_state_key()
 
     def _refresh_menu_if_shown(self):
         """A menu row was switched on or off while one of the add-on's menus is on screen (GitHub issue #13): the list stayed as

@@ -6,6 +6,7 @@ from tmdbhelper.lib.monitor.widget_warmer import WidgetWarmer
 from tmdbhelper.lib.monitor.player import PlayerMonitor
 from tmdbhelper.lib.monitor.update import UpdateMonitor
 from tmdbhelper.lib.monitor.imgmon import ImagesMonitor
+from tmdbhelper.lib.monitor.menurefresh import MenuStaleMonitor
 from tmdbhelper.lib.monitor.poller import Poller, POLL_MIN_INCREMENT, POLL_MID_INCREMENT
 from tmdbhelper.lib.addon.thread import SafeThread, preload_requests
 from threading import Lock
@@ -38,6 +39,10 @@ class ServiceMonitor(Poller):
         self.images_monitor = ImagesMonitor(self)
         self.images_monitor.setName('Image Thread')
         self.images_monitor.start()
+
+        self.menu_monitor = MenuStaleMonitor(self)
+        self.menu_monitor.setName('Menu Thread')
+        self.menu_monitor.start()
 
         self.listitem_funcs = ListItemMonitorFunctions(self)
 
@@ -75,6 +80,7 @@ class ServiceMonitor(Poller):
         self.cron_job.exit = True
         self.widget_warmer.exit = True
         self.images_monitor.exit = True
+        self.menu_monitor.exit = True
         if not self.update_monitor.abortRequested():
             get_property('ServiceStarted', clear_property=True)
             get_property('ServiceStop', clear_property=True)
