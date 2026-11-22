@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.132"
+version="7.0.133"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,8 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.133
+- Fixed: anime episodes showed an English plot whatever the TMDb Helper language (GitHub issue #14). The plot of "Anime episode enrichment" is English: in a language other than English it no longer replaces a plot in your language, and it fills an empty plot only while "English plot fallback" is on. While "English plot fallback" is on, an episode that has no plot of its own in TMDb keeps its show's plot instead of the overlay's episode plot. English users see no change. The overlay's episode titles and thumbnails are unchanged.
 v7.0.132
 - Fixed: the date in the All TV Calendar header showed "-d" instead of the day on systems whose Kodi writes a day without a leading zero as %-d (the dates in the rows and the parse of an episode's air date had the same problem). The calendar now writes and reads those dates itself. On Windows nothing changes.
 - Fixed: backing out of the Trakt, MDBList or Simkl options window of the calendar Context Menu without choosing anything no longer rebuilds the calendar page, which showed the loading spinner for a moment. The page is rebuilt only when the option changed data.

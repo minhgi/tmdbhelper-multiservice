@@ -332,7 +332,28 @@ def is_anime_enrichment_enabled():
         return False
 
 
-def apply_anime_overlay(li):
+def overlay_plot(current, plot, iso_language=None):
+    """The plot an episode shows once the overlay's plot is considered, or None to leave the item's plot as it is.
+
+    The overlay's plot (AniZip / Seren's cache) is English. In English it replaces the plot, as before. In any other language it never replaces a plot
+    the item already has (TMDb's, in the user's language) and fills an empty one only while "English plot fallback" is on: the same rule as the calendar's
+    Trakt plot, so an English plot never appears for someone who did not ask for it (GitHub issue #14). iso_language: the language of the TMDb request;
+    without it the add-on language. Any failure keeps the old behaviour (the overlay's plot is used).
+    """
+    if not plot:
+        return None
+    try:
+        from tmdbhelper.lib.addon.plugin import get_language, get_setting
+        if (iso_language or get_language())[:2] == 'en':
+            return plot
+        if (current or '').strip():
+            return None
+        return plot if get_setting('force_english_plot_fallback') else None
+    except Exception:
+        return plot
+
+
+def apply_anime_overlay(li, iso_language=None):
     """Overlay anime-specific episode data onto an episode ListItem (called by ItemBuilder.get_listitem). Never raises."""
     try:
         if not is_anime_enrichment_enabled():
@@ -348,8 +369,9 @@ def apply_anime_overlay(li):
         if 'title' in overlay:
             li.infolabels['title'] = overlay['title']
             li.label = overlay['title']
-        if 'plot' in overlay:
-            li.infolabels['plot'] = overlay['plot']
+        plot = overlay_plot(li.infolabels.get('plot'), overlay.get('plot'), iso_language)
+        if plot:
+            li.infolabels['plot'] = plot
         if 'thumb' in overlay:
             li.art['thumb'] = overlay['thumb']
         if 'airdate' in overlay and not li.infolabels.get('premiered'):

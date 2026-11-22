@@ -149,8 +149,13 @@ class ListItemDetailsConfigurator:
         if 'title' in overlay:
             li.infolabels['title'] = overlay['title']
             li.label = overlay['title']
-        if 'plot' in overlay:
-            li.infolabels['plot'] = overlay['plot']
+        try:
+            from tmdbhelper.lib.items.anime_enrichment import overlay_plot
+            plot = overlay_plot(li.infolabels.get('plot'), overlay.get('plot'))  # English: replaces; another language: only fills an empty plot while the English plot fallback is on
+        except Exception:
+            plot = overlay.get('plot')
+        if plot:
+            li.infolabels['plot'] = plot
         if 'thumb' in overlay:
             li.art['thumb'] = overlay['thumb']
         if 'airdate' in overlay and not li.infolabels.get('premiered'):

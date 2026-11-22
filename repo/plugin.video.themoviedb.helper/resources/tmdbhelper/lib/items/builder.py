@@ -401,7 +401,7 @@ class ItemBuilder(_ArtworkSelector):
         li.art = self.get_item_artwork(item['artwork'], is_season=mediatype in ['season', 'episode'])
         if mediatype == 'episode':
             from tmdbhelper.lib.items.anime_enrichment import apply_anime_overlay
-            apply_anime_overlay(li)   # anime episode titles/plots/stills (setting "Anime episode enrichment"); not stored in the item cache
+            apply_anime_overlay(li, self.tmdb_api.iso_language)   # anime episode titles/plots/stills (setting "Anime episode enrichment"); not stored in the item cache. The plot follows the language rule of overlay_plot
         return li
 
 

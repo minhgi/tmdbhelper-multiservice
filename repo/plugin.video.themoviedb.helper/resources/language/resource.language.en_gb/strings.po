@@ -3153,7 +3153,7 @@ msgid "Anime episode enrichment"
 msgstr ""
 
 msgctxt "#32571"
-msgid "Overlay anime-specific episode titles, plots, and thumbnails from AniZip (any anime in the Fribb list) or, for other shows, from Seren's anime cache."
+msgid "Overlay anime-specific episode titles, plots, and thumbnails from AniZip (any anime in the Fribb list) or, for other shows, from Seren's anime cache. These plots are English: in another language they never replace a plot in your language and fill an empty one only while English plot fallback is on."
 msgstr ""
 
 msgctxt "#32572"
