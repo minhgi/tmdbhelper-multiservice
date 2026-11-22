@@ -499,6 +499,10 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             return False
         return self.params.get('info') not in EMPTY_NO_NOTICE
 
+    def _sync_threads_need_requests(self):
+        """ True when the sync threads started in get_directory may fetch something (and so import `requests`, about 0.3 s the first time). """
+        return True
+
     def get_directory(self, items_only=False, build_items=True):
         # Widget cache: serve cached items instantly for spurious re-requests
         # (e.g. after YouTube trailer causes skin to unload/reload widgets)
@@ -512,7 +516,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                     return
 
         with TimerList(self.timer_lists, 'total', logging=self.log_timers):
-            if get_setting('service_trakt') or get_setting('service_mdblist') or get_setting('service_simkl'):
+            if self._sync_threads_need_requests() and (get_setting('service_trakt') or get_setting('service_mdblist') or get_setting('service_simkl')):
                 from tmdbhelper.lib.addon.thread import preload_requests
                 preload_requests()  # the sync threads below must not make the first `import requests` at the same moment
             self.trakt_playdata.pre_sync_start(**self.params)

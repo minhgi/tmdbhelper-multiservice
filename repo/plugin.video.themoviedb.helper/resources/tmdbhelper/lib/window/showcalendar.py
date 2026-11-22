@@ -482,15 +482,27 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             return xbmc.executebuiltin(command)
         # RunScript would start the script in its own thread and return at once, before its dialogs and the sync are done: run it here instead,
         # so the page reloads only after the Trakt / MDBList / Simkl option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
-        stamp_before = sync_stamp()
+        stamp_before, marks_before = sync_stamp(), self._activity_marks()
         try:
             from tmdbhelper.lib.script.router import Script
             Script(*[arg.strip() for arg in script.group(1).split(',')]).router()
         except Exception as exc:
             kodi_log(f'Show calendar: the context menu option {command} failed: {exc}', 1)
-        if stamp_before is not None and sync_stamp() == stamp_before:  # backed out of the options window, or an option that wrote nothing to the Trakt / MDBList / Simkl data: nothing to show, no rebuild (and no busy dialog)
+        # Skip the rebuild only when nothing at all changed: the sync databases are the same AND none of the last-activities marks moved. The Trakt option
+        # (Watched, Unwatched ...) only clears its mark here and the local Trakt database is pulled at the next page build, so the databases alone cannot tell
+        if stamp_before is not None and marks_before is not None and sync_stamp() == stamp_before and self._activity_marks() == marks_before:  # backed out of the options window, or an option that changed nothing: no rebuild (and no busy dialog)
             return kodi_log('Show calendar: the context menu option changed no Trakt / MDBList / Simkl data, the page is left as it is', 1)
         self._refresh(position)
+
+    @staticmethod
+    def _activity_marks():
+        """ The Trakt / MDBList / Simkl last-activities marks kept in the Home window: a sync action clears its mark, which is how a change shows before the local data is pulled. None when unreadable """
+        try:
+            from jurialmunkey.window import get_property
+            marks = tuple(get_property(name) for name in ('TraktNewSyncLastActivities', 'MDbList.LastActivities', 'Simkl.LastActivities'))
+            return marks if any(marks) else None  # no mark at all: a clear could not be seen, so treat as unknown (the page is rebuilt)
+        except Exception:
+            return None
 
     def _refresh(self, position):
         self._pages.clear()  # the option that just ran may have changed rows on other days too

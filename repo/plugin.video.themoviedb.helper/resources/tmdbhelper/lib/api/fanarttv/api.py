@@ -1,4 +1,3 @@
-import requests  # not `from requests.utils import ...`: that form importing next to another thread's `import requests` makes Python report an import deadlock on 'requests.utils'
 from tmdbhelper.lib.addon.plugin import get_language, get_setting
 from jurialmunkey.parser import try_int, del_empty_keys
 from tmdbhelper.lib.addon.consts import CACHE_EXTENDED, ITER_PROPS_MAX
@@ -39,6 +38,7 @@ ARTWORK_TYPES = {
 
 def get_encoded_url(d):
     url = d.get('url') or ''
+    import requests  # loaded on first use, not when the add-on starts: importing it costs about 0.4 s and the menus never get here. Keep this `import requests` form, not `from requests.utils import ...`: that form importing next to another thread's `import requests` makes Python report an import deadlock on 'requests.utils'
     return requests.utils.requote_uri(url)  # Encodes spaces and any other unsafe characters in the URLs the API returns (as upstream 6.20.x does)
 
 

@@ -2031,6 +2031,11 @@ def _warm_your_calendar(items):
 
 
 class ListBaseDir(ContainerDirectory):
+    def _sync_threads_need_requests(self):
+        """ The Trakt / MDBList / Simkl sync threads only fetch for a list of movies or shows (tmdb_type movie, tv, season or both) or for a user-list route, never for a menu
+        (info=dir_...) of any other type: for those they start and do nothing, so the menu does not wait for `requests` to be imported first (about 0.3 s). """
+        return self.params.get('tmdb_type') in ('movie', 'tv', 'season', 'both')
+
     def _stamp_menu(self):
         """ A menu is built from the service / menu switches. Kodi may keep a saved copy of a page it was slow to build and serve it again on Back (the add-on is
         not called at all), so a menu row switched on or off stayed as it was (GitHub issue #13). With "Keep menu pages for a quick Back" on (the default) the page is
