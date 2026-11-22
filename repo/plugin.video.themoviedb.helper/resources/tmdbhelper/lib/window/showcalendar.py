@@ -26,6 +26,7 @@ NEXT_BUTTON_ID = 3002
 TODAY_BUTTON_ID = 3004
 SCROLLBAR_ID = 1111
 OPEN_PROPERTY = SHOW_CALENDAR_PROPERTY  # Home window property: the id of the calendar window that is open
+WIDE_ART_PROPERTY = 'TMDbHelper.CalendarWideArt'  # Home window property: the landscape setting is on. The skin reads it from Home: Window.Property() means the window on top, which is the context menu while it is open (the list showed the poster layout then)
 ROWS_PER_PAGE = 12  # the list is 900 px high, a row 72 px: the scrollbar (showonepage=false) is there only for a longer list
 CLOSE_BUTTON_ID = 2999
 ACTION_MOVE_LEFT = 1
@@ -361,7 +362,10 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         if self._day_mode:
             self.setProperty('day_mode', 'True')
         if self._wide_art:
-            self.setProperty('wide_art', 'True')  # the skin shows the row_wide art instead of the poster
+            self.setProperty('wide_art', 'True')
+            xbmcgui.Window(10000).setProperty(WIDE_ART_PROPERTY, 'True')  # the skin shows the row_wide art instead of the poster
+        else:
+            xbmcgui.Window(10000).clearProperty(WIDE_ART_PROPERTY)  # one left behind by a Kodi that ended with the window open
         self._list = self.getControl(LIST_ID)
         self._show_overview()
 
@@ -528,5 +532,6 @@ def open_show_calendar(window_title=None, endpoint=None, user=None, countries=No
         window.doModal()
     finally:
         home.clearProperty(OPEN_PROPERTY)
+        home.clearProperty(WIDE_ART_PROPERTY)
         window._pages.close()  # stop the prefetch before the script ends
     del window

@@ -156,7 +156,7 @@
             <height>560</height>
             <aspectratio>keep</aspectratio>
             <texture background="true">$INFO[Container(1000).ListItem.Art(poster)]</texture>
-            <visible>String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="image">
             <left>40</left>
@@ -165,7 +165,7 @@
             <height>248</height>
             <aspectratio>keep</aspectratio>
             <texture background="true">$INFO[Container(1000).ListItem.Art(row_wide)]</texture>
-            <visible>!String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>!String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="label">
             <left>40</left>
@@ -175,7 +175,7 @@
             <font>font12</font>
             <textcolor>FF0F89AE</textcolor>
             <label>[B][UPPERCASE]$LOCALIZE[563]: $INFO[Container(1000).ListItem.Property(row_rating)][/UPPERCASE][/B]</label>
-            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="label">
             <left>40</left>
@@ -185,7 +185,7 @@
             <font>font12</font>
             <textcolor>FF0F89AE</textcolor>
             <label>[B][UPPERCASE]$LOCALIZE[563]: $INFO[Container(1000).ListItem.Property(row_rating)][/UPPERCASE][/B]</label>
-            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>!String.IsEmpty(Container(1000).ListItem.Property(row_rating)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -195,7 +195,7 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Plot]</label>
-            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -205,7 +205,7 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Plot]</label>
-            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>!String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -215,7 +215,7 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Property(show_summary)]</label>
-            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
         <control type="textbox">
             <left>40</left>
@@ -225,7 +225,7 @@
             <font>font12</font>
             <textcolor>E6FFFFFF</textcolor>
             <label>$INFO[Container(1000).ListItem.Property(show_summary)]</label>
-            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+            <visible>String.IsEqual(Container(1000).ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
         </control>
 
         <!-- Empty page / empty unwatched list -->
@@ -276,7 +276,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(poster)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>92</left>
@@ -287,7 +287,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>18</left>
@@ -296,7 +296,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(row_wide)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>52</left>
@@ -305,7 +305,7 @@
                     <height>40</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(row_wide)]</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>124</left>
@@ -316,7 +316,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>800</left>
@@ -339,7 +339,7 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -350,7 +350,7 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -361,7 +361,7 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -372,7 +372,7 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -383,7 +383,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -394,7 +394,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -405,7 +405,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -416,7 +416,7 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>84</left>
@@ -425,7 +425,7 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>124</left>
@@ -434,7 +434,7 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>670</left>
@@ -547,7 +547,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(poster)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>92</left>
@@ -558,7 +558,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>18</left>
@@ -567,7 +567,7 @@
                     <height>52</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(row_wide)]</texture>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>52</left>
@@ -576,7 +576,7 @@
                     <height>40</height>
                     <aspectratio>scale</aspectratio>
                     <texture>$INFO[ListItem.Art(row_wide)]</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>124</left>
@@ -587,7 +587,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>[B]$INFO[ListItem.Label][/B]</label>
-                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>800</left>
@@ -610,7 +610,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -621,7 +621,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -632,7 +632,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>170</left>
@@ -643,7 +643,7 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>84</left>
@@ -652,7 +652,7 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="image">
                     <left>124</left>
@@ -661,7 +661,7 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window.Property(wide_art))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window(Home).Property(TMDbHelper.CalendarWideArt))</visible>
                 </control>
                 <control type="label">
                     <left>670</left>

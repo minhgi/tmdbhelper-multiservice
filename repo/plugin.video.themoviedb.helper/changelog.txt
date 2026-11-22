@@ -1,3 +1,5 @@
+v7.0.134
+- Fixed: with "TV calendars: landscape artwork and episode thumbnails" on, opening the context menu in a TV calendar switched the list to the poster layout until the menu was closed (GitHub issue #14). The calendar now keeps its layout while the menu is open.
 v7.0.133
 - Fixed: anime episodes showed an English plot whatever the TMDb Helper language (GitHub issue #14). The plot of "Anime episode enrichment" is English: in a language other than English it no longer replaces a plot in your language, and it fills an empty plot only while "English plot fallback" is on. While "English plot fallback" is on, an episode that has no plot of its own in TMDb keeps its show's plot instead of the overlay's episode plot. English users see no change. The overlay's episode titles and thumbnails are unchanged.
 v7.0.132
