@@ -4104,3 +4104,71 @@ msgstr ""
 msgctxt "#32810"
 msgid "Off (default): the calendar windows show posters. On: a show shows its landscape artwork (its fanart if it has none) and an episode shows its own thumbnail (the show artwork until the episode has one), in the list and in the large image at the side. Applies to the TV calendar windows, not to the Movie Calendar."
 msgstr ""
+
+msgctxt "#32811"
+msgid "WeTrakr API"
+msgstr ""
+
+msgctxt "#32812"
+msgid "Enable WeTrakr"
+msgstr ""
+
+msgctxt "#32813"
+msgid "WeTrakr app key (client ID), optional"
+msgstr ""
+
+msgctxt "#32814"
+msgid "Authorize WeTrakr account..."
+msgstr ""
+
+msgctxt "#32815"
+msgid "Logout of WeTrakr account..."
+msgstr ""
+
+msgctxt "#32816"
+msgid "Turns WeTrakr features on or off."
+msgstr ""
+
+msgctxt "#32817"
+msgid "Leave this empty: TMDb Helper has its own WeTrakr app key built in, so you only need to authorize. Enter a client ID here only to use your own WeTrakr developer app instead. TMDb Helper does not use a client secret."
+msgstr ""
+
+msgctxt "#32818"
+msgid "Signs in to your WeTrakr account: you get a code to enter on wetrakr.com/activate."
+msgstr ""
+
+msgctxt "#32819"
+msgid "Signs out of your WeTrakr account."
+msgstr ""
+
+msgctxt "#32820"
+msgid "Tells WeTrakr what you watch when you play items through TMDb Helper. Off while the WeTrakr add-on (script.wetrakr) already scrobbles the same plays."
+msgstr ""
+
+msgctxt "#32821"
+msgid "The stored WeTrakr login. It is filled in when you authorize, so there is no need to edit it by hand."
+msgstr ""
+
+msgctxt "#32822"
+msgid "Shows the watched marks held by your WeTrakr account on movies, shows, seasons and episodes in the lists. The data is read from WeTrakr again only when WeTrakr reports a change on your account."
+msgstr ""
+
+msgctxt "#32823"
+msgid "Shows the resume points (paused plays) held by your WeTrakr account on movies and episodes in the lists."
+msgstr ""
+
+msgctxt "#32824"
+msgid "WeTrakr options"
+msgstr ""
+
+msgctxt "#32825"
+msgid "Shows the WeTrakr options entry in the item context menu: set as watched or unwatched, reset the resume position and rate on your WeTrakr account."
+msgstr ""
+
+msgctxt "#32826"
+msgid "Watched marks to WeTrakr"
+msgstr ""
+
+msgctxt "#32827"
+msgid "Copies the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, one way only: nothing is read back from WeTrakr into the other services and nothing is removed from it, and a title you unwatch on WeTrakr is not sent again. Specials (season 0) are left out. Up to 100 movies and 300 episodes are sent per run, so a large library takes several runs. Log only writes what would be sent to the log and changes nothing."
+msgstr ""

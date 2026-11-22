@@ -135,6 +135,14 @@ class Script(object):
         'account_info_simkl':
             lambda **kwargs: importmodule('tmdbhelper.lib.script.method.account_info', 'simkl_account_info')(**kwargs),
 
+        # WeTrakr Utils (no Account Info: WeTrakr's /account is not part of its public API)
+        'sync_wetrakr':
+            lambda **kwargs: importmodule('tmdbhelper.lib.script.method.wetrakr', 'sync_wetrakr')(**kwargs),
+        'authenticate_wetrakr':
+            lambda **kwargs: importmodule('tmdbhelper.lib.api.wetrakr.api', 'WeTrakrAPI')().login(),
+        'revoke_wetrakr':
+            lambda **kwargs: importmodule('tmdbhelper.lib.api.wetrakr.api', 'WeTrakrAPI')().logout(),
+
         # Image Functions
         'blur_image':
             lambda **kwargs: importmodule('tmdbhelper.lib.script.method.image_functions', 'blur_image')(**kwargs),

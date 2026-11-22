@@ -396,8 +396,11 @@ class ListUpNext(ListSync):
         return (season, episode) if season and episode else None
 
     def _get_items_first_unwatched(self, tmdb_id, syncdata):
-        """ Without Trakt: the first episode (aired or not) this service (MDBList or Simkl, local synced data only) has not marked watched, and the rest of its season.
-        Seasons the service counts as fully watched are skipped without a TMDb request. Empty when there is none. """
+        """ Without Trakt: the first episode (aired or not) this service (MDBList, Simkl or WeTrakr, local synced data only) has not marked watched, and the rest of its season.
+        Seasons the service counts as fully watched are skipped without a TMDb request. Empty when there is none, and also when the service has
+        not marked a single episode of the show (it does not follow it: answering "from season 1 episode 1" would keep the next service from being asked). """
+        if not (syncdata.get_episode_watchedcount(tmdb_id) or 0):
+            return []
         details = self.tmdb_api.get_request_sc('tv', tmdb_id) or {}
         seasons = sorted(
             (try_int(i.get('season_number')), try_int(i.get('episode_count')))
@@ -414,12 +417,13 @@ class ListUpNext(ListSync):
 
     def _get_items_from_next_episode(self, tmdb_id):
         """ A show with no Up Next rows: its next episode and the rest of that season (Trakt's synced next episode; without one, the first episode
-        MDBList or Simkl has not marked watched), from TMDb. Empty when none is known. """
+        MDBList, Simkl or WeTrakr has not marked watched, in that order), from TMDb. Empty when none is known. """
         try:
             nxt = self._get_next_episode_trakt(tmdb_id)
             if nxt:
                 return self._get_season_from_episode(tmdb_id, *nxt)
-            for playdata, attr in ((self.mdblist_playdata, 'mdblist_syncdata'), (self.simkl_playdata, 'simkl_syncdata')):
+            for playdata, attr in ((self.mdblist_playdata, 'mdblist_syncdata'), (self.simkl_playdata, 'simkl_syncdata'),
+                                   (self.wetrakr_playdata, 'wetrakr_syncdata')):
                 syncdata = getattr(playdata, attr, None) if playdata._watchedindicators else None
                 items = self._get_items_first_unwatched(tmdb_id, syncdata) if syncdata else None
                 if items:

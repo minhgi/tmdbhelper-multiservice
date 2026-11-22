@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.131 — Install Instructions
+# TMDb Helper 7.5.13 — Install Instructions
 
-Covers four pieces: the **TMDb Helper** add-on (this fork), its two required script modules **script.module.jurialmunkey** and **script.module.infotagger**, the **players**, and connecting your **Trakt / MDBList / Simkl** accounts.
+Covers four pieces: the **TMDb Helper** add-on (this fork), its two required script modules **script.module.jurialmunkey** and **script.module.infotagger**, the **players**, and connecting your **Trakt / MDBList / Simkl / WeTrakr** accounts.
 
 There are three separate steps, for three kinds of thing:
 
@@ -10,7 +10,7 @@ There are three separate steps, for three kinds of thing:
 
 Do Part 1 first, then Part 2, then Part 3.
 
-> **This is a personal fork, not in the official Kodi repository.** It uses the same add-on ID as the stock TMDb Helper (`plugin.video.themoviedb.helper`), so it replaces the stock one. The version numbers are above the other builds' (7.0.131 here; 5.4.16 in Kodi's official repository when checked on 2026-10-17, 6.17.9 in the signde repository and 6.18.0 in the upstream source), so Kodi will not offer to "update" you back to any of them.
+> **This is a personal fork, not in the official Kodi repository.** It uses the same add-on ID as the stock TMDb Helper (`plugin.video.themoviedb.helper`), so it replaces the stock one. The version numbers are above the other builds' (7.5.13 here; 5.4.16 in Kodi's official repository when checked on 2026-10-17, 6.17.9 in the signde repository and 6.18.0 in the upstream source), so Kodi will not offer to "update" you back to any of them.
 
 ---
 
@@ -19,7 +19,7 @@ Do Part 1 first, then Part 2, then Part 3.
 - **Kodi 20 (Nexus) or newer** (the add-on asks for Kodi's Python API 3.0.1, which belongs to Kodi 20 and later; Kodi 19 is not enough). It is developed and live-tested on **Kodi 22**, portable install.
 - **An internet connection.** Lists come from TMDb, Trakt, MDBList, Simkl, TVDb and AniList.
 - **A player add-on** if you want to *play* things (for example Seren, Prism, Red Light, Fen Light, Otaku Testing, Umbrella, POV). TMDb Helper finds and lists titles; the player add-on does the playing. Browsing, calendars, progress lists and syncing work without one.
-- **Optional accounts:** Trakt, MDBList and Simkl (free accounts work for sign-in), plus optional API keys for OMDb, fanart.tv and TVDb.
+- **Optional accounts:** Trakt, MDBList, Simkl and WeTrakr (free accounts work for sign-in), plus optional API keys for OMDb, fanart.tv and TVDb.
 
 ---
 
@@ -27,7 +27,7 @@ Do Part 1 first, then Part 2, then Part 3.
 
 ### Option A — Install from the repository (recommended)
 
-The repository serves TMDb Helper 7.0.131 **and** the two script modules it needs, which are not in Kodi's official repository.
+The repository serves TMDb Helper 7.5.13 **and** the two script modules it needs, which are not in Kodi's official repository.
 
 1. **Settings → File Manager → Add source**. Enter this address and name it anything (for example "TMDb Helper Multiservice"), then select **OK**:
 
@@ -50,7 +50,7 @@ Use this if you cannot reach GitHub Pages, or want a specific version. Install t
 |---|---|---|
 | 1 | `script.module.jurialmunkey-0.2.35.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/script.module.jurialmunkey/script.module.jurialmunkey-0.2.35.zip` |
 | 2 | `script.module.infotagger-0.0.8.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/script.module.infotagger/script.module.infotagger-0.0.8.zip` |
-| 3 | `plugin.video.themoviedb.helper-7.0.131.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/plugin.video.themoviedb.helper/plugin.video.themoviedb.helper-7.0.131.zip` |
+| 3 | `plugin.video.themoviedb.helper-7.5.13.zip` | `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/repo/zips/plugin.video.themoviedb.helper/plugin.video.themoviedb.helper-7.5.13.zip` |
 
 Download each file (or paste the address where your Kodi build accepts a web location) and select it. The add-on will still need the four modules that Kodi's official repository supplies; Kodi fetches those itself when it can. Installing from the repository (Option A) avoids chasing these by hand.
 
@@ -60,7 +60,7 @@ Installing over the stock TMDb Helper is an upgrade, and your settings are kept.
 
 ### Other repositories that carry TMDb Helper
 
-Some skins point you to another repository with its own TMDb Helper (Arctic Fuse 3 uses the signde repository, version 6.17.9). Kodi installs the highest version it can see, and this fork is numbered 7.0.131, above those, so it is not replaced and automatic updates can stay on. Arctic Fuse 3 3.4.0 asks for TMDb Helper 6.17.9 or newer, which 7.x satisfies. Do not install the other build over this one: it is an older version and has none of this fork's features.
+Some skins point you to another repository with its own TMDb Helper (Arctic Fuse 3 uses the signde repository, version 6.17.9). Kodi installs the highest version it can see, and this fork is numbered 7.5.13, above those, so it is not replaced and automatic updates can stay on. Arctic Fuse 3 3.4.0 asks for TMDb Helper 6.17.9 or newer, which 7.x satisfies. Do not install the other build over this one: it is an older version and has none of this fork's features.
 
 ---
 
@@ -109,6 +109,11 @@ Open **Settings → Accounts**. Each service signs in directly from TMDb Helper 
 1. **Authorize Simkl account…** — TMDb Helper shows a PIN. Visit **simkl.com/pin**, enter the code and wait for the dialog to finish.
 2. **Account Info** confirms the login.
 
+### Step 3b — WeTrakr (optional)
+
+1. **Authorize WeTrakr account…** — TMDb Helper shows a QR code, the address **wetrakr.com/activate** and a code. Scan the QR code with a phone (the page opens with the code filled in) or open the address on any device and type the code, then approve. You need a free WeTrakr account; there is no app key to enter.
+2. WeTrakr has no Account Info entry. **Logout of WeTrakr account…** signs out.
+
 ### Step 4 — Turn on what you want from each service
 
 These are **off by default**, so a fresh install shows no watched marks and sends nothing back until you enable them. In each service's group:
@@ -119,7 +124,7 @@ These are **off by default**, so a fresh install shows no watched marks and send
 | **Get watched indicators and episode counts (slower)** | **off** | **off** | **off** | Shows watched marks and episode counts on items |
 | **Get resume points (experimental) (slower)** | **off** | **off** | **off** | Shows resume points from that service |
 
-Turn on at least **Get watched indicators and episode counts** for every service you use. Turn on **Scrobble** for MDBList / Simkl if you want playback recorded there too.
+Turn on at least **Get watched indicators and episode counts** for every service you use. Turn on **Scrobble** for MDBList / Simkl / WeTrakr if you want playback recorded there too. WeTrakr has the same three settings in its own group, all **off** by default (Scrobble, Get watched indicators and episode counts, Get resume points).
 
 ### Step 5 — Cross-Service Sync (optional)
 
@@ -150,7 +155,7 @@ In **Settings → Accounts → Cross-service sync**:
 | Install TMDb Helper (and its modules) | Add-ons → Install from repository → TMDb Helper Multiservice → Video add-ons → TMDb Helper |
 | Install players | TMDb Helper → Settings → Players → Install players → Install from URL |
 | Set default players | TMDb Helper → Settings → Players → Default player for movies / episodes |
-| Sign in to Trakt / MDBList / Simkl | TMDb Helper → Settings → Accounts → Authenticate / Authorize … |
+| Sign in to Trakt / MDBList / Simkl / WeTrakr | TMDb Helper → Settings → Accounts → Authenticate / Authorize … |
 | Turn on watched marks | TMDb Helper → Settings → Accounts → *service* → Get watched indicators and episode counts |
 | Cross-Service Sync | TMDb Helper → Settings → Accounts → Cross-service sync |
 | Back up settings | TMDb Helper → Tools → Backup and Reset → Backup Settings (or Settings → Expert → Backup Settings & Data) |

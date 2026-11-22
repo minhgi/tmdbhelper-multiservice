@@ -63,13 +63,14 @@ def _get_basedir_simkl_progress(progress_filter=None):
 
 
 # A main-menu row shows only while its switch is on: a watch service in Settings > Accounts, Movies / TV Shows / Anime / Asian in Settings > Navigation > Main menu
-SERVICE_MENUS = {'dir_trakt': 'service_trakt', 'dir_mdblist': 'service_mdblist', 'dir_simkl': 'service_simkl',
+SERVICE_MENUS = {'dir_trakt': 'service_trakt', 'dir_mdblist': 'service_mdblist', 'dir_simkl': 'service_simkl', 'dir_wetrakr': 'service_wetrakr',
                  'dir_movie': 'menu_movies', 'dir_tv': 'menu_tv', 'dir_anime_hub': 'menu_anime', 'dir_asian_hub': 'menu_asian'}   # main-menu rows and the switch (Settings) that shows each
 
 
-def _get_basedir_list(item_type=None, trakt=False, tmdb=False, mdblist=False, tvdb=False, simkl=False):
+def _get_basedir_list(item_type=None, trakt=False, tmdb=False, mdblist=False, tvdb=False, simkl=False, wetrakr=False):
     basedir = []
     trakt, mdblist, simkl = (trakt and get_setting('service_trakt')), (mdblist and get_setting('service_mdblist')), (simkl and get_setting('service_simkl'))
+    wetrakr = wetrakr and get_setting('service_wetrakr')
     if tmdb:
         tmdb_items = _get_basedir_tmdb()
         if item_type in ('movie', 'tv'):
@@ -88,6 +89,8 @@ def _get_basedir_list(item_type=None, trakt=False, tmdb=False, mdblist=False, tv
         basedir += _get_basedir_tvdb()
     if simkl:
         basedir += _get_basedir_simkl()
+    if wetrakr:
+        basedir += _get_basedir_wetrakr()
     return _build_basedir(item_type, basedir)
 
 
@@ -702,6 +705,105 @@ def _get_basedir_simkl(all_labels=True):
             'art': {
                 'landscape': f'{ADDONPATH}/fanart.jpg',
                 'icon': f'{ADDONPATH}/resources/icons/simkl/dropped.png'}}]
+
+
+def _get_basedir_wetrakr(all_labels=True):
+    # Sibling of the Simkl menu (same rows, same order): the unfiltered progress rows are "All ..." and the Anime / Asian / Movies and TV Shows
+    # Progress submenus (all_labels=False) keep the plain names. WeTrakr numbers by TMDb, so the anime rows are not set apart (In-Progress Episodes
+    # is in every submenu). The row icons are the WeTrakr set in resources/icons/wetrakr (the Simkl glyphs with the WeTrakr name).
+    return [
+        {
+            'label': u'All In-Progress{space}{item_type}' if all_labels else u'In-Progress{space}{item_type}',
+            'types': ['movie', 'tv', 'both'],
+            'params': {'info': 'wetrakr_upnext'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/inprogress.png'}},
+        {
+            'label': u'All In-Progress Episodes' if all_labels else u'In-Progress Episodes',
+            'types': ['tv'],
+            'params': {'info': 'wetrakr_ondeck'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/inprogress.png'}},
+        {
+            'label': u'All {}'.format(get_localized(32572)) if all_labels else get_localized(32572),
+            'types': ['tv'],
+            'params': {'info': 'wetrakr_nextup'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/nextup.png'}},
+        {
+            'label': 'Movies and TV Shows Progress',
+            'types': ['tv'],
+            'params': {'info': 'dir_wetrakr_progress', 'progress_filter': 'other'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/nextup.png'}},
+        {
+            'label': 'Anime Progress',
+            'types': ['tv'],
+            'params': {'info': 'dir_wetrakr_progress', 'progress_filter': 'anime'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/nextup.png'}},
+        {
+            'label': 'Asian Progress',
+            'types': ['tv'],
+            'params': {'info': 'dir_wetrakr_progress', 'progress_filter': 'asian'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/nextup.png'}},
+        {
+            'label': u'Watching',
+            'types': ['tv'],
+            'params': {'info': 'wetrakr_watching'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/watching.png'}},
+        {
+            'label': u'Plan to Watch{space}{item_type}',
+            'types': ['movie', 'tv', 'both'],
+            'params': {'info': 'wetrakr_plantowatch'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/plantowatch.png'}},
+        {
+            'label': u'Recently Watched{space}{item_type}',
+            'types': ['movie', 'tv', 'both'],
+            'params': {'info': 'wetrakr_history'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/recentlywatched.png'}},
+        {
+            'label': u'On Hold',
+            'types': ['tv'],
+            'params': {'info': 'wetrakr_hold'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/onhold.png'}},
+        {
+            'label': u'Dropped{space}{item_type}',
+            'types': ['movie', 'tv', 'both'],
+            'params': {'info': 'wetrakr_dropped'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/dropped.png'}}]
+
+
+def _get_basedir_wetrakr_progress(progress_filter=None):
+    return _get_basedir_progress(_get_basedir_wetrakr(all_labels=False), ('wetrakr_upnext', 'wetrakr_ondeck', 'wetrakr_nextup'), progress_filter)
 
 
 def _get_basedir_trakt(all_labels=True):
@@ -1353,6 +1455,14 @@ def _get_basedir_main_rows():
             'art': {
                 'landscape': f'{ADDONPATH}/fanart.jpg',
                 'icon': f'{ADDONPATH}/resources/icons/simkl/simkl.png'}},
+        {
+            'label': u'WeTrakr',
+            'types': [None],
+            'params': {'info': 'dir_wetrakr'},
+            'path': PLUGINPATH,
+            'art': {
+                'landscape': f'{ADDONPATH}/fanart.jpg',
+                'icon': f'{ADDONPATH}/resources/icons/wetrakr/wetrakr.png'}},
         {
             'label': u'Nodes',
             'types': [None],
@@ -2032,7 +2142,7 @@ def _warm_your_calendar(items):
 
 class ListBaseDir(ContainerDirectory):
     def _sync_threads_need_requests(self):
-        """ The Trakt / MDBList / Simkl sync threads only fetch for a list of movies or shows (tmdb_type movie, tv, season or both) or for a user-list route, never for a menu
+        """ The Trakt / MDBList / Simkl / WeTrakr sync threads only fetch for a list of movies or shows (tmdb_type movie, tv, season or both) or for a user-list route, never for a menu
         (info=dir_...) of any other type: for those they start and do nothing, so the menu does not wait for `requests` to be imported first (about 0.3 s). """
         return self.params.get('tmdb_type') in ('movie', 'tv', 'season', 'both')
 
@@ -2077,6 +2187,8 @@ class ListBaseDir(ContainerDirectory):
             'dir_simkl_progress': lambda: _get_basedir_simkl_progress(kwargs.get('progress_filter')),
             'dir_trakt_progress': lambda: _get_basedir_trakt_progress(kwargs.get('progress_filter')),
             'dir_simkl': lambda: _get_basedir_list(None, simkl=True),
+            'dir_wetrakr': lambda: _get_basedir_list(None, wetrakr=True),
+            'dir_wetrakr_progress': lambda: _get_basedir_wetrakr_progress(kwargs.get('progress_filter')),
             'dir_tvdb': lambda: _get_basedir_list(None, tvdb=True),
             'dir_random': lambda: _build_basedir(None, _get_basedir_random()),
             'dir_calendar_trakt': lambda: _get_basedir_calendar(info='trakt_calendar', endpoint=kwargs.get('endpoint'), user=kwargs.get('user'), tmdb_type=kwargs.get('tmdb_type'), countries=kwargs.get('countries'), calendar_filter=kwargs.get('calendar_filter'), genres=kwargs.get('genres')),

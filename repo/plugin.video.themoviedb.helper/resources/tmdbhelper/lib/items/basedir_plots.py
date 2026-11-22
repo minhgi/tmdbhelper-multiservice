@@ -24,6 +24,7 @@ _BY_INFO = {
     'dir_tvdb': 'TV shows by TVDb awards and genres',
     'dir_mdblist': 'Your MDBList watchlist, history, collection, progress and lists, plus top and searchable lists',
     'dir_simkl': 'Your Simkl watching, plan to watch, history, on hold and dropped lists',
+    'dir_wetrakr': 'Your WeTrakr in-progress, next up, watching, plan to watch, history, on hold and dropped lists',
     'dir_custom_node': 'Your own menus (custom nodes)',
     'dir_settings': 'Open the TMDb Helper settings',
     'dir_tools': 'Sync, cache, backup and changelog tools',
@@ -104,6 +105,15 @@ _BY_INFO = {
     'simkl_history': '{N} you watched recently, from your Simkl history',
     'simkl_hold': 'TV shows you put on hold on Simkl',
     'simkl_dropped': '{N} you dropped on Simkl',
+    # WeTrakr
+    'wetrakr_upnext': '{N} you paused part-way, from WeTrakr',
+    'wetrakr_ondeck': 'The episodes you paused part-way through, from WeTrakr',
+    'wetrakr_nextup': 'The next episode to watch of each show you are watching on WeTrakr',
+    'wetrakr_watching': 'TV shows you are watching on WeTrakr',
+    'wetrakr_plantowatch': '{N} on your WeTrakr plan to watch list',
+    'wetrakr_history': '{N} you watched recently, from your WeTrakr history',
+    'wetrakr_hold': 'TV shows you put on hold on WeTrakr',
+    'wetrakr_dropped': '{N} you dropped on WeTrakr',
     # TVDb
     'dir_tvdb_awards': 'TV shows that won or were nominated for an award, from TVDb',
     'dir_tvdb_genres': 'Browse {n} by genre, from TVDb',
@@ -214,8 +224,8 @@ def _describe(item):
     params = item.get('params') or {}
     info = params.get('info')
     label = item.get('label') or ''
-    if info in ('dir_mdblist_progress', 'dir_simkl_progress', 'dir_trakt_progress'):
-        service = {'dir_mdblist_progress': 'MDBList', 'dir_simkl_progress': 'Simkl'}.get(info, 'Trakt')
+    if info in ('dir_mdblist_progress', 'dir_simkl_progress', 'dir_trakt_progress', 'dir_wetrakr_progress'):
+        service = {'dir_mdblist_progress': 'MDBList', 'dir_simkl_progress': 'Simkl', 'dir_wetrakr_progress': 'WeTrakr'}.get(info, 'Trakt')
         if params.get('progress_filter') == 'anime':
             return f'Your anime in progress on {service}: movies, TV shows, episodes, the unwatched lists and your next episodes'
         if params.get('progress_filter') == 'asian':

@@ -26,6 +26,7 @@ SERVICES = (        # (service setting, progress setting, token settings, sync d
     ('service_trakt', 'trakt_playprogress', ('trakt_token',), 'TraktSync_v2.db'),
     ('service_mdblist', 'mdblist_playprogress', ('mdblist_token', 'mdblist_apikey'), 'MDbListSync.db'),
     ('service_simkl', 'simkl_playprogress', ('simkl_token',), 'SimklSync.db'),
+    ('service_wetrakr', 'wetrakr_playprogress', ('wetrakr_token', 'wetrakr_refresh_token'), 'WeTrakrSync.db'),
 )
 
 

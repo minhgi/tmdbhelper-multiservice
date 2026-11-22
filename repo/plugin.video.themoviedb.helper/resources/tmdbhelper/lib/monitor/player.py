@@ -1141,6 +1141,221 @@ class SimklScrobbler(PlayerScrobbler):
                 self._service_lock.release()
 
 
+def official_wetrakr_scrobbles():
+    """ Why the official script.wetrakr add-on already reports the playing item to WeTrakr ('' when it does not). That add-on scrobbles every
+    play, plugin:// streams included, unless its scrobble_library_only is on (then only Kodi library files). A second report from TMDb Helper
+    would reach WeTrakr twice, from two clients. Not covered when it is missing, disabled, signed out, has its tokens rejected (auth_invalid)
+    or has both of its scrobbling switches off. """
+    try:
+        from xbmc import getCondVisibility
+        if not getCondVisibility('System.AddonIsEnabled(script.wetrakr)'):
+            return ''
+        from xbmcaddon import Addon
+        official = Addon('script.wetrakr')
+        if not official.getSetting('api_token') or official.getSetting('auth_invalid') == 'true':
+            return ''
+        if official.getSetting('track_watched') == 'false' and official.getSetting('track_playing') == 'false':
+            return ''
+        if official.getSetting('scrobble_library_only') != 'true':
+            return 'script.wetrakr scrobbles every play'
+        try:
+            library_item = int(get_infolabel('VideoPlayer.DBID') or 0) > 0
+        except (TypeError, ValueError):
+            library_item = False
+        return 'script.wetrakr scrobbles Kodi library files' if library_item else ''
+    except Exception as exc:
+        kodi_log(f'WeTrakr: script.wetrakr check failed - {type(exc).__name__}', 1)
+        return ''
+
+
+class WeTrakrScrobbler(PlayerScrobbler):
+    """WeTrakr scrobbler — runs alongside the Trakt, MDBList and Simkl scrobblers during playback. Watched marks and resume points are read back
+    from WeTrakr by api/wetrakr/sync (7.5.1) when their settings are on; a post WeTrakr accepted drops the saved last_activities, so the
+    list reloaded after the stop reads the new data.
+
+    Posts (verified live 2026-11-21, see TMDb_Helper_Report.md):
+        POST /scrobble/start?min_progress=75  {'movie': {'ids': {'tmdb': id}}, 'progress': p}
+                                               episode: {'show': {'ids': {'tmdb': id}}, 'episode': {'season': s, 'number': e}, 'progress': p}
+        POST /scrobble/pause                   same body
+        POST /scrobble/stop?min_progress=75    same body. WeTrakr decides: at or above the threshold it logs the play (201), below it keeps a pause (200).
+    A start on an item that is already playing only moves the position, so a seek is reported with one more start (the inherited seek handling,
+    which calls trakt_scrobbling('start'), is routed to WeTrakr below). A play of the same title within 24 hours is not logged twice by WeTrakr.
+
+    Only for playback started by TMDb Helper: playback started by another add-on gets an inert scrobbler (get_external_playerstrings).
+    Inert as well while the official script.wetrakr add-on reports the same play (official_wetrakr_scrobbles).
+    """
+
+    service_name = 'WeTrakr'
+    MIN_PROGRESS = 75  # same watched threshold as TMDb Helper's other services
+    _start_pending = False  # a start is owed: posted once a playing time is measured (see _post_start)
+
+    def __init__(self, wetrakr_api, total_time, playerstring=None):
+        # Mirrors PlayerScrobbler.__init__ but stores wetrakr_api instead of trakt_api.
+        if playerstring is not None:
+            self._playerstring = playerstring
+            self.external = bool(playerstring)
+        self.wetrakr_api = wetrakr_api
+        self._service_lock = RLock()  # orders this service's start / pause / stop posts: a start must never land after a pause or stop
+        self.current_time = 0
+        self.total_time = total_time
+        ps = self.playerstring
+        self.tvdb_id = ps.get('tvdb_id')
+        self.imdb_id = ps.get('imdb_id')
+        self.tmdb_id = ps.get('tmdb_id')
+        self.tmdb_type = self.get_playerstring_tmdb_type()
+        self.season = int(ps.get('season') or 0)
+        self.episode = int(ps.get('episode') or 0)
+        self.stopped = False
+        self.started = False
+        self._blocked_reason = None  # why nothing is sent: read once per playback
+
+    @property
+    def _is_authorized(self):
+        return bool(self.wetrakr_api and self.wetrakr_api.is_authorized)
+
+    @property
+    def _inert_reason(self):
+        """ '' when posts will be sent, else the reason they are not (also the line in the playback plan log) """
+        if self._blocked_reason is None:
+            if not get_setting('service_wetrakr'):
+                self._blocked_reason = 'skipped (WeTrakr is switched off)'
+            elif not get_setting('wetrakr_scrobbling'):
+                self._blocked_reason = 'skipped (its scrobbling setting is off)'
+            elif not self._is_authorized:
+                self._blocked_reason = 'skipped (not signed in or no app key)'
+            else:
+                official = official_wetrakr_scrobbles()
+                self._blocked_reason = f'skipped ({official})' if official else ''
+        return self._blocked_reason
+
+    @property
+    def _ready(self):
+        return not self._inert_reason
+
+    @property
+    def _resume_ready(self):
+        """ Only read by PlayerMonitor's reload decision: True when a post changes something the lists show, i.e. the resume points are read back """
+        return bool(self._ready and get_setting('wetrakr_playprogress'))
+
+    @property
+    def _watched_ready(self):
+        """ As _resume_ready, for the watched marks """
+        return bool(self._ready and get_setting('wetrakr_watchedindicators'))
+
+    def external_report(self):
+        return self._inert_reason or 'reports start / pause / stop'
+
+    def _forget_last_activities(self, response):
+        """ A post WeTrakr accepted changes what its last_activities say: drop the saved answer, so the next list that reads WeTrakr's data asks again
+        (the stored stamp then differs and the data is read once more). Only while a read-back setting is on. """
+        if response is None or not (200 <= response.status_code < 300):
+            return
+        if not (get_setting('wetrakr_watchedindicators') or get_setting('wetrakr_playprogress')):
+            return
+        try:
+            self.wetrakr_api.wetrakr_syncdata.reset_lastactivities()
+        except Exception as exc:
+            kodi_log(f'WeTrakr: last activities not reset - {type(exc).__name__}', 1)
+
+    def _payload(self):
+        progress = round(min(max(self.progress, 0), 100), 2)
+        try:
+            tmdb_id = int(self.tmdb_id)
+        except (TypeError, ValueError):
+            return None
+        if self.tmdb_type == 'movie':
+            return {'movie': {'ids': {'tmdb': tmdb_id}}, 'progress': progress}
+        if self.tmdb_type == 'tv' and self.season and self.episode:
+            return {'show': {'ids': {'tmdb': tmdb_id}}, 'episode': {'season': self.season, 'number': self.episode}, 'progress': progress}
+        return None
+
+    def _post(self, action):
+        """ Send one scrobble post (the caller holds _service_lock and has checked _ready) """
+        payload = self._payload()
+        if not payload:
+            return
+        params = {'min_progress': self.MIN_PROGRESS} if action in ('start', 'stop') else None
+        response = self.wetrakr_api.scrobble(action, payload, params)
+        self._log_scrobble(action, response)
+        if action in ('pause', 'stop'):
+            self._forget_last_activities(response)
+
+    def _post_start(self):
+        """ POST /scrobble/start once a playing time is measured. WeTrakr takes a start on a paused item as "playing at this position", so a
+        start at 0% sent before the real position is known would overwrite the item's resume point, and a quick stop with no playing time
+        posts nothing (see _nothing_played). Serialised with pause and stop (_service_lock) so a start never lands after them. A failure is not retried. """
+        with self._service_lock:
+            if not self._start_pending or self.stopped:
+                return
+            if not self._ready:
+                self._start_pending = False
+                return
+            if not self.current_time:
+                return  # still owed: the next position update retries
+            self._start_pending = False
+            self._post('start')
+
+    @PlayerScrobbler.is_scrobbling
+    def trakt_scrobbling(self, method):
+        """ The inherited seek handling re-posts a start through this name once skipping has settled; here it goes to WeTrakr """
+        if method != 'start':
+            return
+        with self._service_lock:
+            if self.stopped or not self._ready or self._nothing_played('start'):
+                return
+            self._post('start')
+
+    @PlayerScrobbler.is_scrobbling
+    def start(self, tmdb_type, tmdb_id):
+        if not self.is_match(tmdb_type, tmdb_id):
+            return self.stop(tmdb_type, tmdb_id)
+        self.started = True
+        self._start_pending = True
+        self._post_start()
+
+    def update_time(self, tmdb_type, tmdb_id, current_time):
+        super().update_time(tmdb_type, tmdb_id, current_time)
+        if self._start_pending and self.current_time:
+            self._post_start()
+
+    @PlayerScrobbler.is_scrobbling
+    def pause(self, tmdb_type, tmdb_id):
+        if not self.is_match(tmdb_type, tmdb_id):
+            return self.stop(tmdb_type, tmdb_id)
+        with self._service_lock:
+            self._start_pending = False  # paused before the start went out: a later position update must not start a paused item
+            if self._ready and not self._nothing_played('pause'):
+                self._post('pause')
+
+    @PlayerScrobbler.is_scrobbling
+    def stop(self, tmdb_type, tmdb_id):
+        if not self.started:
+            return
+        self._stopping = True  # a skip re-post not sent yet is dropped (see PlayerScrobbler._seek_post)
+        self._start_pending = False  # no start may follow from here on
+        seek_locked = self._seek_lock.acquire(timeout=SEEK_LOCK_WAIT)  # a skip re-post being sent goes first, the stop follows it
+        locked = self._service_lock.acquire(timeout=SEEK_LOCK_WAIT)
+        try:
+            if self._ready and not self._nothing_played('stop'):
+                self._post('stop')  # WeTrakr itself logs the play at or above MIN_PROGRESS and keeps a pause below it
+            self.stopped = True
+        finally:
+            if locked:
+                self._service_lock.release()
+            if seek_locked:
+                self._seek_lock.release()
+
+    # Nothing of the Trakt-specific follow-up applies: no Kodi library mark (Trakt's scrobbler does it), no stats, no list refresh in this phase
+    def update_stats(self):
+        return
+
+    def set_kodi_watched(self):
+        return
+
+    def refresh_after_stop(self):
+        return
+
+
 class PlayerItem():
     def __init__(self, parent):
         self._parent = parent
@@ -1398,6 +1613,7 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         self.scrobbler = None
         self.mdb_scrobbler = None
         self.simkl_scrobbler = None
+        self.wetrakr_scrobbler = None
 
     def scrobbler_start(self):
         if not self.scrobbler:
@@ -1407,6 +1623,8 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             self.mdb_scrobbler.start(self.tmdb_type, self.tmdb_id)
         if self.simkl_scrobbler:
             self.simkl_scrobbler.start(self.tmdb_type, self.tmdb_id)
+        if self.wetrakr_scrobbler:
+            self.wetrakr_scrobbler.start(self.tmdb_type, self.tmdb_id)
 
     def scrobbler_pause(self):
         if not self.scrobbler:
@@ -1416,6 +1634,8 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             self.mdb_scrobbler.pause(self.tmdb_type, self.tmdb_id)
         if self.simkl_scrobbler:
             self.simkl_scrobbler.pause(self.tmdb_type, self.tmdb_id)
+        if self.wetrakr_scrobbler:
+            self.wetrakr_scrobbler.pause(self.tmdb_type, self.tmdb_id)
 
     def scrobbler_seek(self, current_time):
         if not self.scrobbler:
@@ -1424,12 +1644,14 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             if s:
                 s.update_time(self.tmdb_type, self.tmdb_id, current_time)  # their pause and stop post this position
         self.scrobbler.seek(self.tmdb_type, self.tmdb_id, current_time)
+        if self.wetrakr_scrobbler:
+            self.wetrakr_scrobbler.seek(self.tmdb_type, self.tmdb_id, current_time)  # WeTrakr moves the playing position with one more start
 
     def scrobbler_stop(self):
         if not self.scrobbler:
             return
-        scrobblers = [s for s in (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler) if s]
-        # External playback: the three services post and reload from their own threads. Holding the gate from here keeps a quick thread's
+        scrobblers = [s for s in (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler, self.wetrakr_scrobbler) if s]
+        # External playback: the services post and reload from their own threads. Holding the gate from here keeps a quick thread's
         # reload from running before a slower service has started, so the list and the widgets reload once, after the last one.
         token = RELOAD_GATE.hold() if any(s.external for s in scrobblers) else None
         try:
@@ -1445,7 +1667,9 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             self.mdb_scrobbler.stop(self.tmdb_type, self.tmdb_id)
         if self.simkl_scrobbler:
             self.simkl_scrobbler.stop(self.tmdb_type, self.tmdb_id)
-        # One reload after all three posts, not one per service: a reload that runs before the last post renders the old data.
+        if self.wetrakr_scrobbler:
+            self.wetrakr_scrobbler.stop(self.tmdb_type, self.tmdb_id)  # before the reload below: the lists must find WeTrakr's changed activity stamp
+        # One reload after all the posts, not one per service: a reload that runs before the last post renders the old data.
         # External playback reloads from its own scrobblers (they post later, in a background thread).
         if any(s.external for s in scrobblers) or not any(s.stopped and not before for s, before in zip(scrobblers, was_stopped)):
             return  # an inert scrobbler (no identity for its service) is not external, so every scrobbler is asked
@@ -1460,6 +1684,8 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             self.mdb_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
         if self.simkl_scrobbler:
             self.simkl_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
+        if self.wetrakr_scrobbler:
+            self.wetrakr_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
 
     def get_external_show_tmdb_id(self, meta):
         """ TMDb id of a playing episode's show from the show's IMDb id in the info tag, for add-ons that tag an episode with
@@ -1555,19 +1781,21 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         origin = self.get_external_origin(identity)
         if not identity:
             kodi_log(f'External playback ({origin or "origin unknown"}): no TMDb id in the info tag - nothing reported', 1)
-            return {'trakt': {}, 'mdblist': {}, 'simkl': {}}
+            return {'trakt': {}, 'mdblist': {}, 'simkl': {}, 'wetrakr': {}}
 
         if not origin and self.is_kodi_library_item():
             kodi_log('External playback (Kodi library item): not reported - only plays started by add-ons are observed', 1)
-            return {'trakt': {}, 'mdblist': {}, 'simkl': {}}
+            return {'trakt': {}, 'mdblist': {}, 'simkl': {}, 'wetrakr': {}}
 
         owned = get_external_owned_services(origin)
         plan = {
             'trakt': identity if get_setting('scrobble_external_trakt') and 'trakt' not in owned else {},
             'mdblist': {} if 'mdblist' in owned else identity,
             'simkl': {} if 'simkl' in owned else identity,
+            'wetrakr': {},  # phase 2: only playback started by TMDb Helper is scrobbled to WeTrakr
         }
         skipped = {key: 'skipped (reported by the add-on)' if key in owned else 'skipped (off)' for key in plan if not plan[key]}
+        skipped['wetrakr'] = 'skipped (add-on playback is not reported to WeTrakr yet)'
         self._external_log = (origin, identity, skipped)  # Logged by log_external_plan once the scrobblers say what they will send
         return plan
 
@@ -1576,21 +1804,21 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
             return
         origin, identity, skipped = self._external_log
         self._external_log = None
-        scrobblers = {'trakt': self.scrobbler, 'mdblist': self.mdb_scrobbler, 'simkl': self.simkl_scrobbler}
+        scrobblers = {'trakt': self.scrobbler, 'mdblist': self.mdb_scrobbler, 'simkl': self.simkl_scrobbler, 'wetrakr': self.wetrakr_scrobbler}
         summary = ', '.join(
             f'{name} {skipped.get(key) or scrobblers[key].external_report()}'
-            for key, name in (('trakt', 'Trakt'), ('mdblist', 'MDBList'), ('simkl', 'Simkl')))
+            for key, name in (('trakt', 'Trakt'), ('mdblist', 'MDBList'), ('simkl', 'Simkl'), ('wetrakr', 'WeTrakr')))
         kodi_log(f'External playback ({origin or "origin unknown"}) {identity}: {summary}', 1)
 
     def log_scrobble_plan(self):
         """ Own playback (started by TMDb Helper's player): what each service will be sent. External playback logs its own line """
-        scrobblers = (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler)
+        scrobblers = (self.scrobbler, self.mdb_scrobbler, self.simkl_scrobbler, self.wetrakr_scrobbler)
         if self.scrobbler.external or not self.scrobbler.tmdb_id:
             return
         item = f'{self.scrobbler.tmdb_type} {self.scrobbler.tmdb_id}' + (
             f' S{self.scrobbler.season}E{self.scrobbler.episode}' if self.scrobbler.tmdb_type == 'tv' else '')
         if not self.scrobbler.total_time:
-            return kodi_log(f'Scrobbling {item}: Kodi gave no duration for this video, so nothing will be reported to Trakt, MDBList or Simkl', 1)
+            return kodi_log(f'Scrobbling {item}: Kodi gave no duration for this video, so nothing will be reported to Trakt, MDBList, Simkl or WeTrakr', 1)
         kodi_log(f'Scrobbling {item} ({self.scrobbler.total_time:.0f}s): ' + ', '.join(
             f'{s.service_name} {s.external_report()}' for s in scrobblers), 1)
 
@@ -1732,6 +1960,7 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         self.scrobbler = PlayerScrobbler(trakt_api=self.trakt_api, total_time=self.getTotalTime(), playerstring=external.get('trakt'))
         self.mdb_scrobbler = MDbListScrobbler(mdblist_api=self.mdblist_scrobble_api, total_time=self.getTotalTime(), playerstring=external.get('mdblist'))
         self.simkl_scrobbler = SimklScrobbler(simkl_api=self.simkl_api, total_time=self.getTotalTime(), playerstring=external.get('simkl'))
+        self.wetrakr_scrobbler = WeTrakrScrobbler(wetrakr_api=self.wetrakr_api, total_time=self.getTotalTime(), playerstring=external.get('wetrakr'))
         self.log_external_plan()
         self.log_scrobble_plan()
 

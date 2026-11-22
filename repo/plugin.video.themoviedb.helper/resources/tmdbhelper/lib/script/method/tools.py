@@ -1,7 +1,7 @@
 # Actions of the Tools menu (items/basedir.py _get_basedir_tools): Seren's Sync Tools, Clear Cache Tool, Open Settings Menu,
 # Backup and Reset and Changelog, done with TMDb Helper's own functions.
 #
-# Sync tools work on the three local sync databases (TraktSync_v2.db, MDbListSync.db, SimklSync.db: tables simplecache +
+# Sync tools work on the four local sync databases (TraktSync_v2.db, MDbListSync.db, SimklSync.db, WeTrakrSync.db: tables simplecache +
 # lactivities). The tables are emptied, never the files (the "initialised" window flag would stop a deleted file being
 # recreated). Nothing here signs in, signs out or writes to a service, and the bridge snapshot file is never touched. Clear
 # keeps the version markers (see _clear_stamps) so the bridge stays ready; Rebuild empties everything and syncs at once
@@ -11,7 +11,7 @@ from tmdbhelper.lib.addon.plugin import ADDON, ADDONDATA, get_setting
 
 TITLE = 'TMDb Helper'
 # (name, settings that count as a sign-in). MDBList also answers with just the API key (api/mdblist/api.py sends it with every request), so either one counts.
-SERVICES = (('Trakt', ('trakt_token',)), ('MDBList', ('mdblist_token', 'mdblist_apikey')), ('Simkl', ('simkl_token',)))
+SERVICES = (('Trakt', ('trakt_token',)), ('MDBList', ('mdblist_token', 'mdblist_apikey')), ('Simkl', ('simkl_token',)), ('WeTrakr', ('wetrakr_token', 'wetrakr_refresh_token')))
 BRIDGE_RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'   # window property monitor/bridge_sync.py sets while a cycle runs
 LIST_CACHES = ('asian_trending_cache.json', 'anime_anilist_cache.json', 'anime_idmap_cache.json', 'simkl_calendar_tv.json', 'simkl_calendar_anime.json', 'anime_scores_cache.json')   # the Asian / Anime list caches + saved AniList->TMDb ids (addon_data)
 # Same data types as script/method/trakt.py refresh_trakt_sync offers: (sync keys, item types)
@@ -26,6 +26,7 @@ TRAKT_FORCE = (
 # The calls items/mdblist.py and items/simkl.py make when an item is opened: (item type, sync keys)
 MDBLIST_FORCE = (('movie', ('plays', 'paused_progress')), ('show', ('plays', 'watched_episodes', 'paused_progress')))
 SIMKL_FORCE = (('movie', ('plays', 'paused_progress')), ('show', ('plays', 'watched_episodes')))
+WETRAKR_FORCE = (('movie', ('plays', 'paused_progress', 'rating')),)   # the three keys name the three routes (watched, playback, ratings) of api/wetrakr/sync, each forced once; its movie and show data come from the same reads
 
 
 def connected_services():
@@ -40,6 +41,9 @@ def _syncdata(name):
     if name == 'MDBList':
         from tmdbhelper.lib.api.mdblist.api import MDbList
         return MDbList().mdblist_syncdata
+    if name == 'WeTrakr':
+        from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+        return WeTrakrAPI().wetrakr_syncdata
     from tmdbhelper.lib.api.simkl.api import SimklAPI
     return SimklAPI().simkl_syncdata
 
@@ -65,7 +69,7 @@ def _force(name, syncdata):
             for item_type in item_types:
                 syncdata.sync(item_type, keys, forced=True)
         return True
-    for item_type, keys in (MDBLIST_FORCE if name == 'MDBList' else SIMKL_FORCE):
+    for item_type, keys in (MDBLIST_FORCE if name == 'MDBList' else WETRAKR_FORCE if name == 'WeTrakr' else SIMKL_FORCE):
         syncdata.sync(item_type, keys, forced=True)
     return True
 

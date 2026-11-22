@@ -2,9 +2,9 @@
 service compares the stamp of the page on screen with the current text (monitor/menurefresh.py). Only 0 and 1: no token or key ever goes in. """
 
 # The switches that show or hide a row of the add-on's own menus (keep in step with SERVICE_MENUS in items/basedir.py)
-MENU_SETTINGS = ('service_trakt', 'service_mdblist', 'service_simkl', 'menu_movies', 'menu_tv', 'menu_anime', 'menu_asian')
+MENU_SETTINGS = ('service_trakt', 'service_mdblist', 'service_simkl', 'service_wetrakr', 'menu_movies', 'menu_tv', 'menu_anime', 'menu_asian')
 # Whether each service is signed in (the Sync Tools row needs one): only if the setting is filled in, never what it holds
-TOKEN_SETTINGS = ('trakt_token', 'mdblist_token', 'mdblist_apikey', 'simkl_token')
+TOKEN_SETTINGS = ('trakt_token', 'mdblist_token', 'mdblist_apikey', 'simkl_token', 'wetrakr_token')
 MENU_STATE_PROPERTY = 'MenuState'  # Container.Property(MenuState) on a menu page
 
 

@@ -15,7 +15,7 @@ BLANK_MENUS = ('dir_mdblist_progress', 'trakt_history_stats')
 EMPTY_FINISHED = ('crew',)
 
 # In Progress lists whose shows open the seasons list, and the service whose watched data decides what that list hides
-HIDE_SOURCES = {'trakt_inprogress': 'trakt', 'mdblist_upnext': 'mdblist', 'simkl_upnext': 'simkl'}
+HIDE_SOURCES = {'trakt_inprogress': 'trakt', 'mdblist_upnext': 'mdblist', 'simkl_upnext': 'simkl', 'wetrakr_upnext': 'wetrakr'}
 
 # Lists that always leave out an episode with a future air date, whatever "Hide unaired episodes" says: Trakt's Next Up names the show's
 # next episode even when it airs later (A Tale of the Secret Saint E8 on 11/21 while E7 was the last aired), which is nothing to watch
@@ -173,6 +173,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             pauseplayprogress=get_setting('simkl_playprogress'))
 
     @cached_property
+    def wetrakr_playdata(self):
+        from tmdbhelper.lib.items.wetrakr import WeTrakrPlayData
+        return WeTrakrPlayData(
+            watchedindicators=get_setting('wetrakr_watchedindicators'),
+            pauseplayprogress=get_setting('wetrakr_playprogress'))
+
+    @cached_property
     def ib(self):
         from tmdbhelper.lib.items.builder import ItemBuilder
         return ItemBuilder(
@@ -277,10 +284,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             trakt_playcount = trakt_raw or 0
             mdb_playcount = self.mdblist_playdata.get_playcount(li) or 0
             simkl_playcount = self.simkl_playdata.get_playcount(li) or 0
+            wetrakr_playcount = self.wetrakr_playdata.get_playcount(li) or 0
             if _info in ('mdblist_watchlist', 'mdblist_history', 'mdblist_upnext', 'mdblist_ondeck'):
                 playcount = mdb_playcount
             elif _info in ('simkl_plantowatch', 'simkl_history', 'simkl_upnext', 'simkl_ondeck', 'simkl_watching', 'simkl_hold', 'simkl_dropped'):
                 playcount = simkl_playcount
+            elif _info in ('wetrakr_plantowatch', 'wetrakr_history', 'wetrakr_upnext', 'wetrakr_ondeck', 'wetrakr_watching', 'wetrakr_hold', 'wetrakr_dropped'):
+                playcount = wetrakr_playcount
             elif _info == 'trakt_inprogress' and li.infolabels.get('mediatype') == 'tvshow' and trakt_raw is not None:
                 # In Progress lists the shows Trakt says are unfinished (aired > watched). Taking the highest count of all services here
                 # let MDBList / Simkl whole-show marks (every aired episode marked on one day) read "all watched", so Hide watched
@@ -292,14 +302,16 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                 # episode the list had just selected (Bumpkin S2E1 on the test account)
                 playcount = trakt_playcount
             else:
-                playcount = max(trakt_playcount, mdb_playcount, simkl_playcount)
+                playcount = max(trakt_playcount, mdb_playcount, simkl_playcount, wetrakr_playcount)
             li.set_playcount(playcount=playcount)
-            if _info == 'mdblist_upnext' and li.infolabels.get('mediatype') == 'tvshow':
-                li.infolabels['playcount'] = 0  # In Progress lists unfinished shows by MDBList's own history; the local count (whole-show marks) can read "all watched" and Hide watched would drop the row
+            if _info in ('mdblist_upnext', 'wetrakr_upnext') and li.infolabels.get('mediatype') == 'tvshow':
+                li.infolabels['playcount'] = 0  # In Progress lists unfinished shows by the service's own history (WeTrakr: a paused episode); the local count (whole-show marks) can read "all watched" and Hide watched would drop the row
             if self.hide_watched and self.hide_source and li.infolabels.get('mediatype') in ('season', 'episode'):
                 # opened from an In Progress row: hide by that service's own watched data; the marks shown stay the highest of all services
                 # Simkl has no episode-level watched rows of its own (TVDB numbering), so a Simkl row hides by the highest of all services
-                if self._source_watched(li, {'trakt': trakt_playcount, 'mdblist': mdb_playcount, 'simkl': max(trakt_playcount, mdb_playcount, simkl_playcount)}):
+                # WeTrakr has (TMDb numbering): its own season count and its own episode plays, read even while Trakt / MDBList indicators are on
+                if self._source_watched(li, {'trakt': trakt_playcount, 'mdblist': mdb_playcount, 'simkl': max(trakt_playcount, mdb_playcount, simkl_playcount, wetrakr_playcount),
+                                             'wetrakr': (self.wetrakr_playdata.get_playcount(li, own=True) or 0) if self.hide_source == 'wetrakr' else 0}):
                     li.hidden_by_source = True  # dropped in make_items, unless that would leave nothing to open
             elif self.hide_watched and try_int(li.infolabels.get('playcount')) != 0:
                 return
@@ -324,6 +336,8 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             self.mdblist_playdata.set_playprogress(li)
             # Simkl progress: Phase D (no-op for now)
             self.simkl_playdata.set_playprogress(li)
+            # WeTrakr progress: only applied if no other service has set a resume point
+            self.wetrakr_playdata.set_playprogress(li)
             return li
 
     def make_items(self, items):
@@ -371,6 +385,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             self.trakt_playdata.pre_sync_join()
             self.mdblist_playdata.pre_sync_join()
             self.simkl_playdata.pre_sync_join()
+            self.wetrakr_playdata.pre_sync_join()
 
         # Finalise listitems in parallel threads
         with TimerList(self.timer_lists, '--make', log_threshold=0.05, logging=self.log_timers):
@@ -516,12 +531,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
                     return
 
         with TimerList(self.timer_lists, 'total', logging=self.log_timers):
-            if self._sync_threads_need_requests() and (get_setting('service_trakt') or get_setting('service_mdblist') or get_setting('service_simkl')):
+            if self._sync_threads_need_requests() and (get_setting('service_trakt') or get_setting('service_mdblist') or get_setting('service_simkl') or get_setting('service_wetrakr')):
                 from tmdbhelper.lib.addon.thread import preload_requests
                 preload_requests()  # the sync threads below must not make the first `import requests` at the same moment
             self.trakt_playdata.pre_sync_start(**self.params)
             self.mdblist_playdata.pre_sync_start(**self.params)
             self.simkl_playdata.pre_sync_start(**self.params)
+            self.wetrakr_playdata.pre_sync_start(**self.params)
             with TimerList(self.timer_lists, 'get_list', logging=self.log_timers):
                 items = self.get_items(**self.params)
             if not items:

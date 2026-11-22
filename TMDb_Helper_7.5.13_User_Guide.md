@@ -1,6 +1,6 @@
-# TMDb Helper 7.0.131 — Complete Features & Functions Guide
+# TMDb Helper 7.5.13 — Complete Features & Functions Guide
 
-**Version:** 7.0.131 (Enhanced Fork — Personal Build)
+**Version:** 7.5.13 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.0.131_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.5.13_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.131. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.13. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -386,14 +386,35 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.0.1
 - **Keep menu pages for a quick Back** (7.0.130). A new setting, on by default. Kodi may keep a copy of one of the add-on's own menu pages that it was slow to build and show it at once when you go Back, which removes the loading spinner on a slow device. When a menu switch (Trakt, MDBList, Simkl or a main-menu row) or a sign-in has changed since the page was built, the menu is refreshed once when you come back to it. Switch the setting off to build the menus again on every Back, as in 7.0.96–7.0.129. On a fast device Kodi saves no menu it builds quickly, so nothing changes there.
 - **Two TV calendar settings, both off by default** (7.0.131). "All TV Calendar: Right goes to the scrollbar": Left and Right on the list no longer change the day, Right moves to the scrollbar on a long list, and the < > buttons change the day. "TV calendars: landscape artwork and episode thumbnails": show rows use their landscape artwork (their fanart if there is none) and episode rows their own thumbnail, in the list and in the large image at the side, instead of posters. The calendar looks more crowded with it on. Neither applies to the Movie Calendar.
 
+### Fixes and additions in 7.0.132–7.0.137
+
+- **TV calendar dates and the Context Menu** (7.0.132). The date in the All TV Calendar header no longer shows "-d" on systems whose Kodi writes a day without a leading zero (the dates in the rows had the same problem); Windows was not affected. Backing out of the Trakt, MDBList or Simkl options window of the calendar Context Menu without choosing anything no longer rebuilds the page. With *TV calendars: landscape artwork and episode thumbnails* on, the episode thumbnails and their text are indented, so shows and episodes are easy to tell apart.
+- **Anime episode plots keep your language** (7.0.133). The plot of *Anime episode enrichment* is English: in another language it no longer replaces a plot in your language, and it fills an empty plot only while *English plot fallback* is on.
+- **The landscape TV calendar keeps its layout while the context menu is open** (7.0.134).
+- **The calendar updates after a Trakt-only Mark as watched / unwatched** (7.0.135). The episode row now changes at once (it only changed when the calendar was opened again in 7.0.132–7.0.134).
+- **Where the quick-Back setting is** (7.0.136). *Keep menu pages for a quick Back* is under Settings → Navigation → Main menu, below *Show Asian Cinema & TV*.
+- **Faster menus** (7.0.137). The main menu and the sub menus no longer load the network library first (about 0.3–0.4 s each time); a menu that is not a list of movies or shows never needs it. Nothing changes in what the menus show.
+
+### WeTrakr as a fourth service (7.5.0–7.5.13)
+
+- **WeTrakr** (wetrakr.com) now sits next to Trakt, MDBList and Simkl: sign-in, scrobbling, watched marks, resume points, ratings, its own menu, context-menu options, a copy of your other services' watched marks and an Up Next source. It is a free account on wetrakr.com. **Enable WeTrakr** (Settings → Accounts → WeTrakr API, on by default) switches the whole thing; with it off the WeTrakr row leaves the main menu, as for the other services.
+- **Sign in with a QR code** (7.5.0, 7.5.2, 7.5.12). Settings → Accounts → WeTrakr API → *Authorize WeTrakr account…* opens a window with a QR code, the address (`wetrakr.com/activate`), a code and the time left. Scan the QR code with a phone and the activation page opens with the code filled in, or open the address on any device and type the code. Back cancels. There is no app key to enter: TMDb Helper has its own WeTrakr app key built in (an expert-level setting, *WeTrakr app key (client ID), optional*, is only for someone who wants to use their own WeTrakr developer app; leave it empty), and no client secret is ever used. *Logout of WeTrakr account…* signs out. WeTrakr offers no Account Info to other apps, so there is no such entry. If WeTrakr refuses the stored login you are told once to authorize again.
+- **Scrobbling** (7.5.0). With *Scrobble items played via TMDbHelper* on (off by default), a movie or episode you play through TMDb Helper is reported to WeTrakr: now playing, pause, seek, and watched at 75 %. It stays silent while the WeTrakr Kodi add-on (`script.wetrakr`) already reports the same plays. Playback started by other add-ons is not reported to WeTrakr.
+- **Watched marks, resume points and ratings in the lists** (7.5.1, 7.5.7, 7.5.11). Two settings, both off by default: *Get watched indicators and episode counts (slower)* and *Get resume points (experimental) (slower)*. With the first on, movies, shows, seasons and episodes show what WeTrakr has watched, and your own WeTrakr ratings are read back so the context menu says *Change rating (8.5)* instead of *Add rating*; with the second on, an item you paused on WeTrakr gets its resume bar (4 to 96 per cent). The data is kept in a local copy (`WeTrakrSync.db`) and read again only when WeTrakr reports a change on your account (asked for at most every 10 minutes; a play made through TMDb Helper asks at once). An episode's own WeTrakr mark always counts, also while the Trakt or MDBList watched indicators are on; the lists show the highest count of all services.
+- **The WeTrakr menu** (7.5.4, 7.5.8). A main-menu row with your WeTrakr lists: In-Progress, In-Progress Episodes, Next Up, Watching, Plan to Watch, Recently Watched, On Hold and Dropped, plus *Movies and TV Shows Progress*, *Anime Progress* and *Asian Progress*, which open the In-Progress, In-Progress Episodes and Next Up lists limited to one kind of title, as the Simkl, MDBList and Trakt menus do. The menu rows carry WeTrakr icons. A list that cannot be read completely stays empty instead of showing part of it.
+- **WeTrakr options in the item context menu** (7.5.3, 7.5.7). *Set as watched* and *Set as unwatched* for movies, shows, seasons and episodes, *Reset resume position* for an item that holds a resume point, and *Add rating* / *Change rating* (0–10, 0 removes it). With *Get watched indicators* on, only the option that applies is offered. A switch, *WeTrakr options* (Settings → Other → Context menu), hides the entry.
+- **Hide watched** (7.5.8). With *Hide watched* on for widgets, a show opened from a WeTrakr In-Progress row lists its seasons and episodes without the ones WeTrakr has marked watched. It needs *Get watched indicators and episode counts* on for WeTrakr.
+- **Up Next folder** (7.5.6). When Trakt has no next episode for a show, the Up Next folder asks MDBList, then Simkl, then WeTrakr, and opens at the first episode WeTrakr has not marked watched. A service that has not marked a single episode of the show no longer answers "from season 1 episode 1".
+- **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. It goes one way only: nothing is read back from WeTrakr into the other services and nothing is ever removed from WeTrakr. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
 
 1. **Install the add-on from the repository.** Settings → File Manager → Add source → `https://minhgi.github.io/tmdbhelper-multiservice/` → install `repository.tmdbhelper-multiservice-1.0.0.zip` from it → Install from repository → TMDb Helper Multiservice → Video add-ons → TMDb Helper.
 2. **Install players.** TMDb Helper → Settings → Players → Install players → Install from URL → `https://raw.githubusercontent.com/minhgi/tmdbhelper-multiservice/main/players/tmdbhelper_players.zip`.
-3. **Connect accounts** in Settings → Accounts: *Authenticate Trakt account…*, *Authorize MDBList account…*, *Authorize Simkl account…* (each shows an on-screen code or PIN).
-4. **Turn on what you want.** *Get watched indicators and episode counts* is **off** for all three services by default, and scrobbling is off for MDBList and Simkl. Switch them on in each service's group.
+3. **Connect accounts** in Settings → Accounts: *Authenticate Trakt account…*, *Authorize MDBList account…*, *Authorize Simkl account…* and *Authorize WeTrakr account…* (each shows an on-screen code or PIN; WeTrakr shows a QR code as well and needs no app key).
+4. **Turn on what you want.** *Get watched indicators and episode counts* is **off** for all four services by default, and scrobbling is off for MDBList, Simkl and WeTrakr. Switch them on in each service's group.
 5. **Optional:** Cross-Service Sync (off by default), API keys (OMDb, fanart.tv, TVDb, TMDb user token).
 
 ---
@@ -420,6 +441,7 @@ Open the add-on from **Add-ons → Video add-ons → TMDb Helper**, or put any m
 | **TVDb** | TVDb awards and genres (needs a TVDb token) |
 | **MDbList** | MDBList lists and your MDBList data |
 | **Simkl** | Simkl lists and your Simkl data |
+| **WeTrakr** | WeTrakr lists and your WeTrakr data (shown while *Enable WeTrakr* is on) |
 | **Nodes** | Custom nodes, for example lists you saved with *Add/Remove as Custom Node* |
 | **Settings** | Opens the add-on settings |
 | **Tools** | Sync, cache, backup and changelog tools |
@@ -468,6 +490,10 @@ The Trakt submenu (shown on its own from the main menu) holds the same Trakt row
 ### Simkl menu
 
 All In-Progress (Movies / TV shows / Combined), All Next Up, Movies and TV Shows Progress, Anime Progress, Asian Progress, Watching, Plan to Watch, Recently Watched, On Hold, Dropped.
+
+### WeTrakr menu
+
+All In-Progress (Movies / TV shows / Combined), All In-Progress Episodes, All Next Up, Movies and TV Shows Progress, Anime Progress, Asian Progress, Watching, Plan to Watch, Recently Watched, On Hold, Dropped. The progress rows and Watching read your WeTrakr account in one or two requests per list.
 
 ### TVDb menu
 
@@ -645,6 +671,7 @@ Right-click (or long-press) an item to see these TMDb Helper entries. Each can b
 | **MDBList options** | Watched / unwatched, unwatched seasons and episodes (shows, 7.0.77), watchlist, collection, rating, add or remove from a list, drop show, reset resume position |
 | **Simkl options** | Mark watched / unwatched, unwatched seasons (shows, 7.0.77), plan to watch, hold, drop, set as watching, rating |
 | **TMDb user options** | Your TMDb favourites, watchlist, rating and lists |
+| **WeTrakr options** | Set as watched / unwatched, reset resume position, add or change rating (needs *Enable WeTrakr* and a sign-in) |
 | **Manage artwork** | Choose artwork for the item from TMDb, fanart.tv (listed only while a fanart.tv option is on, 7.0.83) and TheTVDB, sorted by source or language, with an option to show every language (7.0.81) |
 | **Refresh details** | Reload the item's details |
 | **Add to library** | Save the item to your Kodi library (section 13) |
@@ -760,6 +787,10 @@ Simkl keeps every season (cour) of an anime as its own entry and counts its epis
 
 ---
 
+### Watched marks to WeTrakr (7.5.5)
+
+A third, one-way copy: *Watched marks to WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On) sends the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, with their own watch dates, up to 100 movies and 300 episodes a run. Nothing is read back and nothing is ever removed from WeTrakr, a title you unwatch on WeTrakr is not sent again, and specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services.
+
 ## 13. Kodi Library Integration
 
 Select **Add to library** in an item's context menu to save a movie or show as library files (`.strm` and `.nfo`).
@@ -855,7 +886,8 @@ OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / se
 | **Trakt API** | Enable Trakt (on) · Authenticate · Account Info · Logout · Scrobble (**on**) · Get episode types (on) · Get watched indicators (**off**) · Get resume points (**off**) · Random seed pool (5) · Ignore articles (off) · Cache own lists 24 h (on) |
 | **MDbList API** | Enable MDBList (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · MDbList API key |
 | **Simkl API** | Enable Simkl (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) |
-| **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) |
+| **WeTrakr API** | Enable WeTrakr (on) · Authorize (QR code) · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · WeTrakr app key, optional (expert level; leave empty) |
+| **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) · Watched marks to WeTrakr (Log only) |
 | **Playback started by other add-ons** | Scrobble items played by other add-ons (**on**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
 | **Kodi's own resume points** | Let the watch services decide the resume bar (**on**; clears Kodi's own resume point for items no service holds progress for, 7.0.110) |
 

@@ -39,6 +39,15 @@ CONTEXT_MENU_ITEMS = {
         'episode': {'tmdb_type': 'tv', 'tmdb_id': '{tmdb_id}', 'season': '{season}', 'episode': '{episode}'},
         'other': {'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}'}
     },
+    # WeTrakr Options
+    '$ADDON[plugin.video.themoviedb.helper 32824]': {
+        'command': 'RunScript(plugin.video.themoviedb.helper,sync_wetrakr,{})',
+        'setting': 'contextmenu_sync_wetrakr',
+        'service_gate': 'service_wetrakr',
+        'season': {'tmdb_type': 'tv', 'tmdb_id': '{tmdb_id}', 'season': '{season}'},
+        'episode': {'tmdb_type': 'tv', 'tmdb_id': '{tmdb_id}', 'season': '{season}', 'episode': '{episode}'},
+        'other': {'tmdb_type': '{tmdb_type}', 'tmdb_id': '{tmdb_id}'}
+    },
     # TMDb User Options
     '$ADDON[plugin.video.themoviedb.helper 32522]': {
         'command': 'RunScript(plugin.video.themoviedb.helper,sync_tmdb,{})',

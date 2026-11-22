@@ -115,3 +115,15 @@ class CommonContainerAPIs():
                 return None  # not remembered: the running service must pick Simkl up when it is switched on later (GitHub issue #13)
             self._simkl_api = SimklAPI()
             return self._simkl_api
+
+    @property
+    def wetrakr_api(self):
+        try:
+            return self._wetrakr_api
+        except AttributeError:
+            from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+            from tmdbhelper.lib.addon.plugin import get_setting
+            if not get_setting('service_wetrakr'):
+                return None  # not remembered: the running service must pick WeTrakr up when it is switched on later
+            self._wetrakr_api = WeTrakrAPI()
+            return self._wetrakr_api

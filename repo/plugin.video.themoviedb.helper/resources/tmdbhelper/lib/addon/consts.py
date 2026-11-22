@@ -974,6 +974,30 @@ ROUTE_NOID = {
     'simkl_hold': {'route': {
         'module_name': 'tmdbhelper.lib.api.simkl.lists',
         'import_attr': 'ListHold'}},
+    'wetrakr_plantowatch': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListPlanToWatch'}},
+    'wetrakr_history': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListHistory'}},
+    'wetrakr_upnext': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListInProgress'}},
+    'wetrakr_ondeck': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListInProgressEpisodes'}},
+    'wetrakr_nextup': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListNextUp'}},
+    'wetrakr_dropped': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListDropped'}},
+    'wetrakr_watching': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListWatching'}},
+    'wetrakr_hold': {'route': {
+        'module_name': 'tmdbhelper.lib.api.wetrakr.lists',
+        'import_attr': 'ListHold'}},
     'all_items': {'route': {
         'module_name': 'tmdbhelper.lib.api.tmdb.lists',
         'import_attr': 'ListAll'}},

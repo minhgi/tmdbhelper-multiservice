@@ -11,7 +11,8 @@ WIDGET_SETTINGS = (
     'service_fanarttv_lookup', 'tvdb_artwork', 'force_english_plot_fallback',
     'service_trakt', 'service_mdblist', 'service_simkl',
     'trakt_watchedindicators', 'mdblist_watchedindicators', 'simkl_watchedindicators',
-    'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress')
+    'trakt_playprogress', 'mdblist_playprogress', 'simkl_playprogress',
+    'service_wetrakr', 'wetrakr_watchedindicators', 'wetrakr_playprogress')
 
 
 PLUGIN_ROOT = 'plugin://plugin.video.themoviedb.helper/'

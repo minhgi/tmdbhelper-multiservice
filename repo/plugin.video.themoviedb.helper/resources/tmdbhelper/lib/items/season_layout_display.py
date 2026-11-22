@@ -78,17 +78,17 @@ class SeasonLayoutDisplay:
 
     def _watched_count(self, tmdb_id, season, source=None):
         """Episodes of a layout season that count as watched: the highest of Trakt, MDBList and Simkl per episode, as the list does,
-        or only those of `source` ('trakt', 'mdblist' or 'simkl') when a list opened from an In Progress row decides what to hide."""
-        playdata = {'trakt': self.trakt_playdata, 'mdblist': self.mdblist_playdata, 'simkl': self.simkl_playdata}
+        or only those of `source` ('trakt', 'mdblist', 'simkl' or 'wetrakr') when a list opened from an In Progress row decides what to hide."""
+        playdata = {'trakt': self.trakt_playdata, 'mdblist': self.mdblist_playdata, 'simkl': self.simkl_playdata, 'wetrakr': self.wetrakr_playdata}
         source = None if source == 'simkl' else source  # Simkl has no episode rows of its own: highest of all services
         count = 0
         for real_season, real_episode in season['episodes']:
             episode = _EpisodeKey(tmdb_id, real_season, real_episode)
             if source:
-                watched = playdata[source].get_playcount(episode) or 0
+                watched = (playdata[source].get_playcount(episode, own=True) if source == 'wetrakr' else playdata[source].get_playcount(episode)) or 0
             else:
                 watched = max(self.trakt_playdata.get_playcount(episode) or 0, self.mdblist_playdata.get_playcount(episode) or 0,
-                              self.simkl_playdata.get_playcount(episode) or 0)
+                              self.simkl_playdata.get_playcount(episode) or 0, self.wetrakr_playdata.get_playcount(episode) or 0)
             if watched > 0:
                 count += 1
         return count

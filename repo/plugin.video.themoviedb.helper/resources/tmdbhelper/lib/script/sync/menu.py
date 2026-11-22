@@ -12,6 +12,8 @@ from tmdbhelper.lib.script.sync.mdblist_sync import (
 from tmdbhelper.lib.script.sync.simkl_sync import (
     ItemSimklWatched, ItemSimklUnwatched, ItemSimklWatching, ItemSimklPlanToWatch, ItemSimklHold, ItemSimklDrop,
     ItemSimklClearProgress, ItemSimklRating)
+from tmdbhelper.lib.script.sync.wetrakr_sync import (
+    ItemWeTrakrWatched, ItemWeTrakrUnwatched, ItemWeTrakrClearProgress, ItemWeTrakrRating)
 from tmdbhelper.lib.script.sync.unwatch_lists import (
     ItemTraktUnwatchedSeasons, ItemTraktUnwatchedEpisodes, ItemMDbListUnwatchedSeasons, ItemMDbListUnwatchedEpisodes,
     ItemSimklUnwatchedSeasons)
@@ -177,4 +179,42 @@ class SimklMenu(MenuAttributes):
 
 def sync_simkl_item(tmdb_type, tmdb_id, season=None, episode=None, sync_type=None):
     menu = SimklMenu(tmdb_type, tmdb_id, season, episode)
+    menu.select(sync_type)
+
+
+class WeTrakrMenu(MenuAttributes):
+    items = {
+        'wetrakr_watched': ItemWeTrakrWatched,
+        'wetrakr_unwatched': ItemWeTrakrUnwatched,
+        'wetrakr_clearprogress': ItemWeTrakrClearProgress,
+        'wetrakr_rating': ItemWeTrakrRating,
+    }
+
+    def __init__(self, tmdb_type, tmdb_id, season=None, episode=None):
+        self.tmdb_type = tmdb_type
+        self.tmdb_id = tmdb_id
+        self.season = season
+        self.episode = episode
+        self.direct = False
+
+    def choose(self):
+        if not self.choices:
+            return -1
+        # Show the list even when one entry applies, unless one action was asked for by name (a skin button)
+        if len(self.choices) == 1 and self.direct:
+            return 0
+        return Dialog().contextmenu([i.name for i in self.choices])
+
+    def select(self, sync_type=None):
+        if sync_type:
+            self.items = {sync_type: self.items[sync_type]}
+            self.direct = True
+        x = self.choose()
+        if x == -1:
+            return
+        self.choices[x].sync()
+
+
+def sync_wetrakr_item(tmdb_type, tmdb_id, season=None, episode=None, sync_type=None):
+    menu = WeTrakrMenu(tmdb_type, tmdb_id, season, episode)
     menu.select(sync_type)

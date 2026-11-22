@@ -52,6 +52,7 @@ class PermissionHandler:
         'trakt': 2 ** 5,
         'tvdb': 2 ** 6,
         'simkl': 2 ** 7,
+        'wetrakr': 2 ** 8,
     }
 
     _PERMISSION_TYPES = {

@@ -14,7 +14,7 @@ REFRESH_DELAY = 1.5  # landed on a page whose stored copy is already out of date
 WAIT_SECONDS = 90  # a page the prefetch is building right now: how long the window waits for it before building the page itself
 
 
-SYNC_DATABASES = ('TraktSync_v2.db', 'MDbListSync.db', 'SimklSync.db')  # where the watched ticks of a page come from
+SYNC_DATABASES = ('TraktSync_v2.db', 'MDbListSync.db', 'SimklSync.db', 'WeTrakrSync.db')  # where the watched ticks of a page come from
 _sync_paths = None
 
 
@@ -31,7 +31,7 @@ def _database_paths():
 
 
 def sync_stamp():
-    """ Changes when a background sync (Trakt / MDBList / Simkl) wrote to its local database, so a stored page that shows watched ticks is rebuilt.
+    """ Changes when a background sync (Trakt / MDBList / Simkl / WeTrakr) wrote to its local database, so a stored page that shows watched ticks is rebuilt.
     Per database: the file's time and size, and the time and size of its write-ahead log while that holds data (a write to a database in WAL mode
     changes the log first; an empty log is just an open connection). Building a page writes to none of these (measured), so a page stored after its
     build keeps its stamp. A file that cannot be read gives None: it never changes the stamp over and over. """
@@ -54,7 +54,7 @@ def sync_stamp():
     return tuple(stamp)
 
 
-STAMP_NAMES = ('Trakt', 'MDBList', 'Simkl')  # the order of SYNC_DATABASES
+STAMP_NAMES = ('Trakt', 'MDBList', 'Simkl', 'WeTrakr')  # the order of SYNC_DATABASES
 
 
 def _stamp_part(part):
