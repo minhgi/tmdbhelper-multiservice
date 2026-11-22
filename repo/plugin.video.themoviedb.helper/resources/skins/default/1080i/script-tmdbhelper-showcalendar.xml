@@ -299,7 +299,7 @@
                     <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="image">
-                    <left>12</left>
+                    <left>52</left>
                     <top>16</top>
                     <width>70</width>
                     <height>40</height>
@@ -339,7 +339,18 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>650</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFE6E6E6</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -350,7 +361,18 @@
                     <textcolor>FFE6E6E6</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>490</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFE6E6E6</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -361,7 +383,18 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>650</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>66FFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -372,7 +405,18 @@
                     <textcolor>66FFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>490</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>66FFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="image">
                     <left>84</left>
@@ -381,7 +425,16 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>124</left>
+                    <top>22</top>
+                    <width>28</width>
+                    <height>28</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture>tick.png</texture>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>670</left>
@@ -517,7 +570,7 @@
                     <visible>String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="image">
-                    <left>12</left>
+                    <left>52</left>
                     <top>16</top>
                     <width>70</width>
                     <height>40</height>
@@ -557,7 +610,18 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>650</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>130</left>
@@ -568,7 +632,18 @@
                     <textcolor>FFFFFFFF</textcolor>
                     <aligny>center</aligny>
                     <label>$INFO[ListItem.Label]</label>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge))</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="label">
+                    <left>170</left>
+                    <top>0</top>
+                    <width>490</width>
+                    <height>72</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.Label]</label>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + !String.IsEmpty(ListItem.Property(row_badge)) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="image">
                     <left>84</left>
@@ -577,7 +652,16 @@
                     <height>28</height>
                     <aspectratio>keep</aspectratio>
                     <texture>tick.png</texture>
-                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched)</visible>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + String.IsEmpty(Window.Property(wide_art))</visible>
+                </control>
+                <control type="image">
+                    <left>124</left>
+                    <top>22</top>
+                    <width>28</width>
+                    <height>28</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture>tick.png</texture>
+                    <visible>!String.IsEqual(ListItem.Property(row_type),show) + String.IsEqual(ListItem.Property(air_state),watched) + !String.IsEmpty(Window.Property(wide_art))</visible>
                 </control>
                 <control type="label">
                     <left>670</left>

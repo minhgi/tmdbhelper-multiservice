@@ -71,8 +71,19 @@ def _region_date(date, region='dateshort'):
     fmt = xbmc.getRegion(region) or '%Y-%m-%d'
     for code, token in tokens.items():
         fmt = fmt.replace(code, token)
+    # Kodi writes a day or month without a leading zero as %-d / %-m (%#d on Windows). Not every platform's strftime knows that flag (some print "-d"): write those numbers here
+    unpadded = []
+
+    def _unpadded(match):
+        if match.group(1) not in unpadded:
+            unpadded.append(match.group(1))
+        return f'@@u{match.group(1)}@@'
+
+    fmt = re.sub(r'%[-#_]([a-zA-Z])', _unpadded, fmt)
     try:
         text = date.strftime(fmt)
+        for letter in unpadded:
+            text = text.replace(f'@@u{letter}@@', date.strftime('%' + letter).lstrip('0 ') or '0')
     except (ValueError, TypeError):
         return date.isoformat()
     for code, token in tokens.items():
@@ -182,7 +193,7 @@ def _premiered(listitem):
     if date is None:
         try:
             import xbmc
-            date = datetime.datetime.strptime(text, xbmc.getRegion('dateshort')).date()
+            date = datetime.datetime.strptime(text, re.sub(r'%[-#_]', '%', xbmc.getRegion('dateshort'))).date()
         except (ValueError, TypeError):
             return None
     return date if date.year >= MIN_YEAR else None
@@ -467,11 +478,14 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             return xbmc.executebuiltin(command)
         # RunScript would start the script in its own thread and return at once, before its dialogs and the sync are done: run it here instead,
         # so the page reloads only after the Trakt / MDBList / Simkl option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
+        stamp_before = sync_stamp()
         try:
             from tmdbhelper.lib.script.router import Script
             Script(*[arg.strip() for arg in script.group(1).split(',')]).router()
         except Exception as exc:
             kodi_log(f'Show calendar: the context menu option {command} failed: {exc}', 1)
+        if stamp_before is not None and sync_stamp() == stamp_before:  # backed out of the options window, or an option that wrote nothing to the Trakt / MDBList / Simkl data: nothing to show, no rebuild (and no busy dialog)
+            return kodi_log('Show calendar: the context menu option changed no Trakt / MDBList / Simkl data, the page is left as it is', 1)
         self._refresh(position)
 
     def _refresh(self, position):

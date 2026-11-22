@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.0.131"
+version="7.0.132"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.0.132
+- Fixed: the date in the All TV Calendar header showed "-d" instead of the day on systems whose Kodi writes a day without a leading zero as %-d (the dates in the rows and the parse of an episode's air date had the same problem). The calendar now writes and reads those dates itself. On Windows nothing changes.
+- Fixed: backing out of the Trakt, MDBList or Simkl options window of the calendar Context Menu without choosing anything no longer rebuilds the calendar page, which showed the loading spinner for a moment. The page is rebuilt only when the option changed data.
+- Changed: with "TV calendars: landscape artwork and episode thumbnails" on, the episode thumbnails and their text are indented, so shows and episodes are easy to tell apart.
 v7.0.131
 - Added: two settings, both off by default, for the TV calendar windows (GitHub issue #14). "All TV Calendar: Right goes to the scrollbar": with it on, Left and Right on the All TV Calendar list no longer change the day; Right moves to the scrollbar on a long list and the day is changed with the &lt; &gt; buttons. With it off, Left and Right change the day as before. "TV calendars: landscape artwork and episode thumbnails": with it on, a show row shows its landscape artwork (its fanart if it has none) and an episode row its own thumbnail (the show artwork if the episode has none yet), in the list and in the large image at the side, instead of posters. With it off, nothing changes. The Movie Calendar is not affected.
 v7.0.130
