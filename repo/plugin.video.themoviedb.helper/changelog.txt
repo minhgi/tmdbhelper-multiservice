@@ -1,3 +1,5 @@
+v7.5.21
+- Fixed: Your TV Calendar now rebuilds its page after a WeTrakr option from its context menu (Watched, Unwatched, Drop ...). The calendar skipped the rebuild when nothing it watches had changed, and it watched the Trakt, MDBList and Simkl marks but not WeTrakr's, so with another service connected a tick changed on WeTrakr stayed as it was until the page was opened again.
 v7.5.20
 - Changed: WeTrakr watched marks and ratings are now brought up to date from what changed instead of read again in full. A change on WeTrakr (a movie or episode watched or unwatched, a rating added or removed) reads only the changed titles; the full read is still used the first time after this update, after the Sync tools Force sync, Rebuild Database or Clear last sync time, and whenever the changes cannot be placed safely (WeTrakr's change log is older than 30 days, is very long, or a request failed). The resume points are still read in full (the list is short).
 v7.5.19

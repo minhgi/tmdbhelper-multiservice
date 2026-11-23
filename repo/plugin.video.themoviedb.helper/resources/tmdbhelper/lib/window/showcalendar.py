@@ -481,7 +481,7 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         if not script:  # Play with ... and the like: nothing on the page changes
             return xbmc.executebuiltin(command)
         # RunScript would start the script in its own thread and return at once, before its dialogs and the sync are done: run it here instead,
-        # so the page reloads only after the Trakt / MDBList / Simkl option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
+        # so the page reloads only after the Trakt / MDBList / Simkl / WeTrakr option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
         stamp_before, marks_before = sync_stamp(), self._activity_marks()
         try:
             from tmdbhelper.lib.script.router import Script
@@ -491,15 +491,15 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         # Skip the rebuild only when nothing at all changed: the sync databases are the same AND none of the last-activities marks moved. The Trakt option
         # (Watched, Unwatched ...) only clears its mark here and the local Trakt database is pulled at the next page build, so the databases alone cannot tell
         if stamp_before is not None and marks_before is not None and sync_stamp() == stamp_before and self._activity_marks() == marks_before:  # backed out of the options window, or an option that changed nothing: no rebuild (and no busy dialog)
-            return kodi_log('Show calendar: the context menu option changed no Trakt / MDBList / Simkl data, the page is left as it is', 1)
+            return kodi_log('Show calendar: the context menu option changed no Trakt / MDBList / Simkl / WeTrakr data, the page is left as it is', 1)
         self._refresh(position)
 
     @staticmethod
     def _activity_marks():
-        """ The Trakt / MDBList / Simkl last-activities marks kept in the Home window: a sync action clears its mark, which is how a change shows before the local data is pulled. None when unreadable """
+        """ The Trakt / MDBList / Simkl / WeTrakr last-activities marks kept in the Home window: a sync action clears its mark, which is how a change shows before the local data is pulled (7.5.21: WeTrakr's mark too, a WeTrakr option clears it and pulls nothing at once). None when unreadable """
         try:
             from jurialmunkey.window import get_property
-            marks = tuple(get_property(name) for name in ('TraktNewSyncLastActivities', 'MDbList.LastActivities', 'Simkl.LastActivities'))
+            marks = tuple(get_property(name) for name in ('TraktNewSyncLastActivities', 'MDbList.LastActivities', 'Simkl.LastActivities', 'WeTrakr.LastActivities'))
             return marks if any(marks) else None  # no mark at all: a clear could not be seen, so treat as unknown (the page is rebuilt)
         except Exception:
             return None

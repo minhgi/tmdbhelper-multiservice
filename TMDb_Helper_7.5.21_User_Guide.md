@@ -1,6 +1,6 @@
-# TMDb Helper 7.5.13 — Complete Features & Functions Guide
+# TMDb Helper 7.5.21 — Complete Features & Functions Guide
 
-**Version:** 7.5.13 (Enhanced Fork — Personal Build)
+**Version:** 7.5.21 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.5.13_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.5.21_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.13. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.21. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -407,6 +407,17 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.1
 - **Up Next folder** (7.5.6). When Trakt has no next episode for a show, the Up Next folder asks MDBList, then Simkl, then WeTrakr, and opens at the first episode WeTrakr has not marked watched. A service that has not marked a single episode of the show no longer answers "from season 1 episode 1".
 - **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. It goes one way only: nothing is read back from WeTrakr into the other services and nothing is ever removed from WeTrakr. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
 
+### Cross-service catch-up, WeTrakr journal sync and calendar refresh (7.5.14–7.5.21)
+
+- **Cross-Service Sync runs with any two services** (7.5.14). Trakt is no longer required: with only MDBList and Simkl signed in, watched movies and episodes, the watchlist and resume points are kept in step between those two (the collection stays Trakt and MDBList only, because Simkl has none). A service that is switched off in Settings → Accounts, or that has no sign-in, is left out of the sync and never contacted; with Trakt on, nothing changes. A service whose switch is off is no longer used just because an old sign-in is still stored.
+- **Nothing forgotten for WeTrakr while Trakt is off** (7.5.15). With Trakt switched off, the copy of watched marks to WeTrakr no longer forgets the titles that only Trakt held, so a title you unwatched on WeTrakr does not come back when Trakt is switched on again.
+- **Catch-up for a service that was away** (7.5.16). What happened on the other services while Trakt, MDBList or Simkl was switched off, or not signed in, reaches it when it comes back: movies and episodes you watched, and titles you added to lists, are sent to it once, within the usual limits per run (Trakt history 50 titles a run, so a long absence takes a few runs). A service that never took part does not get your whole library this way, a gap from before 7.5.16 cannot be recovered, and a title you removed in the meantime is not sent. The copy to WeTrakr keeps the titles of a service that is away in the same way, now for MDBList and Simkl as well as Trakt.
+- **Removals while a service was away** (7.5.17). A title you removed (took off a list, or marked unwatched) on one service while another one was away is also removed from that one when it comes back, after checking again that it is still gone everywhere else and has not been added back; at most 10 titles (40 episodes) a run, and only as far as your *Copy removals made elsewhere* setting allows. A watched title you played again on the returning service is kept and sent back to the others. Removals from before 7.5.17 are not recovered.
+- **Limits and housekeeping** (7.5.18). A removal on a list (watchlist, collection) that has waited 90 days is dropped instead of carried out, so a title you added back directly on that service months later is not taken off again. If the service you removed the title on has been out of the sync for 14 days or more, another service that held the title and no longer lists it vouches for the removal. The waiting lists are tidied on every run, also while the service is still away.
+- **A watchlist title put back** (7.5.19). A watchlist title you took off the service that was away, and put on it again while it was away, is no longer taken off again when that service comes back: TMDb Helper compares the date the title was put on that service's watchlist with the date it was removed elsewhere, using the dates Trakt, MDBList and Simkl keep. When a date is not available the 90-day limit still applies; the collection keeps the 90-day limit.
+- **WeTrakr marks and ratings read from what changed** (7.5.20). A change on WeTrakr (a movie or episode watched or unwatched, a rating added or removed) reads only the changed titles. The full read is still used the first time after this update, after the Sync tools *Force sync*, *Rebuild Database* or *Clear last sync time*, and whenever the changes cannot be placed safely (WeTrakr's change log is older than 30 days, is very long, or a request failed). The resume points are still read in full.
+- **TV Calendar after a WeTrakr option** (7.5.21). Your TV Calendar now rebuilds its page after a WeTrakr option from its context menu (Watched, Unwatched, Drop ...). A tick changed on WeTrakr no longer stays as it was until the page is opened again.
+
 ## 3. First-Time Setup
 
 The full procedure, with addresses, is in the install instructions. In short:
@@ -740,7 +751,7 @@ Trakt only: **Get episode types (slower)** (premiere / finale labels), **Ignore 
 
 ## 12. Cross-Service Sync
 
-Two cooperating mechanisms keep Trakt, MDBList and Simkl in step. **Both are off until you turn on** *Mirror actions across enabled services* (Settings → Accounts → Cross-service sync), and the bridge needs **Trakt plus MDBList or Simkl**.
+Two cooperating mechanisms keep Trakt, MDBList and Simkl in step. **Both are off until you turn on** *Mirror actions across enabled services* (Settings → Accounts → Cross-service sync), and the bridge needs **any two of Trakt, MDBList and Simkl**.
 
 ### On-action mirror
 
@@ -790,6 +801,10 @@ Simkl keeps every season (cour) of an anime as its own entry and counts its epis
 ### Watched marks to WeTrakr (7.5.5)
 
 A third, one-way copy: *Watched marks to WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On) sends the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, with their own watch dates, up to 100 movies and 300 episodes a run. Nothing is read back and nothing is ever removed from WeTrakr, a title you unwatch on WeTrakr is not sent again, and specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services.
+
+### Services that were away (7.5.14–7.5.19)
+
+With only two services connected, or one of them switched off for a while, the bridge keeps what that service missed and carries it out when the service is back: watched titles and list additions it did not see, and removals you made elsewhere in the meantime (at most 10 titles or 40 episodes a run, and within your *Copy removals made elsewhere* setting). A list removal that has waited 90 days is dropped, a removal is vouched for by another service after 14 days away, and a watchlist title put back on the service that was away is kept. The details are in Section 2, *Cross-service catch-up, WeTrakr journal sync and calendar refresh (7.5.14–7.5.21)*.
 
 ## 13. Kodi Library Integration
 
