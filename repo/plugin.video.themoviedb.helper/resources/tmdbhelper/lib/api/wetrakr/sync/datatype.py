@@ -1,7 +1,26 @@
 from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.addon.tmdate import set_timestamp, get_timestamp
 from tmdbhelper.lib.api.wetrakr.sync.activity import WeTrakrLastActivities, NO_ACTIVITY
+from tmdbhelper.lib.api.wetrakr.sync.itemdata import WeTrakrSyncItem
 from tmdbhelper.lib.files.locker import mutexlock
+
+
+OVERLAP = 1  # seconds an incremental read starts before the saved mark: an entry read twice is harmless (every write is idempotent), a gap is not
+JOURNAL_MARK = 'watched_jmark'  # activity row (item type 'all'): the journal's `visible_until` of the last incremental read, or the activity stamp a full read started from
+
+
+def shift_iso(value, seconds):
+    """ An ISO 8601 stamp of WeTrakr ('2026-11-23T00:54:53.173Z') moved by some seconds, in the same form; None when it cannot be read. (No strptime: Kodi's
+    interpreter fails to import its module from a thread.) """
+    from datetime import datetime, timedelta
+    try:
+        text = f'{value}'.strip()
+        millis = int((text[20:23] if text[19:20] == '.' else '0').ljust(3, '0'))
+        moment = datetime(int(text[0:4]), int(text[5:7]), int(text[8:10]), int(text[11:13]), int(text[14:16]), int(text[17:19]), millis * 1000)
+        moment += timedelta(seconds=seconds)
+    except (ValueError, TypeError):
+        return None
+    return f'{moment:%Y-%m-%dT%H:%M:%S}.{moment.microsecond // 1000:03d}Z'
 
 
 def timerlock(func):
@@ -29,6 +48,8 @@ class WeTrakrDataType:
     def __init__(self, class_instance_syncdata, item_type):
         self._class_instance_syncdata = class_instance_syncdata
         self._item_type = item_type
+        self._forced = False  # a forced sync (the tools list) always reads the lists in full
+        self._stamp_cap = None  # an incremental read that could not see the newest changes yet saves no stamp newer than what it saw
 
     @property
     def mutex_lockname(self):
@@ -89,12 +110,15 @@ class WeTrakrDataType:
 
     @mutexlock
     def sync(self, forced=False):
+        self._forced = forced
         if forced:
             self.clear_timerlock()
         elif not self.is_expired:
             return
         stamp = self.current_stamp() or NO_ACTIVITY  # before the fetch (see the class docstring)
         if self.timerlocked_sync() is not None:
+            if self._stamp_cap and self._stamp_cap < stamp:
+                stamp = self._stamp_cap  # the change that moved the stamp is not in the journal yet: the next sync must read it
             self.cache.set_activity(self.item_type, self.method, stamp)
 
     @timerlock
@@ -104,7 +128,14 @@ class WeTrakrDataType:
 
 class WeTrakrSyncWatched(WeTrakrDataType):
     """ Watched marks: GET /sync/tracking/watched/movies and /episodes (compact, every page). The show and season counts are worked out from the
-    episode rows, so they agree with the marks shown on the episodes. """
+    episode rows, so they agree with the marks shown on the episodes.
+
+    Incremental read (7.5.20): once a full read has saved a mark, a change moves only what changed. The journal (GET /sync/journal, category watched)
+    says WHICH titles changed since the mark and the lists' own from_date returns their NEW state: a title still watched comes back with its new play
+    count, one that lost its last play does not come back, so a title the journal reports as removed and the list does not return is cleared. The journal
+    shows only what is a few seconds old, so its `visible_until` (never the clock or the activity stamp) is the next mark, and the activity stamp saved is
+    never newer than it. Anything not sure (no mark, mark too old, a long journal, a request that failed, an episode of a show the database does not know)
+    falls back to the full read, which also saves the mark. """
 
     keys = ('plays', 'last_watched_at', 'watched_episodes',)
     method = 'watched'
@@ -115,6 +146,132 @@ class WeTrakrSyncWatched(WeTrakrDataType):
 
     def current_stamp(self):
         return self.last_activities.watched_stamp()
+
+    def sync_data(self):
+        if not self._forced and self._sync_incremental():
+            return True
+        stamp = self.current_stamp() or NO_ACTIVITY  # the stamp this read started from (read before it): the journal mark of a full read
+        done = super().sync_data()
+        if done:
+            self.cache.set_activity(self.item_type, JOURNAL_MARK, stamp)
+        return done
+
+    @staticmethod
+    def _journal_plan(entries):
+        """ What the journal entries say: {'movies': bool, 'episodes': bool, 'removed_movies': {tmdb}, 'removed_episodes': [(show wt id, season, number)]},
+        or None when something cannot be placed (a removal with no ids, a removed season / show no episode entry explains): the lists are then read in full """
+        plan = {'movies': False, 'episodes': False, 'removed_movies': set(), 'removed_episodes': []}
+        bulk = []
+        for entry in entries:
+            kind, removed = entry.get('type'), entry.get('status') == 'removed'
+            if kind == 'movie':
+                plan['movies'] = True
+                if removed:
+                    tmdb_id = WeTrakrSyncItem._int((entry.get('ids') or {}).get('tmdb'))
+                    if not tmdb_id:
+                        return None
+                    plan['removed_movies'].add(tmdb_id)
+            elif kind == 'episode':
+                plan['episodes'] = True
+                if removed:
+                    media, season, number = (WeTrakrSyncItem._int(entry.get(k)) for k in ('media_id', 'season_number', 'number'))
+                    if media is None or season is None or number is None:
+                        return None
+                    plan['removed_episodes'].append((media, season, number))
+            elif kind in ('season', 'show'):
+                plan['episodes'] = True
+                if removed:
+                    bulk.append(WeTrakrSyncItem._int(entry.get('media_id') if kind == 'season' else entry.get('id')))
+        covered = {media for media, _, _ in plan['removed_episodes']}
+        if any(media is None or media not in covered for media in bulk):
+            return None  # a season / show was unwatched and its episodes are not in the journal: do not guess
+        return plan
+
+    def _sync_incremental(self):
+        """ True when the stored data was brought up to date from the journal; False when the lists must be read in full (nothing is changed then) """
+        from tmdbhelper.lib.addon.logger import kodi_log
+        mark = self.cache.get_activity(self.item_type, JOURNAL_MARK)
+        since = shift_iso(mark, -OVERLAP) if mark else None
+        if not since:
+            kodi_log('WeTrakr Sync: watched - no journal mark yet, reading the lists in full', 1)
+            return False
+        # one lower bound for the journal and both lists, the journal FIRST: its upper bound (until) is then never newer than what the lists show
+        state, entries, until = self.wetrakr_api.get_journal(since, 'watched')
+        if state != 'ok':
+            kodi_log(f'WeTrakr Sync: watched - journal not usable ({state}), reading the lists in full', 1)
+            return False
+        plan = self._journal_plan(entries)
+        if plan is None:
+            kodi_log('WeTrakr Sync: watched - the journal has a change that cannot be placed, reading the lists in full', 1)
+            return False
+        movie_rows, episode_rows = [], []
+        if plan['movies']:
+            ok, movie_rows = self.wetrakr_api.get_list('/sync/tracking/watched/movies', {'from_date': since})
+            if not ok:
+                return False
+        if plan['episodes']:
+            ok, episode_rows = self.wetrakr_api.get_list('/sync/tracking/watched/episodes', {'from_date': since})
+            if not ok:
+                return False
+        if not self._apply_delta(plan, movie_rows, episode_rows):
+            kodi_log('WeTrakr Sync: watched - the changes could not be applied, reading the lists in full', 1)
+            return False
+        self.cache.set_activity(self.item_type, JOURNAL_MARK, until)
+        self._stamp_cap = until
+        kodi_log(f'WeTrakr Sync: watched - incremental, {len(entries)} journal entries, {len(movie_rows)} movie rows, {len(episode_rows)} episode rows', 1)
+        return True
+
+    def _apply_delta(self, plan, movie_rows, episode_rows):
+        """ Write the changed rows, clear the titles that lost their last play, recount the seasons and shows they belong to. False (and the caller reads
+        everything again, which repairs any half-done write) when a removed episode cannot be placed or a write failed. """
+        item = WeTrakrSyncItem('watched', {'movies': movie_rows, 'episodes': episode_rows}, self.keys)
+        rows, _ = item.delta_watched()
+        shows = {}  # WeTrakr show id -> TMDb id, from the rows just read, then from the stored ones
+        for row in episode_rows:
+            wt_id, tmdb_id = item._show_wt(row), item._show_tmdb(row)
+            if wt_id and tmdb_id:
+                shows[wt_id] = tmdb_id
+        clear, seasons_seen = [], set()
+        for tmdb_id in plan['removed_movies']:
+            if f'movie.{tmdb_id}' not in rows:
+                clear.append(f'movie.{tmdb_id}')
+        for media, season, number in plan['removed_episodes']:
+            tmdb_id = shows.get(media) or self.cache.show_tmdb_of(media)
+            if not tmdb_id:
+                return False
+            shows[media] = tmdb_id
+            seasons_seen.add((tmdb_id, season))
+            if f'tv.{tmdb_id}.{season}.{number}' not in rows:
+                clear.append(f'tv.{tmdb_id}.{season}.{number}')
+        for key in rows:
+            if key.startswith('tv.') and key.count('.') == 3:
+                _, tmdb_id, season, _ = key.split('.')
+                seasons_seen.add((int(tmdb_id), int(season)))
+        wt_of = {tmdb_id: media for media, tmdb_id in shows.items()}
+        if rows and self.cache.set_many_values(keys=item.table_keys, data=rows) is None:
+            return False
+        if not self.cache.clear_values(clear, self.keys):
+            return False
+        counts = self.cache.watched_counts({tmdb_id for tmdb_id, _ in seasons_seen})
+        if counts is None:
+            return False
+        season_counts, show_counts = counts
+        data, empty = {}, []
+        for tmdb_id, season in sorted(seasons_seen):
+            count = season_counts.get((tmdb_id, season), 0)
+            if count:
+                data[f'tv.{tmdb_id}.{season}'] = item._row([None, None, count], 'season', tmdb_id, season, wt_id=wt_of.get(tmdb_id))
+            else:
+                empty.append(f'tv.{tmdb_id}.{season}')
+        for tmdb_id in sorted({tmdb_id for tmdb_id, _ in seasons_seen}):
+            count = show_counts.get(tmdb_id, 0)
+            if count:
+                data[f'tv.{tmdb_id}'] = item._row([None, None, count], 'show', tmdb_id, wt_id=wt_of.get(tmdb_id))
+            else:
+                empty.append(f'tv.{tmdb_id}')
+        if data and self.cache.set_many_values(keys=item.table_keys, data=data) is None:
+            return False
+        return bool(self.cache.clear_values(empty, self.keys))
 
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import kodi_log
@@ -165,6 +322,27 @@ class WeTrakrSyncRatings(WeTrakrDataType):
 
     def current_stamp(self):
         return self.last_activities.ratings_stamp()
+
+    def sync_data(self):
+        """ Incremental (7.5.20): GET /sync/ratings/all?from_date= answers the ratings changed since the stored stamp, a removed one with status
+        'removed' and no rating, so no journal is needed. The first read (no stored stamp) and a forced sync read the whole list. """
+        from tmdbhelper.lib.addon.logger import kodi_log
+        stored = None if self._forced else self.cache.get_activity(self.item_type, self.method)
+        since = shift_iso(stored, -OVERLAP) if stored else None
+        if not since:
+            return super().sync_data()
+        ok, rows = self.wetrakr_api.get_list('/sync/ratings/all', {'from_date': since})
+        if not ok:
+            kodi_log('WeTrakr Sync: ratings - a request failed, keeping local data', 1)
+            return None
+        item = WeTrakrSyncItem(self.method, {'ratings': rows}, self.keys)
+        data, removed = item.delta_ratings()
+        if data and self.cache.set_many_values(keys=item.table_keys, data=data) is None:
+            return None
+        if not self.cache.clear_values(removed, self.keys):
+            return None
+        kodi_log(f'WeTrakr Sync: ratings - incremental, {len(data)} changed, {len(removed)} removed', 1)
+        return True
 
     def sync_func(self):
         from tmdbhelper.lib.addon.logger import kodi_log

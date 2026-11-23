@@ -290,12 +290,8 @@ class CronJobMonitor(SafeThread):
     def _do_bridge_sync_startup(self):
         """Run bridge sync ~10s after startup in a background thread so Trakt auth
         and initial data sync can settle before we compare the services."""
-        from tmdbhelper.lib.addon.plugin import get_setting
-        if not get_setting('cross_sync_services'):
-            return
-        if not get_setting('service_trakt'):
-            return
-        if not get_setting('service_mdblist') and not get_setting('service_simkl'):
+        from tmdbhelper.lib.monitor.bridge_sync import bridge_enabled
+        if not bridge_enabled(self.trakt_api):     # cross-sync on and at least two of Trakt / MDBList / Simkl take part
             return
 
         monitor = self.update_monitor
@@ -305,11 +301,8 @@ class CronJobMonitor(SafeThread):
             if monitor.abortRequested():
                 return
             try:
-                from tmdbhelper.lib.api.mdblist.api import MDbList
-                from tmdbhelper.lib.api.simkl.api import SimklAPI
-                from tmdbhelper.lib.monitor.bridge_sync import BridgeSync
-                simkl = SimklAPI() if get_setting('service_simkl') else None
-                BridgeSync(self.trakt_api, MDbList(), simkl).run(force=True)
+                from tmdbhelper.lib.monitor.bridge_sync import make_bridge
+                make_bridge(self.trakt_api).run(force=True)
             except Exception as exc:
                 from tmdbhelper.lib.addon.logger import kodi_log
                 kodi_log(f'BridgeSync startup error: {exc}', 2)
@@ -318,19 +311,12 @@ class CronJobMonitor(SafeThread):
 
     def _do_bridge_sync(self):
         """Periodic bridge sync — honours the 15-minute interval gate in BridgeSync.run()."""
-        from tmdbhelper.lib.addon.plugin import get_setting
-        if not get_setting('cross_sync_services'):
-            return
-        if not get_setting('service_trakt'):
-            return
-        if not get_setting('service_mdblist') and not get_setting('service_simkl'):
+        from tmdbhelper.lib.monitor.bridge_sync import bridge_enabled
+        if not bridge_enabled(self.trakt_api):
             return
         try:
-            from tmdbhelper.lib.api.mdblist.api import MDbList
-            from tmdbhelper.lib.api.simkl.api import SimklAPI
-            from tmdbhelper.lib.monitor.bridge_sync import BridgeSync
-            simkl = SimklAPI() if get_setting('service_simkl') else None
-            BridgeSync(self.trakt_api, MDbList(), simkl).run(force=False)
+            from tmdbhelper.lib.monitor.bridge_sync import make_bridge
+            make_bridge(self.trakt_api).run(force=False)
         except Exception as exc:
             from tmdbhelper.lib.addon.logger import kodi_log
             kodi_log(f'BridgeSync poll error: {exc}', 2)

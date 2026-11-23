@@ -11,6 +11,8 @@ REQUEST_TIMEOUT = 10  # seconds; posts run on Kodi's player callback thread, so 
 REFRESH_MARGIN = 3600  # refresh the access token (valid 7 days) once less than an hour is left
 LIST_PAGE_LIMIT = 5000  # rows per compact page (WeTrakr's maximum)
 LIST_MAX_PAGES = 40  # backstop for the cursor loop
+JOURNAL_PAGE_LIMIT = 1000  # entries per journal page (WeTrakr's maximum)
+JOURNAL_MAX_PAGES = 3  # a journal longer than this is not worth reading: the sync falls back to reading the lists in full
 DEFAULT_BACKOFF = 60  # seconds without requests after HTTP 429 when the answer carries no Retry-After
 REQUEST_COUNT = 'WeTrakr.RequestCount'  # Home window property: requests sent since Kodi started
 SIGNED_OUT_NOTICE = 'WeTrakr.SignedOutNotice'  # Home window property: the "sign in again" notice is shown once per Kodi session
@@ -175,12 +177,13 @@ class WeTrakrAPI:
         data = self._json(response)
         return data or None
 
-    def get_list(self, path):
+    def get_list(self, path, extra=None):
         """ Every row of a compact cursor list: (ok, rows). ok is False, and rows empty, when any page failed, the cursor repeated or the page
-        cap was hit, or the rows read do not add up to the item count WeTrakr reports: a partial list must never replace stored data. """
+        cap was hit, or the rows read do not add up to the item count WeTrakr reports: a partial list must never replace stored data.
+        extra = more query values for every page (from_date: only the rows changed since then, 7.5.20). """
         rows, seen, after, expected = [], set(), None, None
         for page in range(LIST_MAX_PAGES):
-            params = {'compact': 'true', 'limit': LIST_PAGE_LIMIT}
+            params = {**(extra or {}), 'compact': 'true', 'limit': LIST_PAGE_LIMIT}
             if after:
                 params['after'] = after
             response = self.user_request('GET', path, params=params)
@@ -207,6 +210,37 @@ class WeTrakrAPI:
             kodi_log(f'WeTrakr {path}: read {len(rows)} rows but the list holds {expected}, keeping the stored data', 1)
             return False, []
         return True, rows
+
+    def get_journal(self, from_date, category='watched'):
+        """ GET /sync/journal (7.5.20): what changed since from_date, oldest first, read page by page. Returns (state, entries, visible_until):
+        state 'ok' (entries is the complete answer; visible_until is the newest moment the journal shows, WeTrakr writes it a few seconds late, so the
+        NEXT read must start from it, never from the clock), 'expired' (from_date is older than the journal keeps: do a full read), 'big' (more
+        than JOURNAL_MAX_PAGES pages: a full read is cheaper) or 'failed' (nothing could be read; keep what is stored). """
+        entries, until, expected = [], None, None
+        for page in range(1, JOURNAL_MAX_PAGES + 2):
+            response = self.user_request('GET', '/sync/journal', params={'from_date': from_date, 'category': category, 'limit': JOURNAL_PAGE_LIMIT, 'page': page})
+            if response is None:
+                return 'failed', [], None
+            if response.status_code == 400 and self._json(response).get('error') == 'JOURNAL_EXPIRED':
+                return 'expired', [], None
+            if response.status_code != 200:
+                return 'failed', [], None
+            data = self._json(response)
+            rows, seen_until = data.get('journal'), data.get('visible_until')
+            if not isinstance(rows, list) or not isinstance(seen_until, str) or not seen_until:
+                return 'failed', [], None
+            until = seen_until if until is None else min(until, seen_until)  # the oldest of the answers: nothing newer is certain to be complete
+            entries.extend(rows)
+            if page == 1:
+                expected = _to_int(response.headers.get('X-Pagination-Item-Count'), None)
+            if page >= (_to_int(response.headers.get('X-Pagination-Page-Count'), 0) or 0):
+                break
+            if page >= JOURNAL_MAX_PAGES:
+                return 'big', [], None
+        if expected is not None and len(entries) != expected:
+            kodi_log(f'WeTrakr /sync/journal: read {len(entries)} entries but the journal holds {expected}, keeping the stored data', 1)
+            return 'failed', [], None
+        return 'ok', entries, until
 
     def get_first_page(self, path, limit=LIST_PAGE_LIMIT, params=None):
         """ Only the first compact page of a cursor list (newest rows first for the history routes): (ok, rows). For a screen that needs the latest

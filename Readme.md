@@ -1,6 +1,6 @@
 # TMDb Helper — Enhanced Fork
 
-**Current version:** v7.5.13 &nbsp;|&nbsp; **Base addon:** [plugin.video.themoviedb.helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper) &nbsp;|&nbsp; **Skin:** Titan Bingie Mod v2.2.3.1 &nbsp;|&nbsp; **Kodi:** 22 (Piers), portable
+**Current version:** v7.5.20 &nbsp;|&nbsp; **Base addon:** [plugin.video.themoviedb.helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper) &nbsp;|&nbsp; **Skin:** Titan Bingie Mod v2.2.3.1 &nbsp;|&nbsp; **Kodi:** 22 (Piers), portable
 
 > A heavily extended fork of TMDb Helper focused on reliable widget refresh, MDBList, Simkl and WeTrakr integration, three-way cross-service sync (Trakt ↔ MDBList ↔ Simkl, with a one-way copy to WeTrakr), native Anime and Asian Cinema & TV menus, and Seren-style calendars.
 
@@ -149,8 +149,15 @@ Note for writing your own player files: `tmdb_type` is the correct key for the m
 
 Highlights by version range, newest first (the complete list is in [`changelog.txt`](repo/plugin.video.themoviedb.helper/changelog.txt); Kodi also shows it on the add-on information screen and under **Tools → Changelog**).
 
-### 7.0.132–7.5.13
+### 7.0.132–7.5.20
 
+- **7.5.20:** WeTrakr watched marks and ratings are brought up to date from what changed (WeTrakr's change journal) instead of being read in full each time; full reads remain for the first sync after the update, Force sync / Rebuild Database / Clear last sync time, and any case that cannot be placed safely. Smaller downloads, not fewer requests.
+- **7.5.19:** A watchlist title you added again on a returning service is kept and copied to the others, decided by the dates Trakt, MDBList and Simkl keep for their watchlists.
+- **7.5.18:** Removals waiting for a service that is away expire after 90 days, a service that held the title can vouch for a removal once the source has been away 14 days, and the waiting lists are tidied on every run.
+- **7.5.17:** A title removed (taken off a list or marked unwatched) while another service was switched off or signed out is also removed there when it comes back (within your removal setting; removals from before 7.5.17 are not recovered).
+- **7.5.16:** What happened on the other services while Trakt, MDBList or Simkl was away reaches it when it comes back.
+- **7.5.15:** With Trakt switched off, the copy of watched marks to WeTrakr no longer forgets titles only Trakt held.
+- **7.5.14:** Cross-Service Sync runs with any two of Trakt, MDBList and Simkl (Trakt is no longer required); a service switched off in Settings > Accounts is never contacted.
 - **7.5.13:** The optional WeTrakr app key setting is now an expert-level setting (nobody needs it; TMDb Helper has its own key built in).
 - **7.5.12:** WeTrakr sign-in no longer needs an app key: TMDb Helper's own key is built in, so Authorize WeTrakr account… works straight away (QR code or wetrakr.com/activate).
 - **7.5.11:** An episode marked as watched from the WeTrakr menu shows its tick in every list and the TV calendars, also while Trakt or MDBList watched indicators are on.

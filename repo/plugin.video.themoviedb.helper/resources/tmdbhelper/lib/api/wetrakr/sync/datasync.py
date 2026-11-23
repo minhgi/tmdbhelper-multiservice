@@ -22,6 +22,10 @@ class WeTrakrSyncData:
         for method in ('watched', 'playback', 'ratings'):  # a sync made seconds ago must not make the next one wait out its 3 s timer
             self.window.get_property(f'wetrakr.syncdecorators.timerlock.{method}', clear_property=True)
         self.__dict__.pop('_sync_checked', None)
+        # The journal shows a change only a few seconds after it was made, so an incremental read right after a play / mark / rating made HERE would not
+        # see it and the refreshed list would still show the old state: the next watched read is a full one (it saves a new journal mark)
+        from tmdbhelper.lib.api.wetrakr.sync.datatype import JOURNAL_MARK
+        self.cache.execute_sql('DELETE FROM lactivities WHERE id=?', (f'all.{JOURNAL_MARK}',))
 
     def clear_all(self):
         """ Forget the account's synced data (every row and every stamp) so a different account never inherits it. The tables are emptied

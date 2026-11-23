@@ -53,11 +53,9 @@ class BridgeTrigger:
 
     # ── Settings ──────────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _enabled():
-        from tmdbhelper.lib.addon.plugin import get_setting
-        return bool(get_setting('cross_sync_dynamic') and get_setting('cross_sync_services')
-                    and get_setting('service_trakt') and (get_setting('service_mdblist') or get_setting('service_simkl')))
+    def _enabled(self):
+        from tmdbhelper.lib.monitor.bridge_sync import bridge_enabled
+        return bridge_enabled(self.trakt_api, dynamic=True)     # cross-sync + 'run when something changes' on, at least two services take part
 
     # ── Fresh activity stamps (one cheap call each) ────────────────────────────
 
@@ -66,6 +64,9 @@ class BridgeTrigger:
         from tmdbhelper.lib.addon.plugin import get_setting
         try:
             if service == 'trakt':
+                from tmdbhelper.lib.monitor.bridge_sync import bridge_services
+                if 'trakt' not in bridge_services(self.trakt_api):
+                    return None            # switched off or not signed in: no request to Trakt (it would also open a login dialog)
                 data = self.trakt_api.get_response_json('sync/last_activities')
                 return str(data.get('all')) if data and data.get('all') else None
             if service == 'mdblist':
@@ -161,16 +162,12 @@ class BridgeTrigger:
     def _run(self, reason, requested):
         from jurialmunkey.window import get_property
         from tmdbhelper.lib.addon.logger import kodi_log
-        from tmdbhelper.lib.addon.plugin import get_setting
-        from tmdbhelper.lib.api.mdblist.api import MDbList
-        from tmdbhelper.lib.api.simkl.api import SimklAPI
-        from tmdbhelper.lib.monitor.bridge_sync import BridgeSync
+        from tmdbhelper.lib.monitor.bridge_sync import make_bridge
         if requested and float(get_property(REQUEST_PROP) or 0) == requested:
             get_property(REQUEST_PROP, clear_property=True)     # a request made while the run is going starts another
         self._followup_at = 0.0
         kodi_log(f'BridgeTrigger: running the bridge - {reason}', 1)
-        simkl = SimklAPI() if get_setting('service_simkl') else None
-        bridge = BridgeSync(self.trakt_api, MDbList(), simkl)
+        bridge = make_bridge(self.trakt_api)
         bridge.run(force=True)
         self._last_run = time.time()
         self._rebaseline()

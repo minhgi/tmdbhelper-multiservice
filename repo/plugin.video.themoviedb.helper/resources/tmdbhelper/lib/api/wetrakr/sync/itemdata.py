@@ -3,7 +3,7 @@ class WeTrakrSyncItem:
     (in the order of its keys), then item_type, tmdb_type, tmdb_id, season_number, episode_number. TMDb ids and TMDb numbering throughout: WeTrakr
     resolves every title by TMDb id, so no numbering check is needed (unlike Simkl's TVDB-numbered episodes). """
 
-    ADDITIONAL_KEYS = ('item_type', 'tmdb_type', 'tmdb_id', 'season_number', 'episode_number')
+    ADDITIONAL_KEYS = ('item_type', 'tmdb_type', 'tmdb_id', 'season_number', 'episode_number', 'wt_id')
 
     def __init__(self, method, meta, keys):
         self._method = method
@@ -44,8 +44,18 @@ class WeTrakrSyncItem:
         return cls._int((row.get('ids') or {}).get('tmdb'))
 
     @staticmethod
-    def _row(base_values, item_type, tmdb_id, season=None, episode=None):
-        return [*base_values, item_type, 'movie' if item_type == 'movie' else 'tv', tmdb_id, season, episode]
+    def _row(base_values, item_type, tmdb_id, season=None, episode=None, wt_id=None):
+        return [*base_values, item_type, 'movie' if item_type == 'movie' else 'tv', tmdb_id, season, episode, wt_id]
+
+    @classmethod
+    def _movie_wt(cls, row):
+        """ WeTrakr's own id of a movie row (the row's id) """
+        return cls._int(row.get('id'))
+
+    @classmethod
+    def _show_wt(cls, row):
+        """ WeTrakr's own id of the SHOW an episode / season row belongs to (the journal names an episode by it, not by the show's TMDb id) """
+        return cls._int(row.get('show_id'))
 
     def _parse_watched(self, meta):
         """ base values: (plays, last_watched_at, watched_episodes). A movie / episode row carries plays and when; a season row the number of its
@@ -54,7 +64,7 @@ class WeTrakrSyncItem:
         for row in (meta.get('movies') or []):
             tmdb_id = self._movie_tmdb(row)
             if tmdb_id:
-                data[f'movie.{tmdb_id}'] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'movie', tmdb_id)
+                data[f'movie.{tmdb_id}'] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'movie', tmdb_id, wt_id=self._movie_wt(row))
         seasons, shows = {}, {}
         for row in (meta.get('episodes') or []):
             tmdb_id = self._show_tmdb(row)
@@ -64,15 +74,37 @@ class WeTrakrSyncItem:
             item_id = f'tv.{tmdb_id}.{season}.{number}'
             if item_id in data:
                 continue  # one row per watched episode; a repeated one is counted once
-            data[item_id] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'episode', tmdb_id, season, number)
-            seasons[(tmdb_id, season)] = seasons.get((tmdb_id, season), 0) + 1
+            wt_id = self._show_wt(row)
+            data[item_id] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'episode', tmdb_id, season, number, wt_id)
+            seasons[(tmdb_id, season)] = (seasons.get((tmdb_id, season), (0, None))[0] + 1, wt_id)
             if season > 0:
-                shows[tmdb_id] = shows.get(tmdb_id, 0) + 1
-        for (tmdb_id, season), count in seasons.items():
-            data[f'tv.{tmdb_id}.{season}'] = self._row([None, None, count], 'season', tmdb_id, season)
-        for tmdb_id, count in shows.items():
-            data[f'tv.{tmdb_id}'] = self._row([None, None, count], 'show', tmdb_id)
+                shows[tmdb_id] = (shows.get(tmdb_id, (0, None))[0] + 1, wt_id)
+        for (tmdb_id, season), (count, wt_id) in seasons.items():
+            data[f'tv.{tmdb_id}.{season}'] = self._row([None, None, count], 'season', tmdb_id, season, wt_id=wt_id)
+        for tmdb_id, (count, wt_id) in shows.items():
+            data[f'tv.{tmdb_id}'] = self._row([None, None, count], 'show', tmdb_id, wt_id=wt_id)
         return data
+
+    def delta_watched(self):
+        """ The rows of an incremental read of the watched lists (GET ... from_date): only the movie and episode rows, as the full read writes them.
+        The season and show counts are NOT worked out here (a delta holds only some of the episodes): the caller recounts them from the stored
+        episode rows. Returns (rows {item_id: values}, episode keys {item_id: (show_tmdb, season, number)}) """
+        data, keys = {}, {}
+        for row in (self._meta.get('movies') or []):
+            tmdb_id = self._movie_tmdb(row)
+            if tmdb_id:
+                data[f'movie.{tmdb_id}'] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'movie', tmdb_id, wt_id=self._movie_wt(row))
+        for row in (self._meta.get('episodes') or []):
+            tmdb_id = self._show_tmdb(row)
+            season, number = self._int(row.get('season_number')), self._int(row.get('number'))
+            if not tmdb_id or season is None or number is None:
+                continue
+            item_id = f'tv.{tmdb_id}.{season}.{number}'
+            if item_id in data:
+                continue
+            data[item_id] = self._row([self._int(row.get('plays')) or 1, row.get('last_watched_at'), None], 'episode', tmdb_id, season, number, self._show_wt(row))
+            keys[item_id] = (tmdb_id, season, number)
+        return data, keys
 
     def _parse_playback(self, meta):
         """ base values: (paused_progress, paused_at), from the PAUSED rows of the playing list. A row whose status is 'playing' is not a resume
@@ -81,12 +113,12 @@ class WeTrakrSyncItem:
         for row in (meta.get('movies') or []):
             tmdb_id, progress = self._movie_tmdb(row), self._progress(row)
             if tmdb_id and progress:
-                data[f'movie.{tmdb_id}'] = self._row([progress, row.get('tracked_at')], 'movie', tmdb_id)
+                data[f'movie.{tmdb_id}'] = self._row([progress, row.get('tracked_at')], 'movie', tmdb_id, wt_id=self._movie_wt(row))
         for row in (meta.get('episodes') or []):
             tmdb_id, progress = self._show_tmdb(row), self._progress(row)
             season, number = self._int(row.get('season_number')), self._int(row.get('number'))
             if tmdb_id and progress and season is not None and number is not None:
-                data[f'tv.{tmdb_id}.{season}.{number}'] = self._row([progress, row.get('tracked_at')], 'episode', tmdb_id, season, number)
+                data[f'tv.{tmdb_id}.{season}.{number}'] = self._row([progress, row.get('tracked_at')], 'episode', tmdb_id, season, number, self._show_wt(row))
         return data
 
     def _parse_ratings(self, meta):
@@ -97,27 +129,47 @@ class WeTrakrSyncItem:
         data = {}
         for row in (meta.get('ratings') or []):
             rating = self._rating(row.get('rating'))
-            if not rating:
-                continue
-            values = [rating, row.get('rated_at')]
-            kind = row.get('type')
-            if kind == 'movie':
-                tmdb_id = self._movie_tmdb(row)
-                if tmdb_id:
-                    data[f'movie.{tmdb_id}'] = self._row(values, 'movie', tmdb_id)
-            elif kind == 'show':
-                tmdb_id = self._movie_tmdb(row)  # a show row carries the show's own ids
-                if tmdb_id:
-                    data[f'tv.{tmdb_id}'] = self._row(values, 'show', tmdb_id)
-            elif kind == 'season':
-                tmdb_id, season = self._show_tmdb(row), self._int(row.get('number'))
-                if tmdb_id and season is not None:
-                    data[f'tv.{tmdb_id}.{season}'] = self._row(values, 'season', tmdb_id, season)
-            elif kind == 'episode':
-                tmdb_id, season, number = self._show_tmdb(row), self._int(row.get('season_number')), self._int(row.get('number'))
-                if tmdb_id and season is not None and number is not None:
-                    data[f'tv.{tmdb_id}.{season}.{number}'] = self._row(values, 'episode', tmdb_id, season, number)
+            target = self._rating_target(row)
+            if rating and target:
+                item_id, item_type, tmdb_id, season, number, wt_id = target
+                data[item_id] = self._row([rating, row.get('rated_at')], item_type, tmdb_id, season, number, wt_id)
         return data
+
+    def _rating_target(self, row):
+        """ Which stored row a ratings row is about: (item_id, item_type, tmdb_id, season, number, wt_id), or None when it cannot be told. A removed
+        row of an incremental read (status 'removed', no rating) keeps the same ids, so the same key finds the row to clear. """
+        kind = row.get('type')
+        if kind == 'movie':
+            tmdb_id = self._movie_tmdb(row)
+            return (f'movie.{tmdb_id}', 'movie', tmdb_id, None, None, self._movie_wt(row)) if tmdb_id else None
+        if kind == 'show':
+            tmdb_id = self._movie_tmdb(row)  # a show row carries the show's own ids
+            return (f'tv.{tmdb_id}', 'show', tmdb_id, None, None, self._movie_wt(row)) if tmdb_id else None
+        if kind == 'season':
+            tmdb_id, season = self._show_tmdb(row), self._int(row.get('number'))
+            return (f'tv.{tmdb_id}.{season}', 'season', tmdb_id, season, None, self._show_wt(row)) if tmdb_id and season is not None else None
+        if kind == 'episode':
+            tmdb_id, season, number = self._show_tmdb(row), self._int(row.get('season_number')), self._int(row.get('number'))
+            if tmdb_id and season is not None and number is not None:
+                return (f'tv.{tmdb_id}.{season}.{number}', 'episode', tmdb_id, season, number, self._show_wt(row))
+        return None
+
+    def delta_ratings(self):
+        """ An incremental read of the ratings (GET /sync/ratings/all?from_date=): (rows to write {item_id: values}, item ids whose rating was removed).
+        A removed row has status 'removed' and no rating (live-probed 2026-11-23). """
+        rows, removed = {}, []
+        for row in (self._meta.get('ratings') or []):
+            target = self._rating_target(row)
+            if not target:
+                continue
+            if row.get('status') == 'removed':
+                removed.append(target[0])
+                continue
+            rating = self._rating(row.get('rating'))
+            if rating:
+                item_id, item_type, tmdb_id, season, number, wt_id = target
+                rows[item_id] = self._row([rating, row.get('rated_at')], item_type, tmdb_id, season, number, wt_id)
+        return rows, removed
 
     @staticmethod
     def _rating(value):
