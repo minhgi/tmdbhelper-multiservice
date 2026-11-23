@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.themoviedb.helper" version="7.5.21" name="TMDb Helper" provider-name="jurialmunkey">
+<addons><addon id="plugin.video.themoviedb.helper" version="7.5.22" name="TMDb Helper" provider-name="jurialmunkey">
 <requires>
   <import addon="xbmc.python" version="3.0.1" />
   <import addon="script.module.requests" version="2.9.1" />
@@ -30,6 +30,8 @@
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.5.22
+- Changed: Settings &gt; Accounts &gt; WeTrakr now has an Account Info button like Simkl's: it shows your WeTrakr username, user ID, plan, join date and whether WeTrakr accepts the sign-in. The name comes from your WeTrakr profile, found through your sign-in (WeTrakr's own account call is closed to third-party apps). Nothing else changes.
 v7.5.21
 - Fixed: Your TV Calendar now rebuilds its page after a WeTrakr option from its context menu (Watched, Unwatched, Drop ...). The calendar skipped the rebuild when nothing it watches had changed, and it watched the Trakt, MDBList and Simkl marks but not WeTrakr's, so with another service connected a tick changed on WeTrakr stayed as it was until the page was opened again.
 v7.5.20

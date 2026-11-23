@@ -1136,6 +1136,24 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="account_info_wetrakr" type="action" label="32574" help="32828">
+                    <level>0</level>
+                    <data>RunScript(plugin.video.themoviedb.helper,account_info_wetrakr)</data>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="!is" setting="wetrakr_token"/>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="service_wetrakr">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="button" format="action">
+                        <close>true</close>
+                    </control>
+                </setting>
                 <setting id="revoke_wetrakr" type="action" label="32815" help="32819">
                     <level>0</level>
                     <data>RunScript(plugin.video.themoviedb.helper,revoke_wetrakr)</data>

@@ -1,4 +1,4 @@
-"""Account Info dialogs for Trakt, MDBList and Simkl (Settings > Accounts).
+"""Account Info dialogs for Trakt, MDBList, Simkl and WeTrakr (Settings > Accounts).
 
 Each dialog is built only from the fields named in its formatter below - nothing else from the
 service response is shown or logged. Formatting is kept in pure functions (no Kodi imports) so it
@@ -145,6 +145,21 @@ def format_simkl(data):
     return lines
 
 
+def format_wetrakr(profile, online=True):
+    """profile = GET users/{id} body (the public profile). Shows username, user id, plan and join date only."""
+    info = profile.get('info') or {}
+    lines = [f"Username:  {info.get('username') or 'N/A'}"]
+    if profile.get('id'):
+        lines.append(f"User ID:  {profile['id']}")
+    if profile.get('plan'):
+        plan = str(profile['plan'])
+        lines.append(f"Plan:  {plan.upper() if len(plan) <= 3 else plan.capitalize()}")
+    if profile.get('joined_at'):
+        lines.append(f"Joined:  {_date(profile['joined_at'])}")
+    lines.append('Status:  Online' if online else 'Status:  Offline (WeTrakr unreachable or the sign-in was rejected)')
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # Dialogs (Kodi)
 # ---------------------------------------------------------------------------
@@ -257,3 +272,24 @@ def simkl_account_info(**kwargs):
     except Exception as exc:
         kodi_log(f'Simkl account info error: {type(exc).__name__}', 1)
         _offline(title, 'Simkl unreachable')
+
+
+def wetrakr_account_info(**kwargs):
+    from xbmcgui import Dialog
+    from tmdbhelper.lib.addon.logger import kodi_log
+    from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+
+    title = 'TMDb Helper: WeTrakr Account'
+    try:
+        api = WeTrakrAPI()
+        if not api.is_authorized:
+            Dialog().ok('TMDb Helper', 'WeTrakr: Not authorised - authorise from settings.')
+            return
+        profile = api.get_profile()
+        if not isinstance(profile, dict) or not profile:
+            return _offline(title, 'no valid response from WeTrakr')
+        online = api.get_json('/sync/last_activities') is not None  # the sign-in itself: a user request (refreshed when due)
+        _show(title, format_wetrakr(profile, online))
+    except Exception as exc:
+        kodi_log(f'WeTrakr account info error: {type(exc).__name__}', 1)
+        _offline(title, 'WeTrakr unreachable')

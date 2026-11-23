@@ -169,6 +169,36 @@ class WeTrakrAPI:
                 response = self._send(method, path, body, params, token) if token else None
         return response
 
+    @staticmethod
+    def _user_id(token):
+        """ The numeric user id inside the access token (a JWT: its payload is only decoded, never logged - it also holds the e-mail address).
+        '' when there is none. """
+        try:
+            import base64
+            import json
+            part = (token or '').split('.')[1]
+            return str(json.loads(base64.urlsafe_b64decode(part + '=' * (-len(part) % 4))).get('user_id') or '')
+        except Exception:
+            return ''
+
+    def get_profile(self):
+        """ The public profile of the signed-in user (GET /users/{id}, no token needed), or None. GET /account itself answers 403 NOT_PUBLIC to
+        third-party apps, but the access token carries the user id and the profile holds info.username. """
+        try:
+            user_id = self._user_id(self.access_token)
+            if not user_id:
+                return None
+            response = self._send('GET', f'/users/{user_id}')
+            if response is None or response.status_code != 200:
+                return None
+            data = self._json(response)
+            if isinstance(data.get('data'), dict):
+                data = data['data']
+            return data if isinstance(data.get('info'), dict) else None
+        except Exception as exc:
+            kodi_log(f'WeTrakr profile lookup failed: {type(exc).__name__}', 1)
+            return None
+
     def get_json(self, path, params=None):
         """ GET of a user endpoint that answers one JSON object (e.g. /sync/last_activities): the dict, or None when it could not be read """
         response = self.user_request('GET', path, params=params)

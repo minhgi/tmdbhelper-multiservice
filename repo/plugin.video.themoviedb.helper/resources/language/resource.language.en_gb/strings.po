@@ -4172,3 +4172,7 @@ msgstr ""
 msgctxt "#32827"
 msgid "Copies the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, one way only: nothing is read back from WeTrakr into the other services and nothing is removed from it, and a title you unwatch on WeTrakr is not sent again. Specials (season 0) are left out. Up to 100 movies and 300 episodes are sent per run, so a large library takes several runs. Log only writes what would be sent to the log and changes nothing."
 msgstr ""
+
+msgctxt "#32828"
+msgid "Shows your WeTrakr account details: username, user ID, plan, member since and whether WeTrakr accepts this sign-in."
+msgstr ""
