@@ -3,6 +3,7 @@
     <!-- Movie Calendar: month poster grid, laid out like Seren's Movie Calendar.
          Uses only font12/13/37 (present in Estuary and Titan) and the media calendar_bg.png / white.png; styled like the TV show page (script-tmdbhelper-showcalendar.xml).
          Properties set by resources/tmdbhelper/lib/window/moviecalendar.py: window_title, month_year_label, no_items.
+         7.5.23: a watched tile is dimmed and gets a red badge with an eye in the top-left corner; a movie with a resume point gets the dark layer Seren uses, growing with ListItem.PercentPlayed, and the percent watched in the top-left corner.
          Tile properties come from the calendar list items: air_date_short, days_until_aired, days_from_aired. -->
     <coordinates>
         <left>0</left>
@@ -166,6 +167,56 @@
                     <visible>!String.IsEmpty(ListItem.Art(poster))</visible>
                     <colordiffuse>AAFFFFFF</colordiffuse>
                 </control>
+                <!-- watch progress, like Seren's Movie Calendar: a dark layer grows from the bottom of the poster with the resume point (20 % steps, ListItem.PercentPlayed) -->
+                <control type="image">
+                    <left>10</left>
+                    <top>260</top>
+                    <width>210</width>
+                    <height>63</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + Integer.IsLessOrEqual(ListItem.PercentPlayed,20) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>197</top>
+                    <width>210</width>
+                    <height>126</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,20) + Integer.IsLessOrEqual(ListItem.PercentPlayed,40) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>134</top>
+                    <width>210</width>
+                    <height>189</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,40) + Integer.IsLessOrEqual(ListItem.PercentPlayed,60) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>71</top>
+                    <width>210</width>
+                    <height>252</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,60) + Integer.IsLessOrEqual(ListItem.PercentPlayed,80) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,80) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <!-- watched: the whole poster dimmed (drawn before the title bar, so the title stays readable); the Watched badge is drawn further down -->
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <texture colordiffuse="B3262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
                 <!-- title on the lower edge of the poster -->
                 <control type="image">
                     <left>10</left>
@@ -225,6 +276,45 @@
                     <height>24</height>
                     <texture>star.png</texture>
                     <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <!-- how much of the movie was watched: in a red badge in the top-left corner of the poster (the same size as the watched badge, the number without a % sign), only for a movie with a resume point that is not watched -->
+                <control type="image">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture colordiffuse="FFD32F2F">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="label">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.PercentPlayed]</label>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <!-- watched: a red badge with an eye, the size of the star badge on the right, in the top-left corner (the percent of a movie in progress uses the same corner) -->
+                <control type="image">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture colordiffuse="FFD32F2F">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>22</left>
+                    <top>20</top>
+                    <width>32</width>
+                    <height>32</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture>eye.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                 </control>
                 <!-- bottom-left: release date -->
                 <control type="image">
@@ -297,6 +387,56 @@
                     <texture>$INFO[ListItem.Art(poster)]</texture>
                     <visible>!String.IsEmpty(ListItem.Art(poster))</visible>
                 </control>
+                <!-- watch progress, like Seren's Movie Calendar: a dark layer grows from the bottom of the poster with the resume point (20 % steps, ListItem.PercentPlayed) -->
+                <control type="image">
+                    <left>10</left>
+                    <top>260</top>
+                    <width>210</width>
+                    <height>63</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + Integer.IsLessOrEqual(ListItem.PercentPlayed,20) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>197</top>
+                    <width>210</width>
+                    <height>126</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,20) + Integer.IsLessOrEqual(ListItem.PercentPlayed,40) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>134</top>
+                    <width>210</width>
+                    <height>189</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,40) + Integer.IsLessOrEqual(ListItem.PercentPlayed,60) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>71</top>
+                    <width>210</width>
+                    <height>252</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,60) + Integer.IsLessOrEqual(ListItem.PercentPlayed,80) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <texture colordiffuse="CC262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,80) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <!-- watched: the whole poster dimmed (drawn before the title bar, so the title stays readable); the Watched badge is drawn further down -->
+                <control type="image">
+                    <left>10</left>
+                    <top>8</top>
+                    <width>210</width>
+                    <height>315</height>
+                    <texture colordiffuse="B3262626">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
                 <control type="image">
                     <left>10</left>
                     <top>275</top>
@@ -354,6 +494,45 @@
                     <height>24</height>
                     <texture>star.png</texture>
                     <visible>String.IsEmpty(ListItem.Property(days_until_aired))</visible>
+                </control>
+                <!-- how much of the movie was watched: in a red badge in the top-left corner of the poster (the same size as the watched badge, the number without a % sign), only for a movie with a resume point that is not watched -->
+                <control type="image">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture colordiffuse="FFD32F2F">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="label">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <font>font13</font>
+                    <textcolor>FFFFFFFF</textcolor>
+                    <align>center</align>
+                    <aligny>center</aligny>
+                    <label>$INFO[ListItem.PercentPlayed]</label>
+                    <visible>Integer.IsGreater(ListItem.PercentPlayed,0) + !Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <!-- watched: a red badge with an eye, the size of the star badge on the right, in the top-left corner (the percent of a movie in progress uses the same corner) -->
+                <control type="image">
+                    <left>18</left>
+                    <top>16</top>
+                    <width>40</width>
+                    <height>40</height>
+                    <texture colordiffuse="FFD32F2F">white.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
+                </control>
+                <control type="image">
+                    <left>22</left>
+                    <top>20</top>
+                    <width>32</width>
+                    <height>32</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture>eye.png</texture>
+                    <visible>Integer.IsGreater(ListItem.PlayCount,0)</visible>
                 </control>
                 <control type="image">
                     <left>10</left>

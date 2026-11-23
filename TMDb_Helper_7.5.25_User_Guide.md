@@ -1,6 +1,6 @@
-# TMDb Helper 7.5.21 — Complete Features & Functions Guide
+# TMDb Helper 7.5.25 — Complete Features & Functions Guide
 
-**Version:** 7.5.21 (Enhanced Fork — Personal Build)
+**Version:** 7.5.25 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.5.21_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.5.25_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.21. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.25. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -405,7 +405,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.2
 - **WeTrakr options in the item context menu** (7.5.3, 7.5.7). *Set as watched* and *Set as unwatched* for movies, shows, seasons and episodes, *Reset resume position* for an item that holds a resume point, and *Add rating* / *Change rating* (0–10, 0 removes it). With *Get watched indicators* on, only the option that applies is offered. A switch, *WeTrakr options* (Settings → Other → Context menu), hides the entry.
 - **Hide watched** (7.5.8). With *Hide watched* on for widgets, a show opened from a WeTrakr In-Progress row lists its seasons and episodes without the ones WeTrakr has marked watched. It needs *Get watched indicators and episode counts* on for WeTrakr.
 - **Up Next folder** (7.5.6). When Trakt has no next episode for a show, the Up Next folder asks MDBList, then Simkl, then WeTrakr, and opens at the first episode WeTrakr has not marked watched. A service that has not marked a single episode of the show no longer answers "from season 1 episode 1".
-- **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. It goes one way only: nothing is read back from WeTrakr into the other services and nothing is ever removed from WeTrakr. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
+- **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. It goes one way only: nothing is read back from WeTrakr into the other services and nothing is removed from WeTrakr except, since 7.5.25, a title the bridge itself copied there that you have unwatched on every other service. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
 
 ### Cross-service catch-up, WeTrakr journal sync and calendar refresh (7.5.14–7.5.21)
 
@@ -417,6 +417,15 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.2
 - **A watchlist title put back** (7.5.19). A watchlist title you took off the service that was away, and put on it again while it was away, is no longer taken off again when that service comes back: TMDb Helper compares the date the title was put on that service's watchlist with the date it was removed elsewhere, using the dates Trakt, MDBList and Simkl keep. When a date is not available the 90-day limit still applies; the collection keeps the 90-day limit.
 - **WeTrakr marks and ratings read from what changed** (7.5.20). A change on WeTrakr (a movie or episode watched or unwatched, a rating added or removed) reads only the changed titles. The full read is still used the first time after this update, after the Sync tools *Force sync*, *Rebuild Database* or *Clear last sync time*, and whenever the changes cannot be placed safely (WeTrakr's change log is older than 30 days, is very long, or a request failed). The resume points are still read in full.
 - **TV Calendar after a WeTrakr option** (7.5.21). Your TV Calendar now rebuilds its page after a WeTrakr option from its context menu (Watched, Unwatched, Drop ...). A tick changed on WeTrakr no longer stays as it was until the page is opened again.
+
+### Account Info, Movie Calendar and WeTrakr unwatch (7.5.22–7.5.25)
+
+- **WeTrakr Account Info** (7.5.22). Settings → Accounts → WeTrakr API now has an *Account Info* button like Simkl's: it shows your WeTrakr username, user ID, plan, join date and whether WeTrakr accepts the sign-in. The name comes from your WeTrakr profile, found through your sign-in.
+- **Movie Calendar: Context Menu and badges** (7.5.23). A tile has the Context Menu key with the same options as the other lists (Trakt, MDBList, Simkl and WeTrakr options, Select player, Choose default player); when an option changed something the month reloads on the same tile, and backing out leaves the month alone. A watched movie is dimmed and has a red badge with an eye in the top-left corner of its poster; a movie you started but did not finish gets a dark layer growing from the bottom of the poster with how far you got (in 20 % steps) and the percent watched in the same badge.
+- **Right goes to the scrollbar now covers the Movie Calendar** (7.5.23). With the setting on, Right off the right edge of the poster grid goes to the scrollbar of a month longer than one screen, a second Right goes to the next month, and Left off the first column goes back a month. The All TV Calendar works the same way with days: before, only the < > buttons changed the day with the setting on. With the setting off (the default) nothing changes: Left and Right off the edge still change the month or the day.
+- **Movie Calendar information dialog** (7.5.24). A calendar that is already open is no longer opened a second time on top of itself after you mark a movie from its information dialog, and the tile shows its new watched state when the dialog closes (the month reloads on the same tile only when something changed).
+- **Unwatching also takes a title off WeTrakr** (7.5.25). The bridge now takes a watched title off WeTrakr again when you unwatch it everywhere else. Only a title the bridge itself copied to WeTrakr is touched (never what WeTrakr already had or you marked on WeTrakr), and only after it has stayed unwatched on Trakt, MDBList and Simkl for two bridge runs and three minutes. It needs WeTrakr On and *Copy removals made elsewhere* set to also include watched history. Titles copied before 7.5.25 are not remembered and stay on WeTrakr.
+- **WeTrakr sync notification** (7.5.25). WeTrakr shows the same background sync notification as Trakt, MDBList and Simkl while it syncs (setting *Sync notifications*; not shown during video playback).
 
 ## 3. First-Time Setup
 
@@ -584,7 +593,7 @@ These open a scrollable window instead of a list: a header row per show with its
 - **Dates and words follow Kodi:** dates use your regional date format and your language's day and month names; Today, Tomorrow, Watched and the Today and Close buttons follow your Kodi language (7.0.113). **Right** on a long list reaches the scrollbar (on the day pages Left and Right still change the day).
 - **Quicker paging:** the All TV calendar builds the next and previous day in the background, Your TV Calendar keeps its page so Back from an unwatched list is instant, and a page is built again after a sync wrote new data (7.0.114–7.0.116, 7.0.120).
 - The **busy dialog** appears only when a page takes longer than half a second to load (7.0.122, 7.0.125–7.0.126).
-- **Right goes to the scrollbar** (setting, off by default, 7.0.131): on the All TV Calendar, Left and Right on the list no longer change the day; Right moves to the scrollbar on a long list and the < > buttons change the day.
+- **Right goes to the scrollbar** (setting, off by default, 7.0.131): on the All TV Calendar, Left and Right on the list no longer change the day; Right moves to the scrollbar on a long list and the < > buttons change the day. Since 7.5.23 the setting also covers the Movie Calendar, and on the All TV Calendar a second Right goes to the next day.
 - **Landscape artwork and episode thumbnails** (setting, off by default, 7.0.131): show rows show their landscape artwork and episode rows their own thumbnail, in the list and in the large image at the side, instead of posters; the page looks more crowded with it on.
 - The Kodi library **Next Aired** calendar (under TheMovieDb) is unchanged.
 
@@ -601,6 +610,9 @@ Each poster shows the **title, release date, a countdown badge** (days until rel
 
 - **Left / Right at the edge of the grid**, or the previous / next month buttons, change the month. On an **empty month** Left / Right change the month from whichever button has focus.
 - **Select** opens the movie's information.
+- **Context Menu** (7.5.23): on a tile the Context Menu key opens the same options as the other lists (Trakt, MDBList, Simkl and WeTrakr options, Select player, Choose default player). When an option changed something the month reloads on the same tile; backing out leaves the month alone.
+- **Watched and progress on the tiles** (7.5.23): a watched movie is dimmed with a red badge with an eye in the top-left corner; a movie you started but did not finish gets a dark layer growing from the bottom of the poster (in 20 % steps) and the percent watched in the same badge.
+- **Right goes to the scrollbar** (setting, 7.5.23): with it on, Right off the right edge of the grid goes to the scrollbar of a month longer than one screen, a second Right goes to the next month and Left off the first column goes back a month. Off (the default) keeps Left and Right at the edge changing the month.
 - **Months load ahead:** after you open a month, the next and then the previous month are built in the background, so Left and Right show a finished page at once; months you have seen are kept for a few minutes (7.0.115).
 - The frame around the highlighted poster goes around the poster only, the same width on all four sides (7.0.123–7.0.124).
 - The *All Calendar* rows show releases whatever country the film was made in; your region setting no longer narrows them.
@@ -800,7 +812,7 @@ Simkl keeps every season (cour) of an anime as its own entry and counts its epis
 
 ### Watched marks to WeTrakr (7.5.5)
 
-A third, one-way copy: *Watched marks to WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On) sends the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, with their own watch dates, up to 100 movies and 300 episodes a run. Nothing is read back and nothing is ever removed from WeTrakr, a title you unwatch on WeTrakr is not sent again, and specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services.
+A third, one-way copy: *Watched marks to WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On) sends the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, with their own watch dates, up to 100 movies and 300 episodes a run. Nothing is read back, and nothing is removed from WeTrakr except (since 7.5.25) a title this copy itself put there that you have since unwatched on Trakt, MDBList and Simkl (two bridge runs and three minutes later); a title you unwatch on WeTrakr is not sent again, and specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services.
 
 ### Services that were away (7.5.14–7.5.19)
 
@@ -918,7 +930,7 @@ Default player for movies / episodes (none) · Play automatically using availabl
 | **Page multipliers** (higher is slower) | Library windows (2) · TMDb basic lists (1) · Trakt basic lists (1) · Trakt sync lists (1). Trakt basic lists also sets the page size (20 times the number) of MDBList and Simkl lists, Next Up included |
 | **Context menu** | Show or hide each entry from section 9 (all on) |
 | **Artwork** | Genre icons folder (TMDb) · Genre icon folder (Trakt) · Provider icons folder (TMDb) |
-| **Notifications** | Authorisation and sync notifications on startup (on) · Trakt / MDBList / Simkl sync progress notifications (on) · Connection error notifications (on) |
+| **Notifications** | Authorisation and sync notifications on startup (on) · Trakt / MDBList / Simkl / WeTrakr sync progress notifications (on) · Connection error notifications (on) |
 | **Anime** | Anime episode enrichment (on) — overlays anime-specific episode titles, plots and thumbnails from AniZip (any anime in the Fribb list) or, for other shows, from Seren's anime cache |
 
 ### Expert

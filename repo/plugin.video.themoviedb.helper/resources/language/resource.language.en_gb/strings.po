@@ -4090,11 +4090,11 @@ msgid "On (default): Kodi may keep a menu page it was slow to build and show it 
 msgstr ""
 
 msgctxt "#32807"
-msgid "All TV Calendar: Right goes to the scrollbar"
+msgid "Calendars: Right goes to the scrollbar"
 msgstr ""
 
 msgctxt "#32808"
-msgid "Off (default): on the All TV Calendar, Left and Right on the list change the day (the buttons do too). On: Left and Right keep their usual meaning, so Right moves to the scrollbar on a long list, and the day is changed with the buttons only."
+msgid "Off (default): on the All TV Calendar, Left and Right on the list change the day, and on the Movie Calendar Left and Right off the edge of the grid change the month (the buttons do too). On: Right moves to the scrollbar on a long list. A second Right then goes to the next day on the All TV Calendar and to the next month on the Movie Calendar, and Left goes back a day or a month."
 msgstr ""
 
 msgctxt "#32809"
@@ -4170,7 +4170,7 @@ msgid "Watched marks to WeTrakr"
 msgstr ""
 
 msgctxt "#32827"
-msgid "Copies the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, one way only: nothing is read back from WeTrakr into the other services and nothing is removed from it, and a title you unwatch on WeTrakr is not sent again. Specials (season 0) are left out. Up to 100 movies and 300 episodes are sent per run, so a large library takes several runs. Log only writes what would be sent to the log and changes nothing."
+msgid "Copies the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, one way only: nothing is read back from WeTrakr into the other services, and a title you unwatch on WeTrakr is not sent again. A title this bridge itself copied is taken off WeTrakr again once it is unwatched on all the other services (needs the removals setting \"also watched history\"); what WeTrakr already had is never removed. Specials (season 0) are left out. Up to 100 movies and 300 episodes are sent per run, so a large library takes several runs. Log only writes what would be sent to the log and changes nothing."
 msgstr ""
 
 msgctxt "#32828"

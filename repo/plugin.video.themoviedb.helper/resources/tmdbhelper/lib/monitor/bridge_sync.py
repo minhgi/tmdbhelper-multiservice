@@ -43,7 +43,8 @@ synthetic rows (completed shows without per-episode records) are never sent to T
                     never overwritten.
   Ratings: on-action mirror only.
   WeTrakr (7.5.5, setting cross_sync_wetrakr: off / log only / on): watched movies and episodes only, ONE WAY into WeTrakr - it is never a
-                    source, never read back into the other services and never has anything removed. See "WeTrakr: watched marks, one way".
+                    source and never read back into the other services; since 7.5.25 a title the bridge itself sent is taken off again when it is
+                    unwatched everywhere else (never what WeTrakr already had). See "WeTrakr: watched marks, one way".
 
 Trakt history pushes (watched movies / episodes) add a new play on every POST, so they carry
 the source's real watch date and go out at most _HISTORY_CAP items per cycle.
@@ -80,11 +81,14 @@ _SIMKL_LOCK_SECONDS = 21
 _TARGET_NAMES = {'mdblist': 'MDBList', 'simkl': 'Simkl', 'trakt': 'Trakt', 'wetrakr': 'WeTrakr'}
 _GAP_SERVICES = ('trakt', 'mdblist', 'simkl')   # the services whose gaps are queued (WeTrakr is a one-way target with its own snapshot rules)
 # Watched marks into WeTrakr (setting cross_sync_wetrakr): 0 off, 1 log only (default), 2 on. WeTrakr is a one-way TARGET only: never a source, never read back
-# into the other services, never removed from. Its own snapshot labels (watched|wetrakr|movie / episode) keep a title the user unwatched on WeTrakr from being sent again.
+# into the other services, removed from only for titles the bridge itself sent (7.5.25, _wetrakr_remove). Its own snapshot labels (watched|wetrakr|movie / episode) keep a title the user unwatched on WeTrakr from being sent again.
 _WETRAKR_PATHS = {'movie': '/sync/tracking/watched/movies', 'episode': '/sync/tracking/watched/episodes'}
 _WETRAKR_CAP = {'movie': 100, 'episode': 300}   # pushes per run (a first run copies a large library over several runs; WeTrakr's free quota is shared per app key)
 _WETRAKR_CHUNK = 100       # items per POST /sync/tracking (a 120-item batch was accepted live, 2026-11-21)
 _WETRAKR_TRIES = 3         # runs a pushed title may stay missing from WeTrakr's list before it is given up
+_WETRAKR_REMOVE_CAP = {'movie': 10, 'episode': 40}   # titles taken off WeTrakr per run (7.5.25)
+_WETRAKR_REMOVE_TRIES = 3  # runs a removal may stay listed on WeTrakr before it is given up
+_WETRAKR_MASS_SECONDS = 900  # a loss as large as the mass-vanish limit must have lasted this long (an incomplete read does not last 15 minutes)
 _WETRAKR_LOG_SECONDS = 6 * 3600   # log-only mode reads WeTrakr at most this often per media type
 _STAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
 # Removals made outside Kodi (setting cross_sync_removals): 0 off, 1 log only, 2 watchlist + collection, 3 also watched history
@@ -237,6 +241,13 @@ class BridgeSync:
                 at = (seen.get(label) or {}).get(key)
                 if at and now - at <= 2 * _REMOVE_CONFIRM_SECONDS:
                     return True
+        for items in (self._meta.get('wetrakr_gone') or {}).values():       # 7.5.25: a title taken for gone on WeTrakr's side waits for its second check too
+            for rec in (items or {}).values():
+                try:
+                    if now - float(rec[0]) <= 2 * _REMOVE_CONFIRM_SECONDS:
+                        return True
+                except (TypeError, ValueError, IndexError):
+                    continue
         return False
 
     def _mark_done(self):
@@ -2297,7 +2308,10 @@ class BridgeSync:
 
     # ── WeTrakr: watched marks, one way (setting cross_sync_wetrakr) ────────────
     # Runs after the watched reconcile of a media type, on its result: what Trakt, MDBList and Simkl hold now (the `current` views, already
-    # updated by this run's pushes) is copied to WeTrakr. Never a source, never a removal target, never read back into the others.
+    # updated by this run's pushes) is copied to WeTrakr. Never a source, never read back into the others. 7.5.25: a title the BRIDGE itself sent
+    # there (book `wetrakr_sent`, only titles whose push was confirmed) is taken off again once no other service lists it any more, see
+    # _wetrakr_remove (settings: WeTrakr 'on' and cross_sync_removals 'also watched history'); what WeTrakr already had, or the user marked there,
+    # is never removed.
     #  - snapshot-delta like the rest of the bridge, with its own labels: a title in the WeTrakr snapshot is accounted for and is not sent
     #    again, so one the user unwatched on WeTrakr is not put back. A title leaves the snapshot once no source lists it (a later
     #    re-watch is then new again), but only while every source could be read.
@@ -2421,6 +2435,102 @@ class BridgeSync:
             rejected |= self._wetrakr_rejected(media, chunk, data if isinstance(data, dict) else {})
         return posted, rejected
 
+    @staticmethod
+    def _wetrakr_remove_payload(media, items):
+        """Body of POST /sync/tracking/remove/all: the same shape the context menu sends (movies by TMDb id, episodes nested by number), no dates."""
+        if media == 'movie':
+            return {'movies': [{'ids': {'tmdb': int(tmdb_id)}, 'status': 'watched'} for _, tmdb_id in sorted(items.items())]}
+        shows = {}
+        for key, show_id in sorted(items.items()):
+            _, season, number = key.split(':')
+            shows.setdefault(int(show_id), {}).setdefault(int(season), []).append({'number': int(number)})
+        return {'shows': [{'ids': {'tmdb': show_id}, 'status': 'watched',
+                           'seasons': [{'number': season, 'episodes': episodes} for season, episodes in sorted(seasons.items())]}
+                          for show_id, seasons in sorted(shows.items())]}
+
+    def _wetrakr_remove(self, media, label, union, out_held, complete, push_mode):
+        """7.5.25: take a title off WeTrakr again once the bridge's own copy of it is the only one left. Candidates are only titles the bridge SENT
+        (`wetrakr_sent`, filled from confirmed pushes), never what WeTrakr already had or the user marked there. A title counts as gone only when no
+        other service lists it, every service could be read, it is no mapped anime episode, and it stayed gone on two runs and at least
+        _REMOVE_CONFIRM_SECONDS (_WETRAKR_MASS_SECONDS when as many vanish at once as the mass-vanish limit). Sent to WeTrakr in small batches
+        (POST /sync/tracking/remove/all) and counted done only when WeTrakr's list no longer shows them; the saved last-activities answer is dropped
+        after that, so the calendar tiles read the change. Settings: WeTrakr 'on' (2) and cross_sync_removals 1 (log only) or 3 (also watched history)."""
+        import time
+        sent_all = self._meta.setdefault('wetrakr_sent', {})
+        gone_all = self._meta.setdefault('wetrakr_gone', {})
+        tries_all = self._meta.setdefault('wetrakr_remove_tries', {})
+        sent = sent_all.get(label) or {}
+        removal_mode = self._removal_mode()
+        if push_mode != 2 or removal_mode not in (1, 3) or not sent or not complete:
+            if gone_all.pop(label, None):
+                self._snapshot_save()
+            return
+        now = time.time()
+        lost = {}
+        for key, value in sent.items():
+            if key in union or key in out_held:
+                continue
+            if media == 'episode' and (key in self._anime_keys or key in self._anime_gone):
+                continue       # a mapped anime episode: its mapping can change with the index, so it never counts as an un-watch
+            lost[key] = value
+        gone = gone_all.setdefault(label, {})
+        dirty = False
+        for key in [k for k in gone if k not in lost]:
+            del gone[key]
+            dirty = True
+        for key in lost:
+            rec = gone.get(key)
+            if rec:
+                rec[1] += 1
+            else:
+                gone[key] = [now, 1]
+            dirty = True
+        mass = len(lost) > (_REMOVE_MASS_CAP_EPISODES if media == 'episode' else _REMOVE_MASS_CAP) and len(lost) > len(sent) * 0.05
+        wait = _WETRAKR_MASS_SECONDS if mass else _REMOVE_CONFIRM_SECONDS
+        due = sorted(k for k in lost if gone[k][1] >= 2 and now - gone[k][0] >= wait)
+        if not due:
+            if dirty:
+                self._snapshot_save()
+            return
+        batch = {k: lost[k] for k in due[:_WETRAKR_REMOVE_CAP[media]]}
+        if removal_mode == 1:
+            kodi_log(f'BridgeSync (WeTrakr, log only): {len(batch)} {media}s the bridge sent are unwatched on every other service and would be taken off WeTrakr', 1)
+            if dirty:
+                self._snapshot_save()
+            return
+        path = _WETRAKR_PATHS[media]
+        removed, failed = set(), False
+        response = self._wetrakr_client().user_request('POST', '/sync/tracking/remove/all', body=self._wetrakr_remove_payload(media, batch))
+        code = getattr(response, 'status_code', None)
+        if code is None or not 200 <= code < 300:
+            kodi_log(f'BridgeSync: WeTrakr sync/tracking/remove/all failed (HTTP {code or "no answer"}) - retry next cycle', 2)
+            failed = True
+        else:
+            ok_after, rows_after = self._wetrakr_client().get_list(path)
+            if ok_after:
+                after = self._wetrakr_keys(media, rows_after)
+                removed = {k for k in batch if k not in after}
+        tries = tries_all.setdefault(label, {})
+        for key in batch:
+            if key in removed:
+                tries.pop(key, None)
+            elif not failed:
+                tries[key] = tries.get(key, 0) + 1
+                if tries[key] >= _WETRAKR_REMOVE_TRIES:
+                    removed.add(key)       # given up on: the bridge stops trying (WeTrakr keeps it)
+                    tries.pop(key, None)
+                    kodi_log(f'BridgeSync: {label} -> WeTrakr: {key} still listed after {_WETRAKR_REMOVE_TRIES} removal tries - giving up on it', 1)
+        for key in removed:
+            sent.pop(key, None)
+            gone.pop(key, None)
+        if removed:
+            kodi_log(f'BridgeSync -> WeTrakr: took {len(removed)} {media}s off (unwatched on every other service)', 1)
+            try:
+                self._wetrakr_client().wetrakr_syncdata.reset_lastactivities()
+            except Exception as exc:
+                kodi_log(f'BridgeSync: WeTrakr last activities not reset - {type(exc).__name__}', 1)
+        self._snapshot_save()
+
     def _sync_wetrakr(self, media, current):
         mode = self._wetrakr_mode()
         if not mode:
@@ -2450,6 +2560,7 @@ class BridgeSync:
                 out_held |= set(snapshots.get(f'watched|{service}|{media}', {}))
         carried = ({k: v for k, v in snap.items() if k in union or k in out_held}
                    if all(v is not None for v in current.values()) else dict(snap))
+        self._wetrakr_remove(media, label, union, out_held, all(v is not None for v in current.values()), mode)
         dirty = False
         if mode == 2:
             # many titles vanishing at once looks like an incomplete read: the snapshot is kept until the same titles are still gone after
@@ -2520,6 +2631,7 @@ class BridgeSync:
             if key in done or key in given_up or key not in newly:
                 tries.pop(key)
         if done:
+            self._meta.setdefault('wetrakr_sent', {}).setdefault(label, {}).update({k: int(batch[k]) for k in done})   # 7.5.25: only these can be taken off again
             self._pushed['wetrakr'] = self._pushed.get('wetrakr', 0) + len(done)
             kodi_log(f'BridgeSync →WeTrakr: {len(done)} {media} (watched)', 1)
         snapshots[label] = {**carried, **accounted, **{k: batch[k] for k in done | given_up}}

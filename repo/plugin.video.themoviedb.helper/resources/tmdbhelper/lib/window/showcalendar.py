@@ -8,6 +8,7 @@ from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
 from tmdbhelper.lib.addon.plugin import ADDON, ADDONPATH, SHOW_CALENDAR_PROPERTY, WARM_CALENDAR_PROPERTY, get_setting
 from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
+from tmdbhelper.lib.window.calendar_menu import activity_marks, run_context_option
 
 """ Your TV Calendar window: every show you follow on one scrollable page. A header row per show, its episodes under it
 (aired and not yet aired); Select on a show lists that show's unwatched episodes, Select on an episode opens its information
@@ -15,7 +16,7 @@ from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
 Options with Watched, Unwatched, Drop ...), and the page reloads when one of them finishes. The episodes are the ones the day-by-day calendar builds (info=trakt_calendar, unstacked) for a
 span around today; a show's unwatched list comes from its Up Next list (info=trakt_upnext).
 The All TV Calendar (user=false) uses the same page for ONE DAY at a time: Left / Right (or the < > buttons) change the day; with the setting
-"All TV Calendar: Right goes to the scrollbar" on, only the buttons do and Right on the list moves to the scrollbar.
+"Calendars: Right goes to the scrollbar" on, Right on a long list moves to the scrollbar first and a second Right goes to the next day (Left goes back a day).
 With the setting "TV calendars: landscape artwork and episode thumbnails" on, the rows and the large image at the side use the art key row_wide.
 """
 
@@ -347,6 +348,7 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         self._items = []
         self._menus = {}  # id(ListItem) -> its context menu entries [(label, command)]
         self._saved_position = 0
+        self._prev_focus = None  # the control that had the focus at the previous action (the scrollbar is told from the list by it)
         self._right_to_scrollbar = bool(get_setting('calendar_right_scrollbar'))  # read when the window opens
         self._wide_art = bool(get_setting('calendar_wide_art'))
         self._unwatched = None  # (tmdb_id, title, season) of the Unwatched view that is open
@@ -376,9 +378,11 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         if items:
             self.clearProperty('empty_text')
             self.setFocusId(LIST_ID)
+            self._prev_focus = LIST_ID
         else:
             self.setProperty('empty_text', empty_text)
             self.setFocusId(CLOSE_BUTTON_ID)
+            self._prev_focus = CLOSE_BUTTON_ID
 
     def _show_overview(self, position=0):
         self._view = VIEW_SHOWS
@@ -409,6 +413,7 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
             self._list.selectItem(min(position, len(items) - 1))
         elif not items and self._day_mode:
             self.setFocusId(NEXT_BUTTON_ID)  # an empty day: land on the day buttons, not on Close
+            self._prev_focus = NEXT_BUTTON_ID
         self._pages.schedule(key)  # the All calendars: build the next day and then the previous one in the background
 
     def _navigate_day(self, delta):
@@ -449,20 +454,32 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
 
     def onAction(self, action):
         action_id = action.getId()
+        focus_id = self.getFocusId()
+        previous, self._prev_focus = self._prev_focus, focus_id
         if action_id in ACTION_CLOSEWINDOW:
             return self._go_back()
-        if action_id == ACTION_CONTEXT_MENU and self.getFocusId() == LIST_ID:
+        if action_id == ACTION_CONTEXT_MENU and focus_id == LIST_ID:
             return self._context_menu()
         # All calendar: Left / Right on the list is the previous / next day (the list's own left / right point back at it).
         # An empty day has no list to focus, so there Left / Right change the day from whichever button has the focus.
-        # With "Right goes to the scrollbar" on this is skipped: Left / Right move the focus as in any other list and the buttons change the day.
-        if self._day_mode and not self._right_to_scrollbar and self._view == VIEW_SHOWS and (self.getFocusId() == LIST_ID or not self._items):
+        if self._day_mode and not self._right_to_scrollbar and self._view == VIEW_SHOWS and (focus_id == LIST_ID or not self._items):
             if action_id == ACTION_MOVE_LEFT:
                 return self._navigate_day(-1)
             if action_id == ACTION_MOVE_RIGHT:
                 return self._navigate_day(1)
+        # All calendar with "Right goes to the scrollbar" on (7.5.23): Right on a long list goes to the scrollbar first and a second Right (on the scrollbar)
+        # goes to the next day; a list that fits one screen has no scrollbar and Right goes to the next day at once; Left on the list is the previous day
+        # (Left on the scrollbar only goes back to the list: told apart by where the previous action left the focus)
+        if self._day_mode and self._right_to_scrollbar and self._view == VIEW_SHOWS:
+            if action_id == ACTION_MOVE_RIGHT and (focus_id == SCROLLBAR_ID or (focus_id == LIST_ID and len(self._items) <= ROWS_PER_PAGE)):
+                return self._navigate_day(1)
+            if action_id == ACTION_MOVE_LEFT and focus_id == LIST_ID and previous == LIST_ID:
+                return self._navigate_day(-1)
+            if not self._items and action_id in (ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT):
+                return self._navigate_day(-1 if action_id == ACTION_MOVE_LEFT else 1)
         # Everywhere else Right on the list goes to the scrollbar (Left from the scrollbar is wired back to the list in the skin file)
-        if action_id == ACTION_MOVE_RIGHT and self.getFocusId() == LIST_ID and len(self._items) > ROWS_PER_PAGE:
+        if action_id == ACTION_MOVE_RIGHT and focus_id == LIST_ID and len(self._items) > ROWS_PER_PAGE:
+            self._prev_focus = SCROLLBAR_ID
             return self.setFocusId(SCROLLBAR_ID)
 
     def _context_menu(self):
@@ -470,39 +487,10 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         position = self._list.getSelectedPosition()
         if position < 0 or position >= len(self._items):
             return
-        entries = [entry for entry in self._menus.get(id(self._items[position])) or [] if 'related_lists' not in str(entry[1])]  # Browse lists opens a list in the window under this one: nothing happens here
-        if not entries:
-            return
-        choice = xbmcgui.Dialog().contextmenu([xbmc.getInfoLabel(name) or name for name, _ in entries])  # names are $ADDON[...] / $LOCALIZE[...] strings
-        if choice < 0:
-            return
-        command = str(entries[choice][1])
-        script = re.match(r'(?is)^\s*runscript\(\s*plugin\.video\.themoviedb\.helper\s*,(.*)\)\s*$', command)
-        if not script:  # Play with ... and the like: nothing on the page changes
-            return xbmc.executebuiltin(command)
-        # RunScript would start the script in its own thread and return at once, before its dialogs and the sync are done: run it here instead,
-        # so the page reloads only after the Trakt / MDBList / Simkl / WeTrakr option (Watched, Unwatched, Drop ...) has finished and the row shows the new state
-        stamp_before, marks_before = sync_stamp(), self._activity_marks()
-        try:
-            from tmdbhelper.lib.script.router import Script
-            Script(*[arg.strip() for arg in script.group(1).split(',')]).router()
-        except Exception as exc:
-            kodi_log(f'Show calendar: the context menu option {command} failed: {exc}', 1)
-        # Skip the rebuild only when nothing at all changed: the sync databases are the same AND none of the last-activities marks moved. The Trakt option
-        # (Watched, Unwatched ...) only clears its mark here and the local Trakt database is pulled at the next page build, so the databases alone cannot tell
-        if stamp_before is not None and marks_before is not None and sync_stamp() == stamp_before and self._activity_marks() == marks_before:  # backed out of the options window, or an option that changed nothing: no rebuild (and no busy dialog)
-            return kodi_log('Show calendar: the context menu option changed no Trakt / MDBList / Simkl / WeTrakr data, the page is left as it is', 1)
-        self._refresh(position)
+        if run_context_option(self._menus.get(id(self._items[position])), 'Show calendar'):
+            self._refresh(position)
 
-    @staticmethod
-    def _activity_marks():
-        """ The Trakt / MDBList / Simkl / WeTrakr last-activities marks kept in the Home window: a sync action clears its mark, which is how a change shows before the local data is pulled (7.5.21: WeTrakr's mark too, a WeTrakr option clears it and pulls nothing at once). None when unreadable """
-        try:
-            from jurialmunkey.window import get_property
-            marks = tuple(get_property(name) for name in ('TraktNewSyncLastActivities', 'MDbList.LastActivities', 'Simkl.LastActivities', 'WeTrakr.LastActivities'))
-            return marks if any(marks) else None  # no mark at all: a clear could not be seen, so treat as unknown (the page is rebuilt)
-        except Exception:
-            return None
+    _activity_marks = staticmethod(activity_marks)  # kept under its old name (7.5.23: the code lives in calendar_menu.py)
 
     def _refresh(self, position):
         self._pages.clear()  # the option that just ran may have changed rows on other days too

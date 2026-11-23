@@ -35,6 +35,20 @@ def timerlock(func):
     return wrapper
 
 
+def progress_bg(func):
+    """ 7.5.25: the same background progress bar the Trakt, MDBList and Simkl syncs show (setting "Sync notifications"; never during video playback) """
+    def wrapper(self, *args, **kwargs):
+        from tmdbhelper.lib.addon.dialog import DialogProgressSyncBG
+        self.dialog_progress_bg = DialogProgressSyncBG()
+        self.dialog_progress_bg.heading = f'WeTrakr Syncing {self.item_type} {self.method}'
+        self.dialog_progress_bg.create()
+        try:
+            return func(self, *args, **kwargs)
+        finally:
+            self.dialog_progress_bg.close()
+    return wrapper
+
+
 class WeTrakrDataType:
     """ One kind of synced data. The stored stamp says which change of the account the stored rows were read at; the data is refetched
     (every page, all or nothing) when WeTrakr reports a newer one. The stamp is read BEFORE the fetch, so a change made while the fetch
@@ -122,7 +136,9 @@ class WeTrakrDataType:
             self.cache.set_activity(self.item_type, self.method, stamp)
 
     @timerlock
+    @progress_bg
     def timerlocked_sync(self):
+        self.dialog_progress_bg.update(20, message='Refreshing Data')
         return self.sync_data()
 
 
