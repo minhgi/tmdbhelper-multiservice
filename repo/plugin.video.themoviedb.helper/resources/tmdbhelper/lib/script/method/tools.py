@@ -29,9 +29,14 @@ SIMKL_FORCE = (('movie', ('plays', 'paused_progress')), ('show', ('plays', 'watc
 WETRAKR_FORCE = (('movie', ('plays', 'paused_progress', 'rating')),)   # the three keys name the three routes (watched, playback, ratings) of api/wetrakr/sync, each forced once; its movie and show data come from the same reads
 
 
+SERVICE_SWITCHES = {'Trakt': 'service_trakt', 'MDBList': 'service_mdblist', 'Simkl': 'service_simkl', 'WeTrakr': 'service_wetrakr'}   # the On / Off switch of each service
+
+
 def connected_services():
-    """Names of the services that have a stored sign-in (local settings only: never builds an API object, never logs in)."""
-    return [name for name, settings in SERVICES if any(get_setting(setting, 'str') for setting in settings)]
+    """Names of the services that have a stored sign-in and are switched on (local settings only: never builds an API object, never logs in).
+    7.5.26: a service that is switched off is left out, so Clear last sync time, Force a sync and Rebuild Database no longer touch it."""
+    return [name for name, settings in SERVICES
+            if any(get_setting(setting, 'str') for setting in settings) and get_setting(SERVICE_SWITCHES[name])]
 
 
 def _syncdata(name):

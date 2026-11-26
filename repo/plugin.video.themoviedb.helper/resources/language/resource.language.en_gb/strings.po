@@ -4176,3 +4176,15 @@ msgstr ""
 msgctxt "#32828"
 msgid "Shows your WeTrakr account details: username, user ID, plan, member since and whether WeTrakr accepts this sign-in."
 msgstr ""
+
+msgctxt "#32829"
+msgid "Put on hold"
+msgstr ""
+
+msgctxt "#32830"
+msgid "Restore Shows on Hold"
+msgstr ""
+
+msgctxt "#32831"
+msgid "There are no shows on hold."
+msgstr ""

@@ -1679,13 +1679,17 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
     def update_time(self):
         if not self.scrobbler:
             return
-        self.scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
+        try:
+            current_time = self.getTime()
+        except RuntimeError:  # Kodi is not playing any file: the video ended between the poll and this call
+            return
+        self.scrobbler.update_time(self.tmdb_type, self.tmdb_id, current_time)
         if self.mdb_scrobbler:
-            self.mdb_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
+            self.mdb_scrobbler.update_time(self.tmdb_type, self.tmdb_id, current_time)
         if self.simkl_scrobbler:
-            self.simkl_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
+            self.simkl_scrobbler.update_time(self.tmdb_type, self.tmdb_id, current_time)
         if self.wetrakr_scrobbler:
-            self.wetrakr_scrobbler.update_time(self.tmdb_type, self.tmdb_id, self.getTime())
+            self.wetrakr_scrobbler.update_time(self.tmdb_type, self.tmdb_id, current_time)
 
     def get_external_show_tmdb_id(self, meta):
         """ TMDb id of a playing episode's show from the show's IMDb id in the info tag, for add-ons that tag an episode with

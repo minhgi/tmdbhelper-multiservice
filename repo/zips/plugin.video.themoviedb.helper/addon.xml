@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="7.5.25"
+version="7.5.29"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -33,6 +33,19 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
   <news>
+v7.5.29
+- Fixed: after a video started from a calendar (Play in the information dialog) ended, the information dialog came back on screen (on the Bingie skin: 'Video info' left open, one Back to leave it). It is closed when the video stops now, so you land where the calendar close leaves you (Home)
+v7.5.28
+- Added: WeTrakr options on a show now have Put on hold and Drop show (one way, like MDBList's Drop show: the show moves to WeTrakr's On Hold or Dropped list and keeps its watch history), and the On Hold and Dropped lists of WeTrakr start with Restore Shows on Hold / Restore Dropped Shows, which put the shows you pick back where their watch history places them (GitHub issue #14, point 7)
+v7.5.27
+- Fixed: a video that started while the service was idle (on a skin that does not need the monitor, for example Estuary, the service waits up to 30 seconds between checks) was not followed until that wait ended, so a video that played for less than that got no progress, resume point or scrobble stop; the wait now ends as soon as a video starts
+v7.5.26
+- Fixed: a video you start from a calendar (Play in the information dialog, or Play with ... in the Context Menu of the TV Calendar and the Movie Calendar) now shows at once. The calendar window is closed when the video starts; before, the video played behind the window and you had to leave the calendar to see it (GitHub issue #14).
+- Fixed: nothing was scrobbled and no resume point was saved when a video played while a window other than the fullscreen video was on top, as when it was started from a calendar: the service only measured the playing time in the fullscreen video window, so every pause and stop was skipped with "no playing time measured yet" and MDBList, Simkl and WeTrakr never got a start. The playing time is now measured in any window while a video plays (GitHub issue #14).
+- Fixed: a show you drop (or restore) stayed in (or missing from) the TV Calendar for up to six hours, and Rebuild Database did not help. Trakt leaves a dropped show out of its calendar, but the calendar answers are kept for six hours; they are now cleared whenever the hidden and dropped shows are synced (a drop or restore from this add-on, Force a sync, Rebuild Database) (GitHub issue #14).
+- Fixed: Tools > Sync Tools (Clear last sync time, Force a sync, Rebuild Database) now only work on the services that are switched on in Settings > Accounts; a service you switched off was synced and rebuilt too (GitHub issue #14).
+- Fixed: WeTrakr In Progress now lists the shows WeTrakr has as watching (a show with a watched episode and more to watch), not only the shows with an episode paused part-way, like the website and the other services; the Anime, Asian and Movies and TV Shows Progress menus follow (GitHub issue #14).
+- Added: an episode you started but did not finish shows how far it got in its status text in the TV Calendar, for example "Aired - 45%" (GitHub issue #14).
 v7.5.25
 - Changed: the cross-service bridge now also takes a watched title off WeTrakr when you unwatch it everywhere else. Only titles the bridge itself copied to WeTrakr are touched (never what WeTrakr already had or you marked there), and only when it has stayed unwatched on Trakt, MDBList and Simkl for two bridge runs and three minutes. Needs the settings WeTrakr = On and Removals = also watched history. Titles the bridge copied before this version are not remembered and stay on WeTrakr.
 - Added: WeTrakr now shows the same background sync notification as Trakt, MDBList and Simkl while it syncs (setting Sync notifications; not shown during video playback).

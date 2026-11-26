@@ -63,6 +63,14 @@ class ServiceMonitor(Poller):
             self.player_monitor.update_time()
             self.player_monitor.update_artwork()
 
+    def _on_player_elsewhere(self):
+        """ 7.5.26: a video plays while another window is on top (a video started from a calendar window plays behind it): measure the playing
+        time anyway. Without it the scrobblers never learn how far the video got, and every pause / stop post is skipped as "no playing time
+        measured yet", so no service records progress or a resume point. """
+        self._playing_elsewhere = bool(self.player_monitor.isPlayingVideo())
+        if self._playing_elsewhere:
+            self.player_monitor.update_time()
+
     def _on_context(self):
         self.listitem_funcs.on_context_listitem()
         self._on_idle(POLL_MID_INCREMENT)

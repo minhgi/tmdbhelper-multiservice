@@ -465,3 +465,40 @@ class ItemWeTrakrRating(ItemWeTrakrSyncBase):
             self.reset_lastactivities()
         self.display_dialog()
         self.refresh_containers()
+
+
+class ItemWeTrakrStatus(ItemWeTrakrSyncBase):
+    """ Put a show on one of WeTrakr's status lists (7.5.28; one-way like MDBList's Drop show: the way back is the Restore header of the On Hold /
+    Dropped Shows list). Show level only (no season, episode or movie). POST /sync/tracking with the show and its status: moving a show to a new
+    list takes it off the previous one and its plays stay (live-probed 2026-11-25); a show already on that list is answered under `existing`,
+    which read_outcome reports as 'already'. """
+
+    allow_seasons = False
+    allow_episodes = False
+    status = None  # the WeTrakr status written
+
+    def get_self(self):
+        if not super().get_self():
+            return None
+        if self.wetrakr_type != 'show':
+            return None
+        return self
+
+    def get_sync_response(self):
+        return self.call_api('POST', '/sync/tracking', self.tracking_payload(self.status))
+
+
+class ItemWeTrakrHold(ItemWeTrakrStatus):
+    """ Put a show on hold (WeTrakr status hold; the On Hold list) """
+    status = 'hold'
+
+    def get_name(self):
+        return get_localized(32829)  # "Put on hold"
+
+
+class ItemWeTrakrDrop(ItemWeTrakrStatus):
+    """ Drop a show (WeTrakr status dropped; the Dropped list) """
+    status = 'dropped'
+
+    def get_name(self):
+        return get_localized(32577)  # "Drop show"

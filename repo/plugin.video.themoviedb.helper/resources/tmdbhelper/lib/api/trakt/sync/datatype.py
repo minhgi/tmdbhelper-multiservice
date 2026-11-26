@@ -222,6 +222,10 @@ class SyncHidden(DataType):
                 if dropped is None:
                     return
                 response += dropped
+                # Trakt's calendar leaves out the shows that are dropped / hidden from it, but the calendar answers are cached for six hours: drop
+                # them now (7.5.26), so the TV calendar built next no longer lists a show that was just dropped (or lists one that was restored)
+                from tmdbhelper.lib.api.trakt.methods.calendar import clear_calendar_cache
+                clear_calendar_cache(self._class_instance_syncdata._class_instance_trakt_api)
             return response
 
 

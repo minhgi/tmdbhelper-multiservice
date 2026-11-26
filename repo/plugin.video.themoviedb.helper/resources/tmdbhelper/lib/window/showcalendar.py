@@ -8,7 +8,7 @@ from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
 from tmdbhelper.lib.addon.plugin import ADDON, ADDONPATH, SHOW_CALENDAR_PROPERTY, WARM_CALENDAR_PROPERTY, get_setting
 from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
-from tmdbhelper.lib.window.calendar_menu import activity_marks, run_context_option
+from tmdbhelper.lib.window.calendar_menu import activity_marks, run_context_option, CloseOnPlay
 
 """ Your TV Calendar window: every show you follow on one scrollable page. A header row per show, its episodes under it
 (aired and not yet aired); Select on a show lists that show's unwatched episodes, Select on an episode opens its information
@@ -225,6 +225,17 @@ def _status(days, watched):
     return 'unaired', (_string(32797) or 'In {} days').format(days)
 
 
+def _resume_percent(tag):
+    """ Whole percent of an episode watched when it holds a resume point (7.5.26), 0 when it has none or Kodi has no length for it """
+    try:
+        at, total = tag.getResumeTime(), tag.getResumeTimeTotal()
+    except Exception:
+        return 0
+    if not at or not total or total <= 0:
+        return 0
+    return max(0, min(99, int(at * 100 / total)))
+
+
 def _episode_row(listitem, today):
     """ Re-label a built episode item for its row: "1x02. Title" (the calendar label carries the show name, which the header row shows) """
     tag = _tag(listitem)
@@ -235,6 +246,9 @@ def _episode_row(listitem, today):
     watched = bool(tag and tag.getPlayCount())
     days = _days_until(premiered, today)
     state, text = _status(days, watched)
+    percent = 0 if watched or not tag else _resume_percent(tag)
+    if percent:
+        text = f'{text} - {percent}%'  # 7.5.26: a started episode shows how far it got in its status text, e.g. "Aired - 45%"
     code = listitem.getProperty('calendar_code') or f'{season}x{episode:0>2}'   # 'calendar_code': an anime episode not placed in TMDb's numbering, e.g. "E3"
     listitem.setLabel(f'{code}. {title}' if title else code)
     listitem.setProperty('row_type', 'episode')
@@ -369,6 +383,8 @@ class WindowShowCalendar(xbmcgui.WindowXMLDialog):
         else:
             xbmcgui.Window(10000).clearProperty(WIDE_ART_PROPERTY)  # one left behind by a Kodi that ended with the window open
         self._list = self.getControl(LIST_ID)
+        self._close_on_play = CloseOnPlay(self, 'Show calendar')  # a video started from here opens behind this modal window: close it so the video shows (7.5.26)
+        self._close_on_play.start()
         self._show_overview()
 
     def _set_items(self, items, empty_text):
@@ -534,4 +550,6 @@ def open_show_calendar(window_title=None, endpoint=None, user=None, countries=No
         home.clearProperty(OPEN_PROPERTY)
         home.clearProperty(WIDE_ART_PROPERTY)
         window._pages.close()  # stop the prefetch before the script ends
+        if getattr(window, '_close_on_play', None):
+            window._close_on_play.stop_watching()
     del window

@@ -18,6 +18,8 @@ MAX_PAGES = 50
 HEADER_TRAKT_RESTORE = ('trakt_dropped_restore', 32575, 'trakt/watchlist.png')
 HEADER_TRAKT_DROP = ('trakt_watchlist_drop', 32576, 'trakt/watchlist.png')
 HEADER_MDBLIST_RESTORE = ('mdblist_dropped_restore', 32575, 'mdblist/dropped.png')
+HEADER_WETRAKR_DROPPED_RESTORE = ('wetrakr_dropped_restore', 32575, 'wetrakr/dropped.png')
+HEADER_WETRAKR_HOLD_RESTORE = ('wetrakr_hold_restore', 32830, 'wetrakr/onhold.png')
 
 
 def count_of(value):
@@ -286,9 +288,78 @@ def mdblist_restore_dropped():
     refresh_containers()
 
 
+# ---------------------------------------------------------------- WeTrakr (7.5.28)
+
+def wetrakr_show_choices(rows):
+    """[(tmdb id, label)] from the compact rows of a WeTrakr status list (ids.tmdb, tracked_at), newest first. The compact rows carry no title, so
+    the label comes from the TMDb details (cached); a show whose details cannot be read is shown as TMDb <id>."""
+    from tmdbhelper.lib.api.tmdb.api import TMDb
+    tmdb = TMDb()
+    ordered = sorted(rows or [], key=lambda r: r.get('tracked_at') or '', reverse=True)
+    choices, seen = [], set()
+    for row in ordered:
+        try:
+            tmdb_id = int((row.get('ids') or {}).get('tmdb'))
+        except (TypeError, ValueError):
+            continue
+        if tmdb_id in seen:
+            continue
+        seen.add(tmdb_id)
+        details = tmdb.get_request_sc('tv', tmdb_id) or {}
+        label = label_of({'title': details.get('name') or details.get('original_name'), 'year': f"{details.get('first_air_date') or ''}"[:4] or None})
+        choices.append((tmdb_id, label.strip() or f'TMDb {tmdb_id}'))
+    return choices
+
+
+def wetrakr_restore(status, heading, empty):
+    """Take the shows you pick off WeTrakr's `status` list (hold / dropped): POST /sync/tracking/remove puts a show back in the list its plays
+    give it (watching or waiting; live-probed 2026-11-25). The list is read live, every page, never from a cached copy."""
+    from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+    from tmdbhelper.lib.script.sync.wetrakr_sync import read_outcome
+    api = WeTrakrAPI()
+    if not api.is_authorized:
+        Dialog().ok('WeTrakr', get_localized(32586))
+        return
+    with BusyDialog():
+        ok, rows = api.get_list(f'/sync/tracking/{status}/shows')
+        choices = wetrakr_show_choices(rows) if ok else []
+    if not ok:
+        Dialog().ok('WeTrakr', get_localized(32585))
+        return
+    if not choices:
+        Dialog().ok('WeTrakr', get_localized(empty))
+        return
+    picked = Dialog().multiselect(get_localized(heading), [c[1] for c in choices])
+    if not picked:
+        return
+    ids = [choices[i][0] for i in picked]
+    with BusyDialog():
+        response = api.user_request('POST', '/sync/tracking/remove', body={'shows': [{'ids': {'tmdb': int(i)}, 'status': status} for i in ids]})
+    if read_outcome(response)[0] == 'failed':
+        Dialog().ok('WeTrakr', get_localized(32585))
+        return
+    try:
+        api.wetrakr_syncdata.reset_lastactivities()
+    except Exception as exc:
+        from tmdbhelper.lib.addon.logger import kodi_log
+        kodi_log(f'WeTrakr: last activities not reset - {type(exc).__name__}', 1)
+    Dialog().notification('TMDbHelper', get_localized(32583).format(len(ids)))
+    refresh_containers()
+
+
+def wetrakr_restore_dropped():
+    wetrakr_restore('dropped', 32575, 32581)
+
+
+def wetrakr_restore_hold():
+    wetrakr_restore('hold', 32830, 32831)
+
+
 # Router: info routes that run an action instead of building a directory (items/router.py)
 ACTIONS = {
     'trakt_dropped_restore': trakt_restore_dropped,
     'trakt_watchlist_drop': trakt_drop_from_watchlist,
     'mdblist_dropped_restore': mdblist_restore_dropped,
+    'wetrakr_dropped_restore': wetrakr_restore_dropped,
+    'wetrakr_hold_restore': wetrakr_restore_hold,
 }

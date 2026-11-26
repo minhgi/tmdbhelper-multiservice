@@ -72,7 +72,19 @@ class Poller(WindowChecker):
     _cond_on_disabled = CV_DISABLED
 
     def _on_idle(self, wait_time=30):
-        self.update_monitor.waitForAbort(wait_time)
+        if wait_time <= POLL_MAX_INCREMENT:
+            self.update_monitor.waitForAbort(wait_time)
+            return
+        # 7.5.27: the long wait (the holding pattern of a skin that does not need the monitor) ends as soon as a video starts, so the video is followed
+        # from its first seconds; before, a video that started inside the wait was not measured until the wait ended (a play shorter than 30 s was
+        # never measured: every pause / stop post was skipped as "no playing time measured yet")
+        waited = 0
+        while waited < wait_time:
+            if self.update_monitor.waitForAbort(POLL_MID_INCREMENT):
+                return
+            if get_condvisibility('Player.HasVideo'):
+                return
+            waited += POLL_MID_INCREMENT
 
     def _on_modal(self):
         self._on_idle(POLL_MID_INCREMENT)
@@ -93,6 +105,11 @@ class Poller(WindowChecker):
         return
 
     def _on_player(self):
+        return
+
+    _playing_elsewhere = False  # a video plays while another window than the fullscreen video is on top (set by _on_player_elsewhere)
+
+    def _on_player_elsewhere(self):
         return
 
     def _on_fullscreen(self):
@@ -154,11 +171,13 @@ class Poller(WindowChecker):
 
             # If we're in fullscreen video then we should update the playermonitor time
             elif self.is_on_fullscreen:
+                self._playing_elsewhere = False
                 self._on_fullscreen()
 
             # Sit idle in a holding pattern if the skin doesn't need the service monitor yet
             elif self.is_on_disabled:
-                self._on_idle(30)
+                self._on_player_elsewhere()  # 7.5.26: a video that plays behind another window (a calendar) still needs its playing time measured
+                self._on_idle(POLL_MID_INCREMENT if self._playing_elsewhere else 30)
 
             # Sit idle in a holding pattern if screen saver is active
             elif self.is_on_screensaver:
@@ -166,22 +185,27 @@ class Poller(WindowChecker):
 
             # skip when modal or busy dialogs are opened (e.g. select / progress / busy etc.)
             elif self.is_on_modal:
+                self._on_player_elsewhere()
                 self._on_modal()
 
             # manage context menu separately from other modals to pass info through
             elif self.is_on_context:
+                self._on_player_elsewhere()
                 self._on_context()
 
             # skip when container scrolling
             elif self.is_on_scroll:
+                self._on_player_elsewhere()
                 self._on_scroll()
 
             # media window is opened or widgetcontainer set - start listitem monitoring!
             elif self.is_on_listitem:
+                self._on_player_elsewhere()
                 self._on_listitem()
 
             # Otherwise just sit here and wait
             else:
+                self._on_player_elsewhere()
                 self._on_clear()
 
         # Some clean-up once service exits

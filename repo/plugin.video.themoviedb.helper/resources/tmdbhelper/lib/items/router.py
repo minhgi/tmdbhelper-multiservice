@@ -51,6 +51,6 @@ class Router():
             return self.play_external()
         if self.params.get('info') == 'related':
             return self.context_related()
-        if self.params.get('info') in ('trakt_dropped_restore', 'trakt_watchlist_drop', 'mdblist_dropped_restore'):
+        if self.params.get('info') in ('trakt_dropped_restore', 'trakt_watchlist_drop', 'mdblist_dropped_restore', 'wetrakr_dropped_restore', 'wetrakr_hold_restore'):
             return self.run_action()
         self.get_directory()

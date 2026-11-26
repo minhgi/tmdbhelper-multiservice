@@ -13,7 +13,7 @@ from tmdbhelper.lib.script.sync.simkl_sync import (
     ItemSimklWatched, ItemSimklUnwatched, ItemSimklWatching, ItemSimklPlanToWatch, ItemSimklHold, ItemSimklDrop,
     ItemSimklClearProgress, ItemSimklRating)
 from tmdbhelper.lib.script.sync.wetrakr_sync import (
-    ItemWeTrakrWatched, ItemWeTrakrUnwatched, ItemWeTrakrClearProgress, ItemWeTrakrRating)
+    ItemWeTrakrWatched, ItemWeTrakrUnwatched, ItemWeTrakrClearProgress, ItemWeTrakrRating, ItemWeTrakrHold, ItemWeTrakrDrop)
 from tmdbhelper.lib.script.sync.unwatch_lists import (
     ItemTraktUnwatchedSeasons, ItemTraktUnwatchedEpisodes, ItemMDbListUnwatchedSeasons, ItemMDbListUnwatchedEpisodes,
     ItemSimklUnwatchedSeasons)
@@ -186,6 +186,8 @@ class WeTrakrMenu(MenuAttributes):
     items = {
         'wetrakr_watched': ItemWeTrakrWatched,
         'wetrakr_unwatched': ItemWeTrakrUnwatched,
+        'wetrakr_hold': ItemWeTrakrHold,
+        'wetrakr_drop': ItemWeTrakrDrop,
         'wetrakr_clearprogress': ItemWeTrakrClearProgress,
         'wetrakr_rating': ItemWeTrakrRating,
     }

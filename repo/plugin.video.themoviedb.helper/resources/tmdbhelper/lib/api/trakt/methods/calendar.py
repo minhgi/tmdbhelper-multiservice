@@ -1,11 +1,29 @@
 from tmdbhelper.lib.api.trakt.api import is_authorized
 from tmdbhelper.lib.files.bcache import use_simple_cache
+from tmdbhelper.lib.addon.logger import kodi_log
 
 
 @is_authorized
 def get_calendar(self, trakt_type, user=True, start_date=None, days=None, endpoint=None, countries=None, genres=None, **kwargs):
     user = 'my' if user else 'all'
     return self.get_response_json('calendars', user, trakt_type, endpoint, start_date, days, extended='full', countries=countries, genres=genres)
+
+
+CALENDAR_CACHE_PREFIX = 'TraktAPI_get_calendar_episodes'  # the cache ids of get_calendar_episodes and of the built get_calendar_episodes_listitems
+
+
+def clear_calendar_cache(trakt_api):
+    """ Delete the cached Trakt calendar answers (7.5.26). Trakt leaves a dropped show out of its calendar, but the answer is kept for six hours, so a
+    show dropped a moment ago stayed in the TV calendar, and Rebuild Database did not touch it. Called whenever the hidden / dropped shows are synced
+    (a drop or restore from this add-on, Force a sync, Rebuild Database). The ids are matched by their start (substr, not LIKE: _ is a wildcard there). """
+    try:
+        cache = trakt_api._cache.ret_cache()
+        done = cache.execute_sql('DELETE FROM simplecache WHERE substr(id, 1, ?) = ?', (len(CALENDAR_CACHE_PREFIX), CALENDAR_CACHE_PREFIX))
+        kodi_log(f'Trakt calendar cache cleared: {"done" if done is not None else "FAILED"}', 1)
+        return done is not None
+    except Exception as exc:
+        kodi_log(f'Trakt calendar cache could not be cleared - {type(exc).__name__}: {exc}', 1)
+        return False
 
 
 # Genres (Trakt slugs) a filtered calendar leaves out. Trakt has no exclude filter and its country filter is mostly anime for

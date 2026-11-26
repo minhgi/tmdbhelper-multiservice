@@ -92,9 +92,9 @@ class WeTrakrList(ContainerDirectory):
         api = self.wetrakr_api
         return api if api is not None and api.is_authorized else None
 
-    def read(self, status, target):
-        """ All rows of one status list (compact, every page): the rows, or None when the read failed """
-        ok, rows = self.api.get_list(f'/sync/tracking/{status}/{target}')
+    def read(self, status, target, sort_by=None):
+        """ All rows of one status list (compact, every page): the rows, or None when the read failed. sort_by: WeTrakr's own order (my_last_watched ...) """
+        ok, rows = self.api.get_list(f'/sync/tracking/{status}/{target}', {'sort_by': sort_by} if sort_by else None)
         if not ok:
             kodi_log(f'WeTrakr list {status}/{target}: could not be read', 1)
             return None
@@ -160,7 +160,11 @@ class ListDropped(WeTrakrList):
     """ WeTrakr dropped: GET /sync/tracking/dropped/{movies,shows} """
 
     def get_items(self, tmdb_type=None, page=None, **kwargs):
-        return self.status_list('dropped', tmdb_type, page)
+        items = self.status_list('dropped', tmdb_type, page)
+        if tmdb_type == 'movie':  # a movie cannot be dropped from here (the Drop show item is for shows), so nothing to restore
+            return items
+        from tmdbhelper.lib.script.sync.dropped import with_header, HEADER_WETRAKR_DROPPED_RESTORE
+        return with_header(items, HEADER_WETRAKR_DROPPED_RESTORE, self.is_widget, page)  # 7.5.28: Restore Dropped Shows, like MDBList
 
 
 class ListWatching(WeTrakrList):
@@ -174,7 +178,9 @@ class ListHold(WeTrakrList):
     """ WeTrakr on hold: GET /sync/tracking/hold/shows (shows only; WeTrakr's older name for the status is paused) """
 
     def get_items(self, tmdb_type=None, page=None, **kwargs):
-        return self.status_list('hold', 'tv', page, movies=False)
+        items = self.status_list('hold', 'tv', page, movies=False)
+        from tmdbhelper.lib.script.sync.dropped import with_header, HEADER_WETRAKR_HOLD_RESTORE
+        return with_header(items, HEADER_WETRAKR_HOLD_RESTORE, self.is_widget, page)  # 7.5.28: Restore Shows on Hold
 
 
 class ListHistory(WeTrakrList):
@@ -211,7 +217,10 @@ class _PausedList(WeTrakrList):
 
 
 class ListInProgress(_PausedList):
-    """ In-Progress: the movies paused part-way and the shows that have an episode paused part-way, newest pause first. Shows open at their seasons.
+    """ In-Progress: the movies paused part-way and the shows that are in progress, newest first. Shows open at their seasons.
+    A show is in progress when an episode of it is paused part-way (newest pause first) or WeTrakr lists it as watching (7.5.26: it was only the paused ones,
+    so a show with a watched episode and nothing paused was missing, which WeTrakr's own website and the other services' In-Progress lists show), most
+    recently watched first after those. WeTrakr's 'waiting' shows (caught up, waiting for new episodes) are not in progress.
     anime_only / asian_only / other_only = 'true' (the Anime / Asian / Movies and TV Shows Progress menus) keep only that kind of title. """
 
     def get_items(self, tmdb_type=None, page=None, anime_only=None, asian_only=None, other_only=None, **kwargs):
@@ -231,6 +240,12 @@ class ListInProgress(_PausedList):
                 if row['id'] not in seen:
                     seen.add(row['id'])
                     shows.append({'id': row['id'], 'mediatype': 'show'})
+            watching = self.read('watching', 'shows', sort_by='my_last_watched')  # a failed read leaves the paused shows alone: the list never shrinks to nothing for it
+            for row in watching or []:
+                tmdb_id = _int((row.get('ids') or {}).get('tmdb'))
+                if tmdb_id and tmdb_id not in seen:
+                    seen.add(tmdb_id)
+                    shows.append({'id': tmdb_id, 'mediatype': 'show'})
             normalized['shows'] = shows
         return self.finish(normalized, page, _get_scope(anime_only, asian_only, other_only))
 

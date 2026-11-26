@@ -8,7 +8,7 @@ from tmdbhelper.lib.addon.dialog import CalendarBusyDialog
 from tmdbhelper.lib.addon.logger import kodi_log
 from tmdbhelper.lib.addon.plugin import ADDONPATH, get_setting
 from tmdbhelper.lib.window.pagecache import PageCache, sync_stamp
-from tmdbhelper.lib.window.calendar_menu import run_context_option, sync_snapshot, sync_changed_since
+from tmdbhelper.lib.window.calendar_menu import run_context_option, sync_snapshot, sync_changed_since, CloseOnPlay
 
 """ Movie Calendar window: a month poster grid in the style of Seren's Movie Calendar.
 Opened from the Movies menu row (info=dir_calendar_window); its items are the same ones the day-bucket calendar lists build
@@ -115,6 +115,8 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
         xbmcgui.Window(10000).setProperty(OPEN_PROPERTY, str(xbmcgui.getCurrentWindowDialogId()))
         self.setProperty('window_title', self._title)
         self._grid = self.getControl(GRID_ID)
+        self._close_on_play = CloseOnPlay(self, 'Movie calendar')  # a video started from here opens behind this modal window: close it so the video shows (7.5.26)
+        self._close_on_play.start()
         self._show_month()
 
     def _show_month(self, position=0):
@@ -215,6 +217,8 @@ class WindowMovieCalendar(xbmcgui.WindowXMLDialog):
         snapshot = sync_snapshot()
         xbmcgui.Dialog().info(self._items[position])
         self._pages.clear()  # Play / Watched in the information dialog change what every month shows
+        if self._close_on_play.fired:  # Play was pressed and the window is closing for the video: nothing to reload
+            return
         # Its Trakt Manager runs as a script of its own, so this window is not told: when the sync data moved while the dialog was open the month is
         # reloaded, on the same tile (the context menu does the same); a dialog that changed nothing leaves the month as it is (no reload, no busy dialog)
         if sync_changed_since(snapshot):
@@ -237,4 +241,6 @@ def open_movie_calendar(user=None, endpoint=None, window_title=None, countries=N
     finally:
         home.clearProperty(OPEN_PROPERTY)
         window._pages.close()  # stop the prefetch before the script ends
+        if getattr(window, '_close_on_play', None):
+            window._close_on_play.stop_watching()
     del window
