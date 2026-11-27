@@ -14,6 +14,8 @@ LIST_MAX_PAGES = 40  # backstop for the cursor loop
 JOURNAL_PAGE_LIMIT = 1000  # entries per journal page (WeTrakr's maximum)
 JOURNAL_MAX_PAGES = 3  # a journal longer than this is not worth reading: the sync falls back to reading the lists in full
 DEFAULT_BACKOFF = 60  # seconds without requests after HTTP 429 when the answer carries no Retry-After
+MAX_BACKOFF = 86400  # a longer Retry-After is cut to a day (the longest WeTrakr quota)
+BLOCKED_UNTIL = 'WeTrakr.BlockedUntil'  # Home window property: epoch seconds until which an HTTP 429 asks every Kodi process for silence
 REQUEST_COUNT = 'WeTrakr.RequestCount'  # Home window property: requests sent since Kodi started
 SIGNED_OUT_NOTICE = 'WeTrakr.SignedOutNotice'  # Home window property: the "sign in again" notice is shown once per Kodi session
 
@@ -45,7 +47,6 @@ class WeTrakrAPI:
 
     def __init__(self):
         self._lock = RLock()
-        self._blocked_until = 0.0  # time.monotonic() until which an HTTP 429 asks for silence
         self._session = None
 
     # -- stored credentials ------------------------------------------------------------------------------------------------
@@ -116,8 +117,7 @@ class WeTrakrAPI:
     def _send(self, method, path, body=None, params=None, token=None, backoff=True):
         """ One HTTP request. Returns the Response (any status) or None when nothing could be sent or no answer came
         (network failure, or an HTTP 429 asked for silence a moment ago). backoff=False is for the sign-in polls, where 429 means slow_down. """
-        from time import monotonic
-        if backoff and monotonic() < self._blocked_until:
+        if backoff and self._blocked():
             return None
         import requests
         headers = {
@@ -133,10 +133,20 @@ class WeTrakrAPI:
             return None
         self._count_request(method, path, response.status_code)
         if backoff and response.status_code == 429:
-            wait = _to_int(response.headers.get('Retry-After'), DEFAULT_BACKOFF) or DEFAULT_BACKOFF
-            self._blocked_until = monotonic() + wait
+            wait = min(_to_int(response.headers.get('Retry-After'), DEFAULT_BACKOFF) or DEFAULT_BACKOFF, MAX_BACKOFF)
+            get_property(BLOCKED_UNTIL, set_property=f'{time.time() + wait:.0f}')
             kodi_log(f'WeTrakr {method} {path}: HTTP 429, no requests for {wait}s', 1)
         return response
+
+    @staticmethod
+    def _blocked():
+        """ True while an HTTP 429 asks for silence. Shared by every Kodi process: each change check, widget and sync run makes its own API object,
+        and a rejected request still counts against the account. A time further off than a day is ignored (a clock that moved). """
+        try:
+            until = float(get_property(BLOCKED_UNTIL) or 0)
+        except ValueError:
+            return False
+        return 0 < until - time.time() <= MAX_BACKOFF
 
     @staticmethod
     def _count_request(method, path, status):
@@ -387,6 +397,8 @@ class WeTrakrAPI:
         from xbmcgui import Dialog
         from xbmc import Monitor
         from tmdbhelper.lib.api.wetrakr.authdialog import WeTrakrAuthDialog
+
+        get_property(BLOCKED_UNTIL, clear_property=True)  # signing in again (maybe with another app key) lifts a pause
 
         if not self.client_id:
             Dialog().ok('WeTrakr', 'Enter your WeTrakr app key (client ID) in the settings first.')

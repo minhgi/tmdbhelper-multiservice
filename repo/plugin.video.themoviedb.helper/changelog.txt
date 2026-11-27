@@ -1,3 +1,60 @@
+v7.5.50
+- Changelog wording only: the 7.5.49 entry no longer names the other add-on's version number. No code change.
+
+v7.5.49
+- Cross-Service Sync: the order added in 7.5.47, which uses Simkl last as the source when an item is on more than one service, now applies to watched episodes only (it exists because Simkl can number episodes differently). Movies, the watchlist and the collection use the same order as before that version.
+
+v7.5.48
+- Cross-Service Sync: fixes the Simkl season numbering check. The earlier check only compared how many episodes a season has (2 apart or less passed), so the versions before this one overstated what it protected: where Simkl splits a two-part episode, the season passed although every later episode number was shifted. Each episode is now checked on its own, by title and air date, before it is copied to or from Simkl, before an un-watch is carried to or from Simkl, and before a Simkl resume point is copied or shown. A number that does not match, or cannot be checked, is not synced. Removing a whole season on Simkl still compares episode counts, and season watched marks are sent unchecked, as before. Marks and removals made by earlier versions are not changed or repaired.
+
+v7.5.47
+- Cross-Service Sync: the Simkl season numbering check now also covers what comes FROM Simkl. An episode watched on Simkl is copied to the other services, and an episode un-watched on Simkl is removed from them, only when Simkl numbers that season the same way. Otherwise the watch stays on Simkl only, or the other services keep the episode (it is not copied back to Simkl). Anime episodes already converted to TMDb numbers are not affected, and for un-watches only episodes another service holds are looked up. If the check cannot be made, it waits for a later run; after 7 days of failed checks the copy is not sent and the un-watch is not carried over. All checks share the limit of 40 shows per run, so a large backlog takes several runs.
+
+v7.5.46
+- Cross-Service Sync: an episode removal is sent to Simkl by the background sync only when Simkl numbers that season the same way. Otherwise the episode stays watched on Simkl (the other services still get the removal, and it is not copied back). If the check cannot be made, the removal from Simkl waits (given up after 7 days of failed checks, and the episode then stays on Simkl).
+
+v7.5.45
+- Cross-Service Sync: an episode is copied to Simkl by the background sync only when Simkl numbers that season the same way. Specials and shows Simkl cannot match are not sent. If the check cannot be made, the episode waits for a later run (given up after 7 days without a successful check). At most 40 shows are looked up per run. Episodes copied by earlier versions are not checked.
+
+v7.5.44
+- Fixed: the message after you add, change or remove a rating from the MDBList, Simkl or WeTrakr menu now names what you did ("Add rating (7)", "Change rating (7)" or "Remove rating"). It used the menu entry's wording, so a removal could read "Add rating was successful".
+
+v7.5.43
+- WeTrakr: fewer requests while nothing happens (its daily limit is shared by all users). The check for changes made elsewhere now asks every 30 minutes instead of 15; a sync run reads the activity once instead of twice; after a "too many requests" answer every part of the add-on stays quiet until WeTrakr's reset (one request after each Kodi start).
+
+v7.5.42
+- MDBList menu: a season with watched episodes now offers "Mark as unwatched" (it never did). After a season is set watched or unwatched, there or by a copy from another menu, MDBList's watched data is read again, so the season menu is right straight away.
+
+v7.5.41
+- Trakt menu: a season with watched episodes now offers "Mark as unwatched" (it never did, because Trakt's saved season data has no watched date). A season removal copied to Simkl is now sent only when Simkl numbers that season the same way.
+- WeTrakr menu: after a watched or unwatched mark (made there, or copied there from another menu), the watched marks are read again, so the menu opened next offers the right option.
+
+v7.5.40
+- New setting "Simkl ratings" (Off / Log only, the default / On): a movie or show rating you give or remove from the add-on menu on Trakt, MDBList or WeTrakr is also sent to Simkl. Because a rating can mark a title watched on Simkl, it is sent only for a movie Simkl lists as completed or a show already on a Simkl list (Simkl is asked right before sending). Not season or episode ratings. Ratings from WeTrakr also need "WeTrakr ratings" On.
+
+v7.5.39
+- New setting "WeTrakr menu actions" (Off / Log only, the default / On): Mark as watched or unwatched on Trakt, MDBList or Simkl, and their watchlist and collection changes, are also sent to WeTrakr; Mark as watched or unwatched in the WeTrakr menu goes to Trakt, MDBList and Simkl (episodes not to Simkl). The Unwatched seasons / episodes lists include WeTrakr. A title already on a WeTrakr list is not moved to the watchlist, and a library copy you made on WeTrakr is never removed. Needs watched marks with WeTrakr On; lists also need "WeTrakr watchlist and collection" On.
+
+v7.5.38
+- New setting "WeTrakr ratings" (Off / Log only, the default / On): a rating you give or remove from the add-on menu on Trakt, MDBList or Simkl is also sent to WeTrakr, and one given or removed on WeTrakr to Trakt and MDBList (not season ratings, never to Simkl). Existing ratings are not copied. Needs watched marks with WeTrakr On.
+
+v7.5.37
+- WeTrakr two-way, first run after updating: a watched mark the old one-way copy had sent to WeTrakr, and that you have since removed on the other services, is no longer copied back to them; it stays on WeTrakr. A copy made before the one-way copy kept a record of what it sent cannot be told apart and is still copied.
+
+v7.5.36
+- New setting "WeTrakr resume points" (Off / Log only, the default / On): uploads the resume points Trakt holds to WeTrakr. No play is logged; WeTrakr keeps a position that is the same or newer and takes none for a watched title. Needs watched marks with WeTrakr On.
+v7.5.35
+- Watchlist and collection sync: a title copied into a Trakt or MDBList collection now keeps the date it was collected (before, it was dated the moment it was copied), and titles copied from the WeTrakr library keep their date too. Entries already copied are not changed.
+v7.5.34
+- With "WeTrakr watchlist and collection" On, a library change made on WeTrakr can now start a sync (it reads WeTrakr's library timestamps).
+v7.5.33
+- New setting "WeTrakr watchlist and collection" (Off / Log only, the default / On; needs watched marks with WeTrakr On): On adds WeTrakr to the watchlist sync (its planning list) and the collection sync (its library). A title WeTrakr already has on another list is never moved to planning, and moving off planning is not treated as a removal. The sync only removes library copies it made itself.
+v7.5.32
+- Fixed: the log message written when WeTrakr joins the sync (and the Log only preview) no longer counts, as "to be sent to WeTrakr", Simkl placeholder episodes that are never sent. What is synced is unchanged.
+v7.5.31
+- Fixed: copies made by the sync keep the date you watched the title. MDBList was sent no date, so it recorded the time of the copy, and because the newest date won, titles sent to Trakt in a later run could get that time too. MDBList is now sent the date, and every copy uses the date of the service it is copied from. Dates already written are not changed.
+v7.5.30
+- Changed: Cross-Service Sync: with 'Watched marks with WeTrakr' set to On, WeTrakr is now a full part of the watched movie and episode sync, not a one-way copy. What you watch on WeTrakr is copied to the other services (the first run also copies what only WeTrakr has), unwatching works both ways when the removals setting is 'also watched history' (also for marks you made on WeTrakr yourself), and WeTrakr counts as one of the two services the sync needs. Watchlist, collection, ratings and resume points are not part of this yet. If your setting is already On, this starts with the first sync run after the update; choose Log only first to see in the log what would be copied.
 v7.5.29
 - Fixed: after a video started from a calendar (Play in the information dialog) ended, the information dialog came back on screen (on the Bingie skin: 'Video info' left open, one Back to leave it). It is closed when the video stops now, so you land where the calendar close leaves you (Home)
 v7.5.28

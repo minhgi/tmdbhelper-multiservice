@@ -24,7 +24,7 @@ _RUNNING_PROP = 'TMDbHelper.BridgeSync.Running'
 
 _DEBOUNCE = 20            # seconds the requests must have been quiet
 _MIN_GAP = 30             # seconds between two triggered runs
-_POLL_SECONDS = {'trakt': 120, 'simkl': 120, 'mdblist': 300}   # MDBList has the smallest daily request budget
+_POLL_SECONDS = {'trakt': 120, 'simkl': 120, 'mdblist': 300, 'wetrakr': 1800}   # MDBList and WeTrakr have the smallest daily request budgets
 _FOLLOWUP_DELAY = 190     # a little after BridgeSync's _REMOVE_CONFIRM_SECONDS
 _MAX_FOLLOWUPS = 3
 
@@ -91,6 +91,12 @@ class BridgeTrigger:
                 url = f'{self._simkl.req_api_url}/sync/activities?client_id={self._simkl.client_id}'
                 response = self._simkl.get_api_request(url, headers=self._simkl.auth_headers)
                 data = response.json() if response is not None else None
+            elif service == 'wetrakr':
+                from tmdbhelper.lib.monitor.bridge_sync import bridge_services, wetrakr_stamp
+                if 'wetrakr' not in bridge_services(self.trakt_api):
+                    return None            # not a member: no request to WeTrakr
+                from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+                return wetrakr_stamp(WeTrakrAPI().get_json('/sync/last_activities'))     # watched marks only: playback and list changes do not start a run
             else:
                 return None
             if not data or not isinstance(data, dict):
@@ -115,11 +121,11 @@ class BridgeTrigger:
             self._stamps[service] = value      # the first read only sets the baseline
         return changed
 
-    def _rebaseline(self):
+    def _rebaseline(self, known=None):
         """After a run: take the services' stamps as they are now, so the run's own pushes do not start the next one."""
         now = time.time()
         for service in _POLL_SECONDS:
-            value = self._fingerprint(service)
+            value = (known or {}).get(service) or self._fingerprint(service)     # a stamp the run already read is not asked for again
             if value is not None:
                 self._stamps[service] = value
             self._last_poll[service] = now
@@ -170,7 +176,7 @@ class BridgeTrigger:
         bridge = make_bridge(self.trakt_api)
         bridge.run(force=True)
         self._last_run = time.time()
-        self._rebaseline()
+        self._rebaseline({'wetrakr': getattr(bridge, 'wetrakr_last_stamp', None)})
         if bridge.has_pending_removals and self._followups < _MAX_FOLLOWUPS:
             self._followups += 1
             self._followup_at = time.time() + _FOLLOWUP_DELAY

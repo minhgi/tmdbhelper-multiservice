@@ -1325,6 +1325,106 @@
                     </dependencies>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting id="cross_sync_wetrakr_lists" type="integer" label="32832" help="32833" parent="cross_sync_wetrakr">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="cross_sync_wetrakr">2</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_wetrakr_resume" type="integer" label="32834" help="32835" parent="cross_sync_wetrakr">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="cross_sync_wetrakr">2</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_wetrakr_ratings" type="integer" label="32836" help="32837" parent="cross_sync_wetrakr">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="cross_sync_wetrakr">2</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_wetrakr_menu" type="integer" label="32838" help="32839" parent="cross_sync_wetrakr">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="cross_sync_wetrakr">2</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting id="cross_sync_simkl_ratings" type="integer" label="32840" help="32841" parent="cross_sync_services">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32756">0</option>
+                            <option label="32757">1</option>
+                            <option label="32768">2</option>
+                        </options>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="service_simkl">True</condition>
+                        </dependency>
+                        <dependency type="visible">
+                            <condition operator="is" setting="cross_sync_services">True</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="spinner" format="string"/>
+                </setting>
             </group>
             <group id="5" label="32742">
                 <setting id="scrobble_external_playback" type="boolean" label="32743" help="32744">

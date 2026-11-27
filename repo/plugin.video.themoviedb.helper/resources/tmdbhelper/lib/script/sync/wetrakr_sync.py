@@ -56,7 +56,8 @@ class ItemWeTrakrSyncBase:
     """ Base of the WeTrakr context menu items (Set as watched / unwatched, Reset resume position, Add rating).
 
     Everything is sent by TMDb id and TMDb numbering (WeTrakr resolves titles by TMDb id; seasons and episodes of a show by number in the nested
-    shows > seasons > episodes form). Nothing is written to the local WeTrakrSync.db (the rating write-through of ItemWeTrakrRating apart): after an
+    shows > seasons > episodes form). Nothing is written to the local WeTrakrSync.db by hand (the rating write-through of ItemWeTrakrRating and the
+    cleared resume point apart; set as watched / unwatched read the watched marks again, see resync_watched): after an
     accepted write the saved last_activities answer is dropped, so the list refreshed right afterwards asks WeTrakr again and reads the changed data
     (the same path a finished play takes).
     The menu is built from local data only (no request); an item is hidden when the local copy says it does not apply.
@@ -271,12 +272,17 @@ class ItemWeTrakrSyncBase:
         executebuiltin('Container.Refresh')
         reload_widgets()
 
+    def _cross_sync(self):
+        """ No-op hook: Set as watched / unwatched override it to mirror the action to the other services """
+
     def sync(self):
         _ = self.sync_response
         if self.outcome[0] != 'failed':
             self.reset_lastactivities()
         self.display_dialog()
         self.refresh_containers()
+        if self.is_successful_sync:  # something changed on WeTrakr ('already' changes nothing and could add a second play elsewhere)
+            self._cross_sync()
 
     # --- Menu gate ---
 
@@ -297,7 +303,28 @@ class ItemWeTrakrSyncBase:
         raise NotImplementedError
 
 
-class ItemWeTrakrWatched(ItemWeTrakrSyncBase):
+def resync_watched(syncdata):
+    """ Read the watched marks again right after a watched / unwatched write (made in the WeTrakr menu, or copied here from another menu), so the
+    WeTrakr menu opened next offers the option that applies: it is built from the saved marks only and never reads WeTrakr itself. Only while the
+    watched marks are read back. A read that fails keeps the saved marks. """
+    if not get_setting('wetrakr_watchedindicators'):
+        return
+    try:
+        syncdata.sync('show', ('plays',), forced=True)  # one read covers movies and episodes
+    except Exception as exc:
+        kodi_log(f'WeTrakr: watched marks not read again - {type(exc).__name__}', 1)
+
+
+class ItemWeTrakrWatchedState(ItemWeTrakrSyncBase):
+    """ Base of the two entries that change the watched marks: the saved marks are read again before the result is shown """
+
+    def reset_lastactivities(self):
+        super().reset_lastactivities()
+        with BusyDialog():
+            resync_watched(self.wetrakr_syncdata)
+
+
+class ItemWeTrakrWatched(ItemWeTrakrWatchedState):
     """ Mark a movie / show / season / episode as watched: POST /sync/tracking with status watched, allow_rewatch false (a title the account already
     watched is answered "Already watched!" and nothing is logged twice). A show is marked as a whole; a season or episode by number.
     Offered unless the watched state is known to be watched (a show / season is always offered: its total is not stored). """
@@ -332,9 +359,15 @@ class ItemWeTrakrWatched(ItemWeTrakrSyncBase):
             self.reset_lastactivities()
         self.display_dialog()
         self.refresh_containers()
+        if self.is_successful_sync:
+            self._cross_sync()
+
+    def _cross_sync(self):
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_from_wetrakr
+        mirror_watched_from_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
 
 
-class ItemWeTrakrUnwatched(ItemWeTrakrSyncBase):
+class ItemWeTrakrUnwatched(ItemWeTrakrWatchedState):
     """ Remove every play of a movie / show / season / episode: POST /sync/tracking/remove/all with status watched (remove alone takes only the
     latest play). Offered unless the watched state is known to be unwatched (a show / season: no watched episode in the local copy). """
 
@@ -350,6 +383,10 @@ class ItemWeTrakrUnwatched(ItemWeTrakrSyncBase):
 
     def get_sync_response(self):
         return self.call_api('POST', '/sync/tracking/remove/all', self.tracking_payload('watched'))
+
+    def _cross_sync(self):
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_from_wetrakr
+        mirror_watched_from_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
 
 
 class ItemWeTrakrClearProgress(ItemWeTrakrSyncBase):
@@ -452,6 +489,8 @@ class ItemWeTrakrRating(ItemWeTrakrSyncBase):
         if x < 0 or x > 10:
             return None
         self._rating_value = x
+        from tmdbhelper.lib.script.sync.rating import get_rating_header
+        self.name = get_rating_header(x, self.current_rating)  # popup title; read before the new value is stored
         if x == 0:
             return self.call_api('POST', '/sync/ratings/remove', self.rating_payload())
         return self.call_api('POST', '/sync/ratings', self.rating_payload(x))
@@ -465,6 +504,9 @@ class ItemWeTrakrRating(ItemWeTrakrSyncBase):
             self.reset_lastactivities()
         self.display_dialog()
         self.refresh_containers()
+        if self.outcome[0] != 'failed':
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_from_wetrakr
+            mirror_rating_from_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, self._rating_value)
 
 
 class ItemWeTrakrStatus(ItemWeTrakrSyncBase):

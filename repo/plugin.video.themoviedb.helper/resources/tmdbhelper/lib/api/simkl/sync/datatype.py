@@ -153,8 +153,8 @@ class SimklSyncPaused(SimklDataType):
     """Resume progress from GET /sync/playback.
 
     Movies, and (7.0.109) the episodes of regular shows. Simkl numbers episodes the TVDB way, so an episode entry is only
-    written after the show's season has been checked against TMDb's (simkl_numbering_agrees: same season, about the same episode
-    count); a season that does not agree, or cannot be checked, is left out, so a bar never lands on the wrong episode. Anime
+    written after that episode number has been checked against TMDb's (simkl_numbering.same_numbers: the same title or air date
+    on both); a number that differs, or cannot be checked, is left out, so a bar never lands on the wrong episode. Anime
     entries (an 'anime' block, numbered per cour) are never written: the rows the scrobbler wrote for them stay as they are.
 
     Stale rows: a row (movie or episode) whose Simkl session id (paused_id) is no longer listed by a successful read is cleared,
@@ -191,36 +191,55 @@ class SimklSyncPaused(SimklDataType):
             "UPDATE simplecache SET paused_progress=NULL, paused_at=NULL, paused_id=NULL "
             f"WHERE id LIKE 'tv.%.%.%' AND paused_id IS NOT NULL{condition}", tuple(ids))
 
-    def _numbering_known(self, tmdb_id, season):
+    def _numbering_known(self, tmdb_id, season, episode):
         """True / False from the stored answer for this show season, None when there is none or it is too old to trust."""
         import time
-        stored = self.cache.get_activity(self.item_type, f'paused_numbering_v1.{tmdb_id}.{season}')
+        stored = self.cache.get_activity(self.item_type, f'paused_numbering_v2.{tmdb_id}.{season}')
         try:
-            agrees, at = str(stored).split('|')
+            numbers, at = str(stored).split('|')
             age = time.time() - float(at)
+            same = str(episode) in numbers.split(',')
         except (ValueError, TypeError):
             return None
-        if age < 0 or age > (self.NUMBERING_AGREE_SECONDS if agrees == '1' else self.NUMBERING_RETRY_SECONDS):
+        if age < 0 or age > (self.NUMBERING_AGREE_SECONDS if same else self.NUMBERING_RETRY_SECONDS):
             return None
-        return agrees == '1'
+        return same
 
-    def _check_numbering(self, tmdb_id, season):
+    def _check_numbering(self, tmdb_id, season, episode):
+        """True when this number is the same episode on TMDb and on Simkl (simkl_numbering.same_numbers). Stores the season's answer."""
         import time
         from tmdbhelper.lib.addon.logger import kodi_log
-        try:
-            from tmdbhelper.lib.script.sync.unwatch_lists import simkl_numbering_agrees
-            agrees = bool(simkl_numbering_agrees(tmdb_id, [season], self.simkl_api))
-        except Exception as exc:
-            kodi_log(f'Simkl Sync: playback numbering check for {tmdb_id} season {season} failed: {exc}', 2)
-            agrees = False
-        self.cache.set_activity(self.item_type, f'paused_numbering_v1.{tmdb_id}.{season}', f'{int(agrees)}|{time.time()}')
-        return agrees
+        if (tmdb_id, season) not in self._numbering_fresh:
+            good = set()
+            try:
+                if season > 0:
+                    good = self._same_numbers(tmdb_id, season)
+            except Exception as exc:
+                kodi_log(f'Simkl Sync: playback numbering check for {tmdb_id} season {season} failed: {exc}', 2)
+            self._numbering_fresh[tmdb_id, season] = good
+            self.cache.set_activity(self.item_type, f'paused_numbering_v2.{tmdb_id}.{season}', f'{",".join(map(str, sorted(good)))}|{time.time()}')
+        return episode in self._numbering_fresh[tmdb_id, season]
+
+    def _same_numbers(self, tmdb_id, season):
+        from tmdbhelper.lib.api.tmdb.api import TMDb
+        from tmdbhelper.lib.script.sync.simkl_numbering import same_numbers, season_lists
+        tmdb, api = TMDb(language='en-US'), self.simkl_api      # the titles are compared with Simkl's, which are English
+
+        def tmdb_get(number):
+            return tmdb.get_request_sc('tv', tmdb_id) if number is None else tmdb.get_request_sc('tv', tmdb_id, 'season', number)
+
+        def simkl_get(kind, value):
+            path = f'search/id?tmdb={value}&type=show&' if kind == 'search' else f'tv/episodes/{value}?extended=full&'
+            return api.get_api_request_json(f'https://api.simkl.com/{path}client_id={api.client_id}')
+        lists = season_lists(tmdb_id, [season], simkl_get, tmdb_get)
+        return set() if lists is None else same_numbers(*lists[season])
 
     def _gate_episodes(self, data):
         """The playback entries without the regular-show episodes whose season numbering is not confirmed (nor the ones at 0 %,
         which are only a started player). Movies and anime entries pass through, the parser handles them."""
         budget = self.NUMBERING_BUDGET
         verdicts = {}
+        self._numbering_fresh = {}      # {(show, season): same numbers} looked up in this sync
         kept = []
         for item in data:
             if not (isinstance(item, dict) and item.get('type') == 'episode' and isinstance(item.get('show'), dict)):
@@ -229,14 +248,15 @@ class SimklSyncPaused(SimklDataType):
             try:
                 if float(item.get('progress')) <= 0:
                     continue
-                key = (int(((item.get('show') or {}).get('ids') or {}).get('tmdb')), int((item.get('episode') or {}).get('season')))
+                key = (int(((item.get('show') or {}).get('ids') or {}).get('tmdb')), int((item.get('episode') or {}).get('season')),
+                       int((item.get('episode') or {}).get('number', (item.get('episode') or {}).get('episode'))))
             except (TypeError, ValueError):
                 continue
             if key not in verdicts:
                 known = self._numbering_known(*key)
                 if known is None:
-                    if budget > 0:
-                        budget -= 1
+                    if budget > 0 or key[:2] in self._numbering_fresh:
+                        budget -= key[:2] not in self._numbering_fresh      # one lookup answers the whole season
                         known = self._check_numbering(*key)
                     else:
                         known = False   # not checked in this sync, so not written yet: a later sync checks it

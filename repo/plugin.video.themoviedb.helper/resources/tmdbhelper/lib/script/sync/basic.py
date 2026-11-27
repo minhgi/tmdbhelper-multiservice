@@ -20,9 +20,10 @@ class ItemWatched(ItemSync):
         return self
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_mdblist, mirror_watched_to_simkl
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_mdblist, mirror_watched_to_simkl, mirror_watched_to_wetrakr
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
         mirror_watched_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
+        mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
 
 
 class ItemUnwatched(ItemSync):
@@ -33,6 +34,12 @@ class ItemUnwatched(ItemSync):
     localized_name = 16104
     remove = True
     trakt_sync_key = 'last_watched_at'
+
+    def get_trakt_sync_value(self):
+        # Trakt's saved season rows have no last_watched_at, only the number of watched episodes: a season counts as watched once one is
+        if self.trakt_type == 'season':
+            return self.trakt_syncdata.get_value(self.tmdb_type, self.tmdb_id, self.season, None, 'watched_episodes')
+        return super().get_trakt_sync_value()
 
     def get_self(self):
         # super() handles service_trakt gate + is_allowed_type; returns self or None
@@ -64,9 +71,10 @@ class ItemUnwatched(ItemSync):
             pass
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_mdblist, mirror_watched_to_simkl
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_mdblist, mirror_watched_to_simkl, mirror_watched_to_wetrakr
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
         mirror_watched_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
+        mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
 
     def sync(self):
         self._clear_playback_progress()
@@ -84,10 +92,11 @@ class ItemWatchlist(ItemSync):
     trakt_sync_url = 'watchlist'
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_mdblist, mirror_watchlist_to_simkl
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_mdblist, mirror_watchlist_to_simkl, mirror_watchlist_to_wetrakr
         mirror_watchlist_to_mdblist(self.tmdb_type, self.tmdb_id, self.remove)
         if not self.remove:
             mirror_watchlist_to_simkl(self.tmdb_type, self.tmdb_id)
+        mirror_watchlist_to_wetrakr(self.tmdb_type, self.tmdb_id, self.remove)
 
 
 class ItemCollection(ItemSync):
@@ -97,8 +106,9 @@ class ItemCollection(ItemSync):
     trakt_sync_url = 'collection'
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_collection_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_collection_to_mdblist, mirror_collection_to_wetrakr
         mirror_collection_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, self.remove)
+        mirror_collection_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, self.remove)
 
 
 class ItemFavorites(ItemSync):

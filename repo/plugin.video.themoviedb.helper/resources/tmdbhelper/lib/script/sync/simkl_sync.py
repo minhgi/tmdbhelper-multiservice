@@ -522,9 +522,10 @@ class ItemSimklWatched(ItemSimklSyncBase):
         return None
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_mdblist, mirror_watched_to_wetrakr
         mirror_watched_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
+        mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
 
     def clear_resume_point(self):
         """An item set as watched must not keep its resume percentage (GitHub issue #13 item 4); see the
@@ -575,9 +576,10 @@ class ItemSimklUnwatched(ItemSimklSyncBase):
         return self.call_api('sync', 'history', 'remove', payload=payload) if payload else None
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_mdblist, mirror_watched_to_wetrakr
         mirror_watched_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
         mirror_watched_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
+        mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
 
     def sync(self):
         if self.anime_unresolved:
@@ -668,9 +670,10 @@ class ItemSimklPlanToWatch(ItemSimklSyncBase):
         return self.call_api('sync', 'add-to-list', payload=self.build_payload(to='plantowatch'))
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_trakt, mirror_watchlist_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_trakt, mirror_watchlist_to_mdblist, mirror_watchlist_to_wetrakr
         mirror_watchlist_to_trakt(self.tmdb_type, self.tmdb_id, self.remove)
         mirror_watchlist_to_mdblist(self.tmdb_type, self.tmdb_id, self.remove)
+        mirror_watchlist_to_wetrakr(self.tmdb_type, self.tmdb_id, self.remove)
 
     def sync(self):
         _ = self.sync_response
@@ -930,6 +933,8 @@ class ItemSimklRating(ItemSimklSyncBase):
         if x < 0 or x > 10:
             return None
         self._rating_value = x
+        from tmdbhelper.lib.script.sync.rating import get_rating_header
+        self.name = get_rating_header(x, self.current_rating)  # popup title; read before the new value is stored
         path = ('sync', 'ratings', 'remove') if x == 0 else ('sync', 'ratings')
         return self.call_api(*path, payload=self.build_rating_payload(x))
 
@@ -958,9 +963,10 @@ class ItemSimklRating(ItemSimklSyncBase):
             pass
 
     def _cross_sync(self):
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_trakt, mirror_rating_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_trakt, mirror_rating_to_mdblist, mirror_rating_to_wetrakr
         mirror_rating_to_trakt(self.tmdb_type, self.tmdb_id, None, None, self._rating_value)
         mirror_rating_to_mdblist(self.tmdb_type, self.tmdb_id, None, None, self._rating_value)
+        mirror_rating_to_wetrakr(self.tmdb_type, self.tmdb_id, None, None, self._rating_value)
 
     def sync(self):
         _ = self.sync_response  # triggers the dialog + API call; sets self._rating_value when the input is valid

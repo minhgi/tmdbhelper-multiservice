@@ -1,6 +1,7 @@
 from tmdbhelper.lib.files.ftools import cached_property
 from tmdbhelper.lib.addon.plugin import get_localized, executebuiltin
 from tmdbhelper.lib.addon.dialog import BusyDialog
+from tmdbhelper.lib.addon.logger import kodi_log
 from xbmcgui import Dialog
 
 
@@ -251,6 +252,11 @@ class ItemMDbListSyncBase:
         except Exception:
             pass
 
+    def resync_after_season_mark(self):
+        if self.mdb_type == 'season' and self.is_successful_sync:
+            with BusyDialog():
+                resync_season_watched(self.mdblist_syncdata)
+
     def display_dialog(self):
         if self.is_successful_sync:
             msg = get_localized(32297)
@@ -292,6 +298,18 @@ class ItemMDbListSyncBase:
 # Concrete sync item classes
 # ---------------------------------------------------------------------------
 
+def resync_season_watched(syncdata):
+    """Read MDBList's watched data again after a SEASON was set watched / unwatched (here or by a copy from another menu). A season mark writes
+    nothing to the saved rows (its episodes are not known here), so without this the season menu would keep the old option until the next
+    periodic sync. The same forced read the Unwatched seasons / episodes lists make. Movie and episode marks write their row and are not
+    re-read. A read that fails keeps the saved rows."""
+    try:
+        syncdata.reset_lastactivities()  # the stamps stored with the read must be the ones after this mark
+        syncdata.sync('show', ('plays', 'watched_episodes'), forced=True)
+    except Exception as exc:
+        kodi_log(f'MDBList: watched data not read again after a season mark - {type(exc).__name__}', 1)
+
+
 class ItemMDbListWatched(ItemMDbListSyncBase):
     """Mark movie / show / season / episode as watched.
 
@@ -332,13 +350,15 @@ class ItemMDbListWatched(ItemMDbListSyncBase):
         # running on Container.Refresh and wiping the plays value we just wrote.
         _ = self.sync_response  # trigger API call first; local write and refresh proceed regardless
         self.update_watched_in_db(True, force=True)
+        self.resync_after_season_mark()
         self.clear_resume_point()
         self.display_dialog()
         self.refresh_containers(force=True)
         if self.is_successful_sync:
-            from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_simkl
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_simkl, mirror_watched_to_wetrakr
             mirror_watched_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
             mirror_watched_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
+            mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=False)
 
 
 class ItemMDbListUnwatched(ItemMDbListSyncBase):
@@ -357,9 +377,12 @@ class ItemMDbListUnwatched(ItemMDbListSyncBase):
         if not super().get_self():
             return None
         # Toggle: hide "Mark as unwatched" when not watched.
-        # Shows use last_watched_at; movies and episodes use plays.
+        # Shows use last_watched_at; movies and episodes use plays. A season row has neither, only its watched-episode count.
         if self.mdb_type == 'show':
             if not self.get_sync_value('last_watched_at'):
+                return None
+        elif self.mdb_type == 'season':
+            if not self.get_sync_value('watched_episodes'):
                 return None
         elif not self.get_sync_value('plays'):
             return None
@@ -404,12 +427,14 @@ class ItemMDbListUnwatched(ItemMDbListSyncBase):
         self._clear_playback_progress()  # also triggers sync_response (API call + BusyDialog)
         # reset_lastactivities() intentionally omitted: same reasoning as ItemMDbListWatched.
         self.update_watched_in_db(False, force=True)
+        self.resync_after_season_mark()
         self.display_dialog()
         self.refresh_containers(force=True)
         if self.is_successful_sync:
-            from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_simkl
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_watched_to_trakt, mirror_watched_to_simkl, mirror_watched_to_wetrakr
             mirror_watched_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
             mirror_watched_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
+            mirror_watched_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, remove=True)
 
 
 class ItemMDbListWatchlist(ItemMDbListSyncBase):
@@ -442,10 +467,11 @@ class ItemMDbListWatchlist(ItemMDbListSyncBase):
         self.display_dialog()
         self.refresh_containers()
         if self.is_successful_sync:
-            from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_trakt, mirror_watchlist_to_simkl
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_watchlist_to_trakt, mirror_watchlist_to_simkl, mirror_watchlist_to_wetrakr
             mirror_watchlist_to_trakt(self.tmdb_type, self.tmdb_id, self.remove)
             if not self.remove:
                 mirror_watchlist_to_simkl(self.tmdb_type, self.tmdb_id)
+            mirror_watchlist_to_wetrakr(self.tmdb_type, self.tmdb_id, self.remove)
 
 
 class ItemMDbListCollection(ItemMDbListSyncBase):
@@ -475,8 +501,9 @@ class ItemMDbListCollection(ItemMDbListSyncBase):
         self.display_dialog()
         self.refresh_containers()
         if self.is_successful_sync:
-            from tmdbhelper.lib.script.sync.cross_sync import mirror_collection_to_trakt
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_collection_to_trakt, mirror_collection_to_wetrakr
             mirror_collection_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, self.remove)
+            mirror_collection_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, self.remove)
 
 
 class ItemMDbListDrop(ItemMDbListSyncBase):
@@ -731,6 +758,8 @@ class ItemMDbListRating(ItemMDbListSyncBase):
         if x < 0 or x > 10:
             return None
         self._rating_value = x
+        from tmdbhelper.lib.script.sync.rating import get_rating_header
+        self.name = get_rating_header(x, self.current_rating)  # popup title; read before the new value is stored
         return self.call_rating_api(x)
 
     def update_rating_in_db(self, force=False):
@@ -774,5 +803,7 @@ class ItemMDbListRating(ItemMDbListSyncBase):
         self.display_dialog()
         self.refresh_containers(force=True)
         if self.is_successful_sync:
-            from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_trakt
+            from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_trakt, mirror_rating_to_wetrakr, mirror_rating_to_simkl
             mirror_rating_to_trakt(self.tmdb_type, self.tmdb_id, self.season, self.episode, self._rating_value)
+            mirror_rating_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, self._rating_value)
+            mirror_rating_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, self._rating_value)

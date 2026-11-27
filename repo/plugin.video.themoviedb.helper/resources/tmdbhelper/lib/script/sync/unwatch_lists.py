@@ -2,7 +2,7 @@
 
 Each entry lists what ITS service has watched for the open show (read from that service's local sync data, refreshed first) and lets
 the user tick the seasons / episodes to unwatch. The removal is sent as ONE request per service (a loop of single-item posts would hit
-Trakt's write rate limit part-way), to the service whose menu it is first and then mirrored to the other two, as 'Mark as unwatched'
+Trakt's write rate limit part-way), to the service whose menu it is first and then mirrored to the other two (and to WeTrakr, setting cross_sync_wetrakr_menu), as 'Mark as unwatched'
 already does. Simkl keeps no episode rows, so it only has the seasons entry and episodes are not sent to it.
 """
 from tmdbhelper.lib.files.ftools import cached_property
@@ -13,7 +13,7 @@ from xbmcgui import Dialog
 
 BULK = 9999  # watched_episodes sentinel written by a whole-show mark (see watched_totals.py)
 SYNC_KEYS = {'trakt': ('plays', 'watched_episodes', 'aired_episodes'), 'mdblist': ('plays', 'watched_episodes'), 'simkl': ('plays', 'watched_episodes')}
-SERVICE_NAMES = {'trakt': 'Trakt', 'mdblist': 'MDBList', 'simkl': 'Simkl'}
+SERVICE_NAMES = {'trakt': 'Trakt', 'mdblist': 'MDBList', 'simkl': 'Simkl', 'wetrakr': 'WeTrakr'}
 SEASON_TOLERANCE = 2  # episodes a season may differ by between TMDb and Simkl (a split double episode) before the numbering is called different
 WHOLE = 'whole'       # choice marker of the whole-show row
 
@@ -326,7 +326,25 @@ def unwatch(origin, tmdb_id, seasons, episodes, whole=False):
                 results.append((key, False, text + ' - nothing else was changed'))
                 break
         results.append((key, ok, text))
+    if mirror and results and results[0][:2] == (origin, True):  # WeTrakr is a mirror target only (7.5.39), after the origin took it
+        mirror_to_wetrakr(results, origin, tmdb_id, seasons, episodes, numbering)
     return results
+
+
+def mirror_to_wetrakr(results, origin, tmdb_id, seasons, episodes, numbering):
+    """WeTrakr numbers seasons the TMDb way: only seasons picked from Simkl's list need the numbering check."""
+    from tmdbhelper.lib.script.sync import cross_sync
+    if not cross_sync._wetrakr_menu_mode():
+        return
+    if origin == 'simkl' and seasons:
+        if numbering is None:
+            numbering = simkl_numbering_agrees(tmdb_id, seasons, SERVICE_CLASSES['simkl']().api)
+        if not numbering:
+            results.append(('wetrakr', None, 'skipped - Simkl numbers these seasons differently, or it could not be checked'))
+            return
+    answer = cross_sync.mirror_bulk_unwatched_to_wetrakr(tmdb_id, seasons, episodes)
+    if answer:
+        results.append(('wetrakr', *answer))
 
 
 # --- Menu entries -------------------------------------------------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
-# TMDb Helper 7.5.29 — Complete Features & Functions Guide
+# TMDb Helper 7.5.50 — Complete Features & Functions Guide
 
-**Version:** 7.5.29 (Enhanced Fork — Personal Build)
+**Version:** 7.5.50 (Enhanced Fork — Personal Build)
 **Platform:** Kodi 20 (Nexus) and above; developed and live-tested on Kodi 22
 **Base add-on:** [jurialmunkey's TMDb Helper](https://github.com/jurialmunkey/plugin.video.themoviedb.helper)
 **License:** GNU GPL v3
@@ -46,7 +46,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 - **Tools menu, Account Info screens, a description under every setting and menu row.**
 - **Players pack** hosted in the repository.
 
-**Installing:** see `TMDb_Helper_7.5.29_Install_Instructions.md`. Section 3 below summarises it.
+**Installing:** see `TMDb_Helper_7.5.50_Install_Instructions.md`. Section 3 below summarises it.
 
 ### Requirements
 
@@ -61,7 +61,7 @@ TMDb Helper is a **browsing and widget add-on for Kodi**. It turns the data on T
 
 ## 2. What's New Since the v6.0.81 README
 
-The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.29. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
+The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.50. The complete per-version list is in `changelog.txt`; Kodi also shows it under **Tools → Changelog**.
 
 ### Seren parity and sync engine (6.0.82–6.0.121)
 
@@ -405,7 +405,7 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.2
 - **WeTrakr options in the item context menu** (7.5.3, 7.5.7). *Set as watched* and *Set as unwatched* for movies, shows, seasons and episodes, *Reset resume position* for an item that holds a resume point, and *Add rating* / *Change rating* (0–10, 0 removes it). With *Get watched indicators* on, only the option that applies is offered. A switch, *WeTrakr options* (Settings → Other → Context menu), hides the entry.
 - **Hide watched** (7.5.8). With *Hide watched* on for widgets, a show opened from a WeTrakr In-Progress row lists its seasons and episodes without the ones WeTrakr has marked watched. It needs *Get watched indicators and episode counts* on for WeTrakr.
 - **Up Next folder** (7.5.6). When Trakt has no next episode for a show, the Up Next folder asks MDBList, then Simkl, then WeTrakr, and opens at the first episode WeTrakr has not marked watched. A service that has not marked a single episode of the show no longer answers "from season 1 episode 1".
-- **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. It goes one way only: nothing is read back from WeTrakr into the other services and nothing is removed from WeTrakr except, since 7.5.25, a title the bridge itself copied there that you have unwatched on every other service. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
+- **Copy your other services' watched marks to WeTrakr** (7.5.5). Settings → Accounts → Cross-service sync → *Watched marks to WeTrakr*: Off, Log only (the default) or On. When on, the watched movies and episodes that Trakt, MDBList and Simkl hold are sent to your WeTrakr account with their own watch dates, up to 100 movies and 300 episodes a run, so a large library takes several runs. In 7.5.5–7.5.29 it went one way only (nothing was read back from WeTrakr, and nothing was removed from WeTrakr except, since 7.5.25, a title the bridge itself copied there that you had unwatched on every other service); since 7.5.30 it is a full two-way sync, see Section 12. Specials (season 0) are left out. Log only writes what would be sent to the Kodi log and changes nothing.
 
 ### Cross-service catch-up, WeTrakr journal sync and calendar refresh (7.5.14–7.5.21)
 
@@ -435,6 +435,24 @@ The public README stopped at v6.0.81. Everything below arrived in 6.0.82–7.5.2
 - **Sync Tools only touch the services that are on** (7.5.26). Clear last sync time, Force a sync and Rebuild Database leave out a service you switched off in Settings → Accounts.
 - **WeTrakr In-Progress lists the shows you are watching** (7.5.26). It now includes a show WeTrakr has as watching (a watched episode and more to watch), not only the shows with an episode paused part-way, like the website and the other services; the Anime, Asian and Movies and TV Shows Progress menus follow.
 - **WeTrakr: Put on hold and Drop show** (7.5.28). The WeTrakr options on a show have *Put on hold* and *Drop show* (shows only). They are one way, like MDBList's Drop show: the show moves to WeTrakr's On Hold or Dropped list and keeps its watch history, and the On Hold and Dropped lists start with *Restore Shows on Hold* / *Restore Dropped Shows*, which put the shows you pick back where their watch history places them.
+
+### WeTrakr in both directions, more sync settings and a Simkl numbering check (7.5.30–7.5.50)
+
+**Before you update, if** *Watched marks with WeTrakr* **is On:** in 7.5.29 it only copied watched marks to WeTrakr. From 7.5.30 WeTrakr is a full part of Cross-Service Sync, and two-way sync starts with the first sync after the update; you are not asked again. To see what would be copied first, set it to **Log only** before you update.
+
+- **A mark you removed can come back (7.5.30, 7.5.37).** If you removed a watched mark on your other services but it is still on WeTrakr, the first two-way sync may copy it back to them. 7.5.37 stops that where the old sync's records still show it handled the title; it cannot catch every case. Titles marked only on WeTrakr are copied to the other services by design. Before updating, check WeTrakr's history for anything you do not want copied, and remove it there.
+- **Unwatching on WeTrakr now has an effect elsewhere (7.5.30).** If *Copy removals made elsewhere* is set to also include watched history, unwatching a title on WeTrakr removes it from your other services too, including marks you made on WeTrakr yourself. 7.5.29 did not do this.
+- **Two-way watched sync with WeTrakr (7.5.30).** With *Watched marks with WeTrakr* (called *Watched marks to WeTrakr* before; Off / Log only, the default / On) On, what you watch on WeTrakr is copied to the other services, the first run also copies what only WeTrakr has, and WeTrakr counts as one of the two services the sync needs.
+- **WeTrakr watchlist and collection (7.5.33–7.5.35).** New setting (Off / Log only, the default / On; needs watched marks with WeTrakr On). On adds WeTrakr's planning list to the watchlist sync and its library to the collection sync. A title WeTrakr already has on another list is never moved to planning, and moving a title off planning is not treated as a removal. The sync only removes library copies it made itself. A library change made on WeTrakr can start a sync (7.5.34), and a title copied into a Trakt or MDBList collection keeps the date it was collected (7.5.35).
+- **WeTrakr resume points (7.5.36).** New setting (Off / Log only, the default / On; needs watched marks with WeTrakr On and Trakt in the sync). On uploads the resume points Trakt holds to WeTrakr. No play is logged; WeTrakr keeps a position that is the same or newer and takes none for a title already watched. It goes one way only: WeTrakr resume points are not copied to the other services.
+- **WeTrakr ratings (7.5.38).** New setting (Off / Log only, the default / On; needs watched marks with WeTrakr On). A rating you give or remove from the add-on menu on Trakt, MDBList or Simkl is also sent to WeTrakr, and one you give or remove on WeTrakr is sent to Trakt and MDBList (never to Simkl, and no season ratings). Ratings you already have are not copied, and ratings made on a website or in another app are not picked up.
+- **WeTrakr menu actions (7.5.39).** New setting (Off / Log only, the default / On; needs watched marks with WeTrakr On). A change you make from the add-on's menu reaches the other services at once: Mark as watched or unwatched on Trakt, MDBList or Simkl (and watchlist and collection changes, with *WeTrakr watchlist and collection* On) go to WeTrakr, and Mark as watched or unwatched in the WeTrakr menu goes to Trakt, MDBList and Simkl (episodes not to Simkl). The Unwatched seasons / episodes lists include WeTrakr. A title already on a WeTrakr list is not moved to the watchlist, and a library copy you made on WeTrakr is never removed. Log only covers the menu itself; the background sync still copies new marks as its own settings say.
+- **Simkl ratings (7.5.40).** New setting (Off / Log only, the default / On). A movie or show rating you give or remove from the add-on menu on Trakt, MDBList or WeTrakr is also sent to Simkl. Because a rating can mark a title watched on Simkl, it is sent only for a movie Simkl lists as completed or a show already on one of your Simkl lists (Simkl is asked right before sending); season and episode ratings are not sent. Ratings from WeTrakr also need *WeTrakr ratings* On.
+- **Simkl numbering check (7.5.45–7.5.49).** Simkl numbers some shows' episodes differently (it can split a two-part episode, which shifts every later number). The sync now copies an episode to or from Simkl, carries an un-watch to or from Simkl, and copies a Simkl resume point only when the number is the same episode on both sides, judged by its title and air date. Specials and shows Simkl cannot match are not synced. When the check cannot be made the item waits for a later run, and after 7 days of failed checks it is given up. Where Simkl numbers an episode differently, an episode you unwatch elsewhere stays watched on Simkl (the other services still get the removal) and a watch made on Simkl stays on Simkl. All checks share a limit of 40 shows per run, so a large backlog takes several runs. Anime already converted to TMDb numbering is not affected. Removing a whole season on Simkl still compares episode counts, season watched marks are sent without a check, and marks or removals made by earlier versions are not changed or repaired. When an item is on more than one service, Simkl is used last as the source for watched episodes (7.5.47, 7.5.49).
+- **Dates are kept (7.5.31).** Copies made by the sync keep the date you watched the title; before, MDBList recorded the time of the copy and that date could then be passed on to Trakt. Dates already written are not changed.
+- **Menu fixes (7.5.41, 7.5.42, 7.5.44).** The Trakt and MDBList menus offer *Mark as unwatched* for a season with watched episodes (they never did), the WeTrakr menu offers the right option straight after a watched or unwatched mark, and the message after you add, change or remove a rating from the MDBList, Simkl or WeTrakr menu now names what you did.
+- **Fewer WeTrakr requests (7.5.43).** WeTrakr's daily request limit is shared by all users of the add-on, so it is asked less often while nothing happens: the check for changes made elsewhere runs every 30 minutes instead of 15 (such a change can take longer to start a sync), a sync run reads the activity once instead of twice, and after a too-many-requests answer the add-on stays quiet until WeTrakr's limit resets.
+- **Not included yet.** Existing ratings are not synced between services, and Put on hold, Drop show and Reset resume position in the WeTrakr menu are not carried to the other services.
 
 ## 3. First-Time Setup
 
@@ -782,7 +800,7 @@ A context-menu action on one service is mirrored silently to every other enabled
 
 ### Bridge sync
 
-A full three-way reconciliation that catches changes made on a website or in another app. It runs about **10 seconds after Kodi starts** and then every **Sync Interval** minutes (default **180**), in a background thread. It follows Seren's snapshot-delta design:
+A full reconciliation (Trakt, MDBList, Simkl and, since 7.5.30, WeTrakr) that catches changes made on a website or in another app. It runs about **10 seconds after Kodi starts** and then every **Sync Interval** minutes (default **180**), in a background thread. It follows Seren's snapshot-delta design:
 
 - shows are never pushed, season 0 is left out, Trakt is refreshed first;
 - a pushed-ledger and a per-cycle cap avoid re-pushing and large bursts;
@@ -821,9 +839,13 @@ Simkl keeps every season (cour) of an anime as its own entry and counts its epis
 
 ---
 
-### Watched marks to WeTrakr (7.5.5)
+### Watched marks with WeTrakr (7.5.5, two-way since 7.5.30)
 
-A third, one-way copy: *Watched marks to WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On) sends the watched movies and episodes that Trakt, MDBList and Simkl hold to your WeTrakr account, with their own watch dates, up to 100 movies and 300 episodes a run. Nothing is read back, and nothing is removed from WeTrakr except (since 7.5.25) a title this copy itself put there that you have since unwatched on Trakt, MDBList and Simkl (two bridge runs and three minutes later); a title you unwatch on WeTrakr is not sent again, and specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services.
+*Watched marks with WeTrakr* (Settings → Accounts → Cross-service sync; Off, **Log only** or On; called *Watched marks to WeTrakr* before 7.5.30) makes WeTrakr a full part of the watched movie and episode sync. What Trakt, MDBList and Simkl hold is sent to your WeTrakr account with its own watch dates (up to 100 movies and 300 episodes a run), and what you watch on WeTrakr is copied to the other services; WeTrakr counts as one of the two services the sync needs. Unwatching works both ways when *Copy removals made elsewhere* includes watched history, also for marks you made on WeTrakr yourself; a title the bridge copied to WeTrakr is taken off again once you have unwatched it on the other services (two bridge runs and three minutes later). Specials (season 0) are left out. It needs WeTrakr signed in and at least one of the other services. *Log only* writes what would be copied to the Kodi log and changes nothing. If the setting is already On, read *WeTrakr in both directions, more sync settings and a Simkl numbering check (7.5.30–7.5.50)* in Section 2 before you update.
+
+### More WeTrakr and Simkl settings (7.5.33–7.5.40)
+
+Five more settings sit next to it in Settings → Accounts → Cross-service sync, each Off / **Log only** (the default) / On: *WeTrakr watchlist and collection*, *WeTrakr resume points*, *WeTrakr ratings* and *WeTrakr menu actions* work only while *Watched marks with WeTrakr* is On; *Simkl ratings* is separate. What each one does is described in Section 2, *WeTrakr in both directions, more sync settings and a Simkl numbering check (7.5.30–7.5.50)*.
 
 ### Services that were away (7.5.14–7.5.19)
 
@@ -925,7 +947,7 @@ OMDb API key, Fanart.tv client key (with *Use fanart.tv for plugin / widget / se
 | **MDbList API** | Enable MDBList (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · MDbList API key |
 | **Simkl API** | Enable Simkl (on) · Authorize · Account Info · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) |
 | **WeTrakr API** | Enable WeTrakr (on) · Authorize (QR code) · Logout · Scrobble (**off**) · Get watched indicators (**off**) · Get resume points (**off**) · WeTrakr app key, optional (expert level; leave empty) |
-| **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) · Watched marks to WeTrakr (Log only) |
+| **Cross-service sync** | Mirror actions across enabled services (**off**) · Run when something changes (**on**) · Sync Interval (Minutes) (**180**) · Copy removals made elsewhere (Watchlist and collection) · Anime episodes from Simkl (Log only) · Anime episodes to Simkl (Log only) · Anime un-watches (Log only) · Watched marks with WeTrakr (Log only) · WeTrakr watchlist and collection (Log only) · WeTrakr resume points (Log only) · WeTrakr ratings (Log only) · WeTrakr menu actions (Log only) · Simkl ratings (Log only) |
 | **Playback started by other add-ons** | Scrobble items played by other add-ons (**on**) · Include Trakt (**off**; needs the first switch and Trakt enabled) |
 | **Kodi's own resume points** | Let the watch services decide the resume bar (**on**; clears Kodi's own resume point for items no service holds progress for, 7.0.110) |
 

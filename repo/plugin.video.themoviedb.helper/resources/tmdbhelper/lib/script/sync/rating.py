@@ -4,6 +4,14 @@ from tmdbhelper.lib.addon.dialog import BusyDialog
 from xbmcgui import Dialog
 
 
+def get_rating_header(rating, previous):
+    """ Result popup title for the MDBList / Simkl / WeTrakr rating items (same wording as ItemRating's): `rating` is the number typed (0 removes),
+    `previous` the rating held before the write. Their menu label ("Add rating" / "Change rating (X)") is not the result. """
+    if rating == 0:
+        return get_localized(32530)  # Remove rating
+    return f'{get_localized(32489 if previous else 32485)} ({rating})'  # Change rating (rating) / Add rating (rating)
+
+
 class ItemRating(ItemSync):
     allow_episodes = True
     localized_name_add = 32485
@@ -42,5 +50,7 @@ class ItemRating(ItemSync):
         if not isinstance(self.sync_item, dict):
             return
         rating = self.sync_item.get('rating', 0)
-        from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_mdblist
+        from tmdbhelper.lib.script.sync.cross_sync import mirror_rating_to_mdblist, mirror_rating_to_wetrakr, mirror_rating_to_simkl
         mirror_rating_to_mdblist(self.tmdb_type, self.tmdb_id, self.season, self.episode, rating)
+        mirror_rating_to_simkl(self.tmdb_type, self.tmdb_id, self.season, self.episode, rating)
+        mirror_rating_to_wetrakr(self.tmdb_type, self.tmdb_id, self.season, self.episode, rating)

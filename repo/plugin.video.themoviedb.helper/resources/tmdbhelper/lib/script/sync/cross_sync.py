@@ -1,4 +1,4 @@
-"""Cross-service sync bridge: mirrors context menu actions between Trakt, MDBList, and Simkl.
+"""Cross-service sync bridge: mirrors context menu actions between Trakt, MDBList, and Simkl (and WeTrakr, see the end of the file).
 
 IMPORTANT: Mirror functions must never instantiate Trakt, MDBList, or Simkl *Item* sync
 classes or call their .sync() methods. Doing so would create an infinite echo loop:
@@ -14,10 +14,10 @@ Simkl scope:
   Watched/unwatched: movie, show, season (episode deferred — TVDB/TMDb mismatch)
   Watchlist: add-only mirror to Simkl plan-to-watch. Removes are NOT mirrored because
     Simkl's only removal endpoint (history/remove) clears all list status including watched.
-  Ratings: a rating made on Simkl (ItemSimklRating) mirrors out to Trakt and MDBList. Nothing mirrors a
-    Trakt/MDBList rating INTO Simkl: POST /sync/ratings adds an unlisted item to the library (a movie
-    becomes 'completed', a show 'watching'), which would turn a rating into a watched mark. (This line
-    used to say Simkl has no rating endpoint; it has one - POST /sync/ratings, live-checked 2026-10-14.)
+  Ratings: a rating made on Simkl (ItemSimklRating) mirrors out to Trakt and MDBList. INTO Simkl (a rating from
+    Trakt, MDBList or WeTrakr, mirror_rating_to_simkl, 7.5.40) only where POST /sync/ratings cannot change a status:
+    on any movie that is not 'completed' it makes it 'completed', watched now (clearing the rating does not undo
+    that), and an unlisted show becomes 'watching'. A listed show keeps its status. (Live-probed 2026-11-27.)
   Collection: no Simkl collection endpoint — Trakt/MDBList only.
 """
 
@@ -231,6 +231,9 @@ def mirror_watched_to_mdblist(tmdb_type, tmdb_id, season, episode, remove):
         path = ('sync', 'watched', 'remove') if remove else ('sync', 'watched')
         if _mdb_post(mdb, payload, *path) is not None:
             _update_mdb_watched_db(mdb, tmdb_type, tmdb_id, season, episode, not remove)
+            if tmdb_type == 'tv' and season is not None and episode is None:  # a season copy writes no saved rows
+                from tmdbhelper.lib.script.sync.mdblist_sync import resync_season_watched
+                resync_season_watched(mdb.mdblist_syncdata)
             if not remove:  # a movie / episode now watched on MDBList must not keep its resume point there (issue #13 item 4)
                 from tmdbhelper.lib.script.sync.mdblist_sync import clear_resume_point
                 clear_resume_point(tmdb_type, tmdb_id, season, episode)
@@ -545,6 +548,11 @@ def mirror_watched_to_simkl(tmdb_type, tmdb_id, season, episode, remove):
         if not _simkl_is_authorized(simkl):
             return
         if remove:
+            if tmdb_type == 'tv' and season is not None:  # Simkl numbers some shows' seasons differently: never remove another season there
+                from tmdbhelper.lib.script.sync.unwatch_lists import simkl_numbering_agrees
+                if not simkl_numbering_agrees(tmdb_id, [season], simkl):
+                    kodi_log(f'cross_sync: season {season} of tv {tmdb_id} not removed on Simkl - Simkl numbers it differently, or it could not be checked', 1)
+                    return
             payload = _build_simkl_payload(tmdb_type, tmdb_id, season)
             resp = _simkl_post(simkl, payload, 'sync', 'history', 'remove')
         elif tmdb_type == 'movie':
@@ -619,3 +627,496 @@ def mirror_watchlist_to_simkl(tmdb_type, tmdb_id):
             kodi_log(f'cross_sync: Simkl did not know {tmdb_type} {tmdb_id} by its TMDb id - not added to plan-to-watch there or in the local data', 1)
     except Exception as exc:
         kodi_log(f'cross_sync mirror_watchlist_to_simkl error: {exc}', 2)
+
+
+# ── WeTrakr ratings (7.5.38) ───────────────────────────────────────────────────
+
+def _wetrakr_ratings_mode():
+    """cross_sync_wetrakr_ratings: 0 off, 1 log only, 2 on. Only while watched marks with WeTrakr are On."""
+    from tmdbhelper.lib.addon.plugin import get_setting
+    from tmdbhelper.lib.monitor.bridge_sync import _wetrakr_setting_mode
+    if _wetrakr_setting_mode() != 2:
+        return 0
+    try:
+        mode = int(get_setting('cross_sync_wetrakr_ratings', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def _wetrakr_rating_payload(tmdb_type, tmdb_id, season, episode, rating):
+    """Body of POST /sync/ratings (a rating) and /sync/ratings/remove (rating None). A season or episode is nested under its show by number."""
+    ids = {'tmdb': int(tmdb_id)}
+    extra = {} if rating is None else {'rating': rating}
+    if tmdb_type == 'movie':
+        return {'movies': [{'ids': ids, **extra}]}
+    if season is None:
+        return {'shows': [{'ids': ids, **extra}]}
+    if episode is None:
+        return {'shows': [{'ids': ids, 'seasons': [{'number': int(season), **extra}]}]}
+    return {'shows': [{'ids': ids, 'seasons': [{'number': int(season), 'episodes': [{'number': int(episode), **extra}]}]}]}
+
+
+def _rating_label(tmdb_type, tmdb_id, season, episode):
+    numbers = '' if season is None else (f' S{season}' if episode is None else f' S{season}E{episode}')
+    return f'{tmdb_type} {tmdb_id}{numbers}'
+
+
+def mirror_rating_to_wetrakr(tmdb_type, tmdb_id, season, episode, rating):
+    """A rating given (or, rating 0, removed) on Trakt, MDBList or Simkl goes to WeTrakr. Direct API call only (no Item* class: no echo)."""
+    try:
+        mode = _wetrakr_ratings_mode()
+        if not mode or rating is None or tmdb_type not in ('movie', 'tv'):
+            return
+        from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+        api = WeTrakrAPI()
+        if not api.is_authorized:
+            return
+        label = _rating_label(tmdb_type, tmdb_id, season, episode)
+        what = f'rating {rating}' if rating else 'rating removal'
+        if mode == 1:
+            kodi_log(f'cross_sync (WeTrakr ratings, log only): On would send {what} for {label} to WeTrakr', 1)
+            return
+        # 0 is a real rating to WeTrakr, so a removal goes to the remove endpoint without a value
+        path = '/sync/ratings' if rating else '/sync/ratings/remove'
+        response = api.user_request('POST', path, body=_wetrakr_rating_payload(tmdb_type, tmdb_id, season, episode, rating or None))
+        from tmdbhelper.lib.script.sync.wetrakr_sync import read_outcome
+        status, detail = read_outcome(response)
+        if status == 'failed':
+            kodi_log(f'cross_sync: WeTrakr did not take the {what} for {label} - {detail}', 2)
+            return
+        try:
+            api.wetrakr_syncdata.reset_lastactivities()
+        except Exception:
+            pass
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_rating_to_wetrakr error: {type(exc).__name__}: {exc}', 2)
+
+
+def mirror_rating_from_wetrakr(tmdb_type, tmdb_id, season, episode, rating):
+    """A rating given (or, rating 0, removed) on WeTrakr goes to Trakt and MDBList, and to Simkl under that mirror's own setting and checks."""
+    try:
+        mode = _wetrakr_ratings_mode()
+        if not mode or rating is None:
+            return
+        label = _rating_label(tmdb_type, tmdb_id, season, episode)
+        if season is not None and episode is None:
+            kodi_log(f'cross_sync: WeTrakr season rating for {label} not sent on (season ratings stay on WeTrakr)', 1)
+            return
+        if mode == 1:
+            what = f'rating {rating}' if rating else 'rating removal'
+            kodi_log(f'cross_sync (WeTrakr ratings, log only): On would send {what} for {label} to Trakt and MDBList', 1)
+            return
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_rating_from_wetrakr error: {type(exc).__name__}: {exc}', 2)
+        return
+    mirror_rating_to_trakt(tmdb_type, tmdb_id, season, episode, rating)
+    mirror_rating_to_mdblist(tmdb_type, tmdb_id, season, episode, rating)
+    mirror_rating_to_simkl(tmdb_type, tmdb_id, season, episode, rating)
+
+
+# ── Ratings into Simkl (7.5.40) ────────────────────────────────────────────────
+# POST /sync/ratings is not a rating only: Simkl makes any movie that is not 'completed' completed, watched at that moment, and files an
+# unlisted show as 'watching' (live-probed 2026-11-27). So a rating is sent only for a movie Simkl itself lists as completed, or a show
+# that is on one of its lists, asked right before sending and written to the entry that was asked about. Anything unclear: nothing is sent.
+
+_SIMKL_LISTS = ('watching', 'plantowatch', 'completed', 'hold', 'dropped', 'notinteresting')   # 'notinteresting' is 'dropped' to some Simkl apps
+
+
+def _simkl_ratings_mode():
+    """cross_sync_simkl_ratings: 0 off, 1 log only, 2 on. Only while the sync is on and Simkl takes part."""
+    if not _can_mirror_to_simkl():
+        return 0
+    from tmdbhelper.lib.addon.plugin import get_setting
+    try:
+        mode = int(get_setting('cross_sync_simkl_ratings', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def _simkl_may_hold(simkl, tmdb_type, tmdb_id):
+    """From the saved Simkl data only (no request, no Item* class): a watched movie, or a show in the library. Saves asking Simkl about the rest."""
+    keys = ('plays',) if tmdb_type == 'movie' else ('watched_episodes', 'plantowatch_at', 'hold_at', 'dropped_at', 'watching_at')
+    try:
+        values = simkl.simkl_syncdata.cache.get_values(item_id=f'{tmdb_type}.{int(tmdb_id)}', keys=keys)
+    except Exception as exc:
+        kodi_log(f'cross_sync (Simkl ratings): saved Simkl data not read - {type(exc).__name__}', 1)
+        return False
+    if not values:
+        return False
+    if tmdb_type == 'movie':
+        return bool(values[0])
+    return values[0] is not None or any(values[1:])
+
+
+def _simkl_listing(simkl, tmdb_type, tmdb_id):
+    """(Simkl id, list) as Simkl answers now, list None when the title is on none. (None, None) when it cannot be told."""
+    body = [{'tmdb': int(tmdb_id), 'type': 'movie' if tmdb_type == 'movie' else 'tv'}]
+    response = _simkl_post(simkl, body, 'sync', 'watched')
+    try:
+        row = response.json()[0]
+        if row.get('result') not in (True, False):
+            return None, None
+        return int(row['simkl']), row.get('list')
+    except Exception:
+        return None, None
+
+
+def _simkl_list_name(value):
+    return 'dropped' if value == 'notinteresting' else value
+
+
+def _update_simkl_rating_db(simkl, tmdb_type, tmdb_id, rating):
+    """Write-through as ItemSimklRating.update_rating_in_db(), so the Simkl menu shows the new value at once."""
+    try:
+        item_id = f'{tmdb_type}.{int(tmdb_id)}'
+        cache = simkl.simkl_syncdata.cache
+        if rating:
+            from datetime import datetime, timezone
+            ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            cache.execute_sql(cache.statement_insert_or_ignore('simplecache', ('id',)), (item_id,))
+            cache.execute_sql(
+                'UPDATE simplecache SET rating=?, rated_at=?, item_type=?, tmdb_type=?, tmdb_id=? WHERE id=?',
+                (rating, ts, 'movie' if tmdb_type == 'movie' else 'show', tmdb_type, int(tmdb_id), item_id))
+        else:
+            cache.execute_sql('UPDATE simplecache SET rating=NULL, rated_at=NULL WHERE id=?', (item_id,))
+        simkl.simkl_syncdata.reset_lastactivities()
+    except Exception as exc:
+        kodi_log(f'cross_sync: Simkl rating DB update error: {exc}', 2)
+
+
+def mirror_rating_to_simkl(tmdb_type, tmdb_id, season, episode, rating):
+    """A movie or show rating given (or, rating 0, removed) on Trakt, MDBList or WeTrakr goes to Simkl. Never a season or an episode
+    (a season rating overwrites the show's on Simkl). Direct API call only (no Item* class: no echo)."""
+    try:
+        mode = _simkl_ratings_mode()
+        if not mode or rating is None or tmdb_type not in ('movie', 'tv') or season is not None or episode is not None:
+            return
+        rating = int(rating)
+        if not 0 <= rating <= 10:
+            return
+        simkl = _simkl_api()
+        if not _simkl_is_authorized(simkl):
+            return
+        label = _rating_label(tmdb_type, tmdb_id, None, None)
+        what = f'rating {rating}' if rating else 'rating removal'
+        key = 'movies' if tmdb_type == 'movie' else 'shows'
+        listed = None
+        if rating:
+            if not _simkl_may_hold(simkl, tmdb_type, tmdb_id):
+                kodi_log(f'cross_sync (Simkl ratings): {what} for {label} not sent - the saved Simkl data does not have it as a watched movie or a library show', 1)
+                return
+            simkl_id, listed = _simkl_listing(simkl, tmdb_type, tmdb_id)
+            if simkl_id is None:
+                kodi_log(f'cross_sync (Simkl ratings): {what} for {label} not sent - Simkl could not be asked what list it is on', 1)
+                return
+            if not (listed == 'completed' if tmdb_type == 'movie' else listed in _SIMKL_LISTS):
+                kodi_log(f'cross_sync (Simkl ratings): {what} for {label} not sent - Simkl list: {listed or "none"} (a rating would change it)', 1)
+                return
+            payload = {key: [{'ids': {'simkl': simkl_id}, 'rating': rating}]}
+            path = ('sync', 'ratings')
+        else:
+            # removing a rating changes no list, also for a title on none (live-probed 2026-11-27): nothing to ask first
+            payload = {key: [{'ids': {'tmdb': int(tmdb_id)}}]}
+            path = ('sync', 'ratings', 'remove')
+        if mode == 1:
+            where = f' (Simkl list: {listed})' if listed else ''
+            kodi_log(f'cross_sync (Simkl ratings, log only): On would send {what} for {label} to Simkl{where}', 1)
+            return
+        response = _simkl_post(simkl, payload, *path)
+        if response is None or _simkl_not_found(response):
+            kodi_log(f'cross_sync: Simkl did not take the {what} for {label}', 2)
+            return
+        if rating:
+            try:
+                now = response.json()['added']['statuses'][0]['response']['status']
+            except Exception:
+                now = None
+            if now and _simkl_list_name(now) != _simkl_list_name(listed):
+                kodi_log(f'cross_sync: Simkl moved {label} from {listed} to {now} when it took the rating', 2)
+        kodi_log(f'cross_sync (Simkl ratings): sent {what} for {label} to Simkl', 1)
+        _update_simkl_rating_db(simkl, tmdb_type, tmdb_id, rating)
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_rating_to_simkl error: {type(exc).__name__}: {exc}', 2)
+
+
+# ── WeTrakr menu actions (7.5.39) ──────────────────────────────────────────────
+# Into WeTrakr: watched / unwatched, watchlist (the planning list) and collection (the library). Out of WeTrakr: watched / unwatched only
+# (WeTrakr's menu has no watchlist or collection action). Direct API calls only. When anything cannot be checked the change is left to the
+# background sync. The sync's own files (snapshot, journal) are never touched here.
+
+def _wetrakr_menu_mode():
+    """cross_sync_wetrakr_menu: 0 off, 1 log only, 2 on. Only while watched marks with WeTrakr are On."""
+    from tmdbhelper.lib.addon.plugin import get_setting
+    from tmdbhelper.lib.monitor.bridge_sync import _wetrakr_setting_mode
+    if _wetrakr_setting_mode() != 2:
+        return 0
+    try:
+        mode = int(get_setting('cross_sync_wetrakr_menu', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def _wetrakr_menu_list_mode():
+    """Watchlist / collection into WeTrakr: the weaker of the menu setting and the WeTrakr watchlist and collection setting."""
+    mode = _wetrakr_menu_mode()
+    if not mode:
+        return 0
+    from tmdbhelper.lib.monitor.bridge_sync import _wetrakr_lists_mode
+    return min(mode, _wetrakr_lists_mode())
+
+
+def _wetrakr_client():
+    from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+    api = WeTrakrAPI()
+    return api if api.is_authorized else None
+
+
+def _wetrakr_menu_log(message, level=1):
+    kodi_log(f'cross_sync (WeTrakr menu): {message}', level)
+
+
+def _wetrakr_write(api, path, body, what):
+    """One write. Returns 'ok' (something changed), 'unchanged' or 'failed'. A 2xx answer is not enough, see read_outcome."""
+    from tmdbhelper.lib.script.sync.wetrakr_sync import read_outcome
+    response = api.user_request('POST', path, body=body)
+    if getattr(response, 'status_code', None) == 420:
+        _wetrakr_menu_log(f'{what}: the WeTrakr library is full for this account plan', 2)
+        return 'failed'
+    status, detail = read_outcome(response)
+    if status == 'ok':
+        return 'ok'
+    if status == 'already':
+        return 'unchanged'
+    try:
+        errored = f'{response.json().get("errored") or ""}'.lower()
+    except Exception:
+        errored = ''
+    if 'nothing to remove' in errored:
+        return 'unchanged'
+    _wetrakr_menu_log(f'WeTrakr did not take the {what} - {detail}. Left to the sync', 2)
+    return 'failed'
+
+
+def _wetrakr_refresh_local(api):
+    try:
+        api.wetrakr_syncdata.reset_lastactivities()
+    except Exception:
+        pass
+
+
+def _wetrakr_resync_watched(api):
+    """After a watched / unwatched copy to WeTrakr: read the watched marks again so the WeTrakr menu is not built from the old ones."""
+    try:
+        from tmdbhelper.lib.script.sync.wetrakr_sync import resync_watched
+        resync_watched(api.wetrakr_syncdata)
+    except Exception:
+        pass
+
+
+def _wetrakr_watched_payload(tmdb_type, tmdb_id, season, episode):
+    """Body of POST /sync/tracking and /sync/tracking/remove/all. season None = the whole title, so an episode without a season is refused."""
+    if tmdb_type not in ('movie', 'tv') or (season is None and episode is not None):
+        return None
+    ids = {'tmdb': int(tmdb_id)}
+    if tmdb_type == 'movie':
+        return {'movies': [{'ids': ids, 'status': 'watched'}]}
+    item = {'ids': ids, 'status': 'watched'}
+    if season is not None:
+        entry = {'number': int(season)}
+        if episode is not None:
+            entry['episodes'] = [{'number': int(episode)}]
+        item['seasons'] = [entry]
+    return {'shows': [item]}
+
+
+def mirror_watched_to_wetrakr(tmdb_type, tmdb_id, season, episode, remove):
+    """Mark as watched / unwatched made on Trakt, MDBList or Simkl. Unwatched removes every play (remove/all), as the other services do."""
+    try:
+        mode = _wetrakr_menu_mode()
+        if not mode:
+            return
+        payload = _wetrakr_watched_payload(tmdb_type, tmdb_id, season, episode)
+        api = _wetrakr_client() if payload else None
+        if not api:
+            return
+        what = f'{"unwatched" if remove else "watched"} mark for {_rating_label(tmdb_type, tmdb_id, season, episode)}'
+        if mode == 1:
+            _wetrakr_menu_log(f'log only: On would send the {what} to WeTrakr')
+            return
+        if not remove:
+            payload['allow_rewatch'] = False  # never a second play for a title WeTrakr already has
+        if _wetrakr_write(api, '/sync/tracking/remove/all' if remove else '/sync/tracking', payload, what) == 'failed':
+            return
+        _wetrakr_refresh_local(api)
+        _wetrakr_resync_watched(api)
+        if not remove and (tmdb_type == 'movie' or episode is not None):  # WeTrakr drops its resume point itself; the local row goes too
+            from tmdbhelper.lib.script.sync.wetrakr_sync import clear_local_resume_point
+            try:
+                syncdata = api.wetrakr_syncdata
+                item_id = syncdata.get_name('movie' if tmdb_type == 'movie' else 'tv', tmdb_id, season, episode)
+                clear_local_resume_point(syncdata, item_id)
+            except Exception:
+                pass
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_watched_to_wetrakr error: {type(exc).__name__}: {exc}', 2)
+
+
+def mirror_bulk_unwatched_to_wetrakr(tmdb_id, seasons, episodes):
+    """The ticked seasons / episodes of the Unwatched seasons / episodes pickers, in one request. Never a whole show: without a nested
+    season the request would wipe every play of the show, so nothing is sent then. Returns (ok, text) for the result dialog, or None."""
+    try:
+        mode = _wetrakr_menu_mode()
+        if not mode:
+            return None
+        whole_seasons = sorted({int(s) for s in seasons})
+        nested = [{'number': s} for s in whole_seasons]
+        for season, numbers in sorted(episodes.items(), key=lambda pair: int(pair[0])):
+            if int(season) not in whole_seasons and numbers:
+                nested.append({'number': int(season), 'episodes': [{'number': int(n)} for n in sorted(numbers, key=int)]})
+        api = _wetrakr_client() if nested else None
+        if not api:
+            return None
+        what = f'unwatched marks for picked seasons / episodes of tv {tmdb_id}'
+        if mode == 1:
+            _wetrakr_menu_log(f'log only: On would send the {what} to WeTrakr: {nested}')
+            return None
+        body = {'shows': [{'ids': {'tmdb': int(tmdb_id)}, 'status': 'watched', 'seasons': nested}]}
+        status = _wetrakr_write(api, '/sync/tracking/remove/all', body, what)
+        if status == 'failed':
+            return False, 'failed'
+        _wetrakr_refresh_local(api)
+        _wetrakr_resync_watched(api)
+        return True, 'done' if status == 'ok' else 'nothing to remove there'
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_bulk_unwatched_to_wetrakr error: {type(exc).__name__}: {exc}', 2)
+        return False, 'failed'
+
+
+def _wetrakr_list_holding(api, kind, tmdb_id):
+    """(checked, list name or None): which WeTrakr tracking list has this movie / show, read fresh. checked False = a list could not be read."""
+    from tmdbhelper.lib.monitor.bridge_sync import _WETRAKR_LISTS
+    for status in _WETRAKR_LISTS[kind]:
+        ok, rows = api.get_list(f'/sync/tracking/{status}/{kind}s')
+        if not ok:
+            return False, None
+        if any(str(((row or {}).get('ids') or {}).get('tmdb')) == str(tmdb_id) for row in rows):
+            return True, status
+    return True, None
+
+
+def mirror_watchlist_to_wetrakr(tmdb_type, tmdb_id, remove):
+    """Watchlist add / remove = WeTrakr's planning list. Adding moves a title off any other list there, so it is sent only when a fresh
+    read finds the title on no list. A removal names the planning list, so it can touch nothing else."""
+    try:
+        mode = _wetrakr_menu_list_mode()
+        if not mode or tmdb_type not in ('movie', 'tv'):
+            return
+        api = _wetrakr_client()
+        if not api:
+            return
+        kind = 'movie' if tmdb_type == 'movie' else 'show'
+        what = f'watchlist {"removal" if remove else "add"} for {tmdb_type} {tmdb_id}'
+        if not remove:
+            checked, holding = _wetrakr_list_holding(api, kind, tmdb_id)
+            if not checked:
+                _wetrakr_menu_log(f'{what}: the WeTrakr lists could not be read. Left to the sync')
+                return
+            if holding:
+                _wetrakr_menu_log(f'{what}: already on the WeTrakr {holding} list - left alone')
+                return
+        if mode == 1:
+            _wetrakr_menu_log(f'log only: On would send the {what} to WeTrakr')
+            return
+        body = {f'{kind}s': [{'ids': {'tmdb': int(tmdb_id)}, 'status': 'planning'}]}
+        if _wetrakr_write(api, '/sync/tracking/remove' if remove else '/sync/tracking', body, what) != 'failed':
+            _wetrakr_refresh_local(api)
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_watchlist_to_wetrakr error: {type(exc).__name__}: {exc}', 2)
+
+
+def _wetrakr_in_library(api, kind, tmdb_id):
+    """True / False whether the WeTrakr library holds the title; None when that cannot be told (a page failed or rows are missing)."""
+    page, pages, rows_read, total = 1, 1, 0, None
+    while page <= pages:
+        if page > 100:
+            return None
+        response = api.user_request('GET', '/sync/library/all', params={'page': page, 'limit': 100})
+        if response is None or response.status_code != 200:
+            return None
+        try:
+            data = response.json()
+            pages = int(response.headers.get('X-Pagination-Page-Count') or 0)
+            total = int(response.headers.get('X-Pagination-Item-Count'))
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(data, list):
+            return None
+        for row in data:
+            if row.get('type') not in ('movie', 'show'):
+                return None
+            if row.get('type') == kind and str((row.get('ids') or {}).get('tmdb')) == str(tmdb_id):
+                return True
+        rows_read += len(data)
+        page += 1
+    return False if rows_read == total else None
+
+
+def mirror_collection_to_wetrakr(tmdb_type, tmdb_id, season, episode, remove):
+    """Collection add / remove = WeTrakr's library, whole titles only (as the background sync). The add makes a copy with the sync's own
+    copy_key, and only when the library does not hold the title yet. A removal takes only copies carrying that prefix: a copy the user made
+    on WeTrakr stays."""
+    try:
+        mode = _wetrakr_menu_list_mode()
+        if not mode or tmdb_type not in ('movie', 'tv') or season is not None or episode is not None:
+            return
+        api = _wetrakr_client()
+        if not api:
+            return
+        from tmdbhelper.lib.monitor.bridge_sync import _WETRAKR_COPY_PREFIX
+        kind = 'movie' if tmdb_type == 'movie' else 'show'
+        what = f'collection {"removal" if remove else "add"} for {tmdb_type} {tmdb_id}'
+        if not remove:
+            held = _wetrakr_in_library(api, kind, tmdb_id)
+            if held is None:
+                _wetrakr_menu_log(f'{what}: the WeTrakr library could not be read. Left to the sync')
+                return
+            if held:
+                _wetrakr_menu_log(f'{what}: already in the WeTrakr library - left alone')
+                return
+        if mode == 1:
+            _wetrakr_menu_log(f'log only: On would send the {what} to WeTrakr')
+            return
+        entry = {'ids': {'tmdb': int(tmdb_id)}}
+        if remove:
+            path, body = '/sync/library/remove', {f'{kind}s': [entry], 'copy_key_prefix': _WETRAKR_COPY_PREFIX}
+        else:
+            from datetime import datetime, timezone
+            entry['copy_key'] = f'{_WETRAKR_COPY_PREFIX}{kind}:{int(tmdb_id)}'
+            entry['collected_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            path, body = '/sync/library', {f'{kind}s': [entry]}
+        if _wetrakr_write(api, path, body, what) != 'failed':
+            _wetrakr_refresh_local(api)
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_collection_to_wetrakr error: {type(exc).__name__}: {exc}', 2)
+
+
+def mirror_watched_from_wetrakr(tmdb_type, tmdb_id, season, episode, remove):
+    """Set as watched / unwatched made in WeTrakr's menu goes to Trakt, MDBList and Simkl. None of the three calls below sends anything
+    back to WeTrakr (no echo)."""
+    try:
+        mode = _wetrakr_menu_mode()
+        if not mode or tmdb_type not in ('movie', 'tv') or (season is None and episode is not None):
+            return
+        if mode == 1:
+            what = f'{"unwatched" if remove else "watched"} mark for {_rating_label(tmdb_type, tmdb_id, season, episode)}'
+            _wetrakr_menu_log(f'log only: On would send the {what} to Trakt, MDBList and Simkl')
+            return
+    except Exception as exc:
+        kodi_log(f'cross_sync mirror_watched_from_wetrakr error: {type(exc).__name__}: {exc}', 2)
+        return
+    mirror_watched_to_trakt(tmdb_type, tmdb_id, season, episode, remove)
+    mirror_watched_to_mdblist(tmdb_type, tmdb_id, season, episode, remove)
+    mirror_watched_to_simkl(tmdb_type, tmdb_id, season, episode, remove)

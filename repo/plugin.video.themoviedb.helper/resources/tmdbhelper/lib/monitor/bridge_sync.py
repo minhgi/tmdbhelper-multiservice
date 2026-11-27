@@ -32,7 +32,7 @@ Domains (Seren's scope, widened to Simkl at the user's request - Seren itself ke
                     show-level mark means "every episode".
   Watchlist:        Trakt <-> MDBList <-> Simkl plan-to-watch. An item Simkl already has in another
                     status (completed, watching, hold, dropped, not interested) is never overwritten.
-  Collection:       Trakt <-> MDBList only (Simkl has no collection endpoint).
+  Collection:       Trakt <-> MDBList <-> WeTrakr library (Simkl has no collection endpoint).
 
 Simkl is read only when /sync/activities says it changed since the last cycle (Simkl asks apps not to
 poll its lists unconditionally); otherwise the views saved from the last cycle are used. Simkl writes
@@ -42,14 +42,15 @@ synthetic rows (completed shows without per-episode records) are never sent to T
                     for the item or Trakt's is newer than the target's (its paused_at), so progress made on the target is
                     never overwritten.
   Ratings: on-action mirror only.
-  WeTrakr (7.5.5, setting cross_sync_wetrakr: off / log only / on): watched movies and episodes only, ONE WAY into WeTrakr - it is never a
-                    source and never read back into the other services; since 7.5.25 a title the bridge itself sent is taken off again when it is
-                    unwatched everywhere else (never what WeTrakr already had). See "WeTrakr: watched marks, one way".
+  WeTrakr (setting cross_sync_wetrakr: off / log only / on): watched movies and episodes. 7.5.30: On makes it a full member of the two
+                    watched domains - a source and a target, with removals both ways (it was a one-way copy before). See "WeTrakr: watched marks".
+                    7.5.33: setting cross_sync_wetrakr_lists (off / log only, default / on) adds its planning list to Watchlist and its library to
+                    Collection. See "WeTrakr: watchlist and collection".
 
 Trakt history pushes (watched movies / episodes) add a new play on every POST, so they carry
 the source's real watch date and go out at most _HISTORY_CAP items per cycle.
 
-Auth gate (7.5.14): at least TWO of Trakt, MDBList and Simkl must be enabled and authorized, any two (Trakt is no longer required).
+Auth gate (7.5.14): at least TWO of Trakt, MDBList, Simkl and WeTrakr (when its setting is On, 7.5.30) must be enabled and authorized, any two (Trakt is no longer required).
 A service that is switched off, or that has no sign-in, is simply absent from every view (like Seren's bridge). Trakt that is switched on
 with a stored sign-in but is not authorized in this process yet skips the run (as before 7.5.14); a Trakt READ that fails inside a run
 makes it "unreadable" for that cycle (present as None), as before.
@@ -79,17 +80,20 @@ _MDB_EPISODE_CAP = 250   # max MDBList episode pushes per cycle (API-call budget
 _SIMKL_CAP = 300      # max Simkl pushes per domain per cycle (<= 3 calls: Simkl locks writes for 20 s per user)
 _SIMKL_LOCK_SECONDS = 21
 _TARGET_NAMES = {'mdblist': 'MDBList', 'simkl': 'Simkl', 'trakt': 'Trakt', 'wetrakr': 'WeTrakr'}
-_GAP_SERVICES = ('trakt', 'mdblist', 'simkl')   # the services whose gaps are queued (WeTrakr is a one-way target with its own snapshot rules)
-# Watched marks into WeTrakr (setting cross_sync_wetrakr): 0 off, 1 log only (default), 2 on. WeTrakr is a one-way TARGET only: never a source, never read back
-# into the other services, removed from only for titles the bridge itself sent (7.5.25, _wetrakr_remove). Its own snapshot labels (watched|wetrakr|movie / episode) keep a title the user unwatched on WeTrakr from being sent again.
-_WETRAKR_PATHS = {'movie': '/sync/tracking/watched/movies', 'episode': '/sync/tracking/watched/episodes'}
+_GAP_SERVICES = ('trakt', 'mdblist', 'simkl', 'wetrakr')   # the services whose gaps are queued (WeTrakr only once it has joined, see _gap_service)
+# WeTrakr (setting cross_sync_wetrakr): 0 off, 1 log only (default), 2 on = a full member of the watched domains (movies, episodes).
+# Its view is the watch HISTORY (one row per play), not the watched list: a title counts as unwatched only when no play is left, whatever list it is moved to.
+_WETRAKR_PATHS = {'movie': '/sync/tracking/watched/history/movies', 'episode': '/sync/tracking/watched/history/episodes'}
 _WETRAKR_CAP = {'movie': 100, 'episode': 300}   # pushes per run (a first run copies a large library over several runs; WeTrakr's free quota is shared per app key)
 _WETRAKR_CHUNK = 100       # items per POST /sync/tracking (a 120-item batch was accepted live, 2026-11-21)
 _WETRAKR_TRIES = 3         # runs a pushed title may stay missing from WeTrakr's list before it is given up
-_WETRAKR_REMOVE_CAP = {'movie': 10, 'episode': 40}   # titles taken off WeTrakr per run (7.5.25)
-_WETRAKR_REMOVE_TRIES = 3  # runs a removal may stay listed on WeTrakr before it is given up
-_WETRAKR_MASS_SECONDS = 900  # a loss as large as the mass-vanish limit must have lasted this long (an incomplete read does not last 15 minutes)
 _WETRAKR_LOG_SECONDS = 6 * 3600   # log-only mode reads WeTrakr at most this often per media type
+# WeTrakr watchlist + collection (setting cross_sync_wetrakr_lists, only with cross_sync_wetrakr On): its planning list and its library
+_WETRAKR_LISTS = {'movie': ('planning', 'watched', 'dropped', 'hold', 'playing'),     # the lists each media type has (others answer 400)
+                  'show': ('planning', 'watching', 'waiting', 'watched', 'dropped', 'hold')}
+_WETRAKR_COPY_PREFIX = 'bridge:'       # copy_key of the library copies the bridge makes (TMDb Helper and Seren alike): removal only touches these
+_WETRAKR_LIST_CAP = 100                # titles sent to WeTrakr's watchlist / library per run
+_WETRAKR_FULL_SECONDS = 86400          # after the library quota answered 420 (free plan: 100 titles) nothing is sent to the library for this long
 _STAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
 # Removals made outside Kodi (setting cross_sync_removals): 0 off, 1 log only, 2 watchlist + collection, 3 also watched history
 _MIRROR_TOLERANCE = 2.0        # percent: a MDBList / Simkl resume point within this of the other service's is the same point (resume mirror)
@@ -107,6 +111,8 @@ _JOURNAL_LINES = 2000
 _ANIME_JOURNAL_FILE = 'bridge_anime_simkl.jsonl'   # addon_data: one line per anime episode the bridge sent to Simkl (entry ids, number, TMDb key, date)
 _ANIME_REFUSED_SECONDS = 7 * 86400   # an anime episode Simkl refused is not sent again for this long
 _ANIME_PUSH_CHUNK = 100              # episodes per Simkl anime request (several entries share one request)
+_SIMKL_MARK_GIVE_UP = 7 * 86400   # a show whose numbering check has failed this long without a break: its held episodes are not sent
+_SIMKL_MARK_LOOKUPS = 40   # shows whose Simkl season numbering may be looked up per run for episode copies; the rest wait for a later run
 _ANIME_CYCLE_CAP = 100               # anime episodes sent to Simkl per cycle: the 21 s write spacing keeps a run short, a backlog takes a few cycles
 
 
@@ -121,11 +127,81 @@ def _trakt_signed_in(trakt_api):
         return False
 
 
+def _wetrakr_setting_mode():
+    """cross_sync_wetrakr when WeTrakr takes part at all: 0 off, 1 log only, 2 on."""
+    if not (get_setting('cross_sync_services') and get_setting('service_wetrakr')):
+        return 0
+    try:
+        mode = int(get_setting('cross_sync_wetrakr', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def _wetrakr_member():
+    """WeTrakr is a member: setting On and signed in (log only is not membership)."""
+    if _wetrakr_setting_mode() != 2:
+        return False
+    try:
+        from tmdbhelper.lib.api.wetrakr.api import WeTrakrAPI
+        return bool(WeTrakrAPI().is_authorized)
+    except Exception:
+        return False
+
+
+def _wetrakr_lists_mode():
+    """cross_sync_wetrakr_lists (watchlist + collection): 0 off, 1 log only, 2 on. Only while watched marks with WeTrakr are On."""
+    if _wetrakr_setting_mode() != 2:
+        return 0
+    try:
+        mode = int(get_setting('cross_sync_wetrakr_lists', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def _wetrakr_resume_mode():
+    """cross_sync_wetrakr_resume (Trakt resume points to WeTrakr): 0 off, 1 log only, 2 on. Only while watched marks with WeTrakr are On."""
+    if _wetrakr_setting_mode() != 2:
+        return 0
+    try:
+        mode = int(get_setting('cross_sync_wetrakr_resume', 'int'))
+    except Exception:
+        return 1
+    return mode if 0 <= mode <= 2 else 1
+
+
+def wetrakr_lists_stamp(data):
+    """The part of /sync/last_activities that moves when a title enters or leaves any tracking list, or None."""
+    if not isinstance(data, dict) or not data:
+        return None
+    fields = ['last_tracking_%s_at' % n for n in ('planning', 'watching', 'waiting', 'watched', 'dropped', 'hold', 'paused', 'removed')]
+    return json.dumps([[kind] + [(data.get(kind) or {}).get(f) for f in fields + ['last_playback_at']] for kind in ('movies', 'shows', 'seasons', 'episodes')])
+
+
+def wetrakr_stamp(data):
+    """The part of /sync/last_activities that moves when a watched mark is added or removed, or None."""
+    if not isinstance(data, dict) or not data:
+        return None
+    fields = ['last_tracking_watched_at', 'last_tracking_removed_at']
+    lists = _wetrakr_lists_mode() == 2
+    if lists:
+        # a watchlist or library change on WeTrakr then starts a run too. The library fields are the documented ones; an account that never used
+        # its library may not send them (they then read as empty and appear when it does)
+        fields += ['last_tracking_planning_at', 'last_added_to_library_at', 'collected_at']
+    stamp = [[kind] + [(data.get(kind) or {}).get(f) for f in fields] for kind in ('movies', 'shows', 'seasons', 'episodes')]
+    if lists:
+        library = data.get('library') or {}
+        stamp.append(['library', library.get('last_updated_at'), library.get('last_removed_at')])
+    return json.dumps(stamp)
+
+
 def bridge_services(trakt_api):
-    """The services the bridge may use now, in order: ['trakt', 'mdblist', 'simkl'] filtered by setting (and Trakt by stored sign-in)."""
+    """The services the bridge may use now, in order: ['trakt', 'mdblist', 'simkl', 'wetrakr'] filtered by setting (Trakt by stored sign-in, WeTrakr by membership)."""
     return [name for name, on in (('trakt', get_setting('service_trakt') and _trakt_signed_in(trakt_api)),
                                   ('mdblist', get_setting('service_mdblist')),
-                                  ('simkl', get_setting('service_simkl'))) if on]
+                                  ('simkl', get_setting('service_simkl')),
+                                  ('wetrakr', _wetrakr_member())) if on]
 
 
 def bridge_enabled(trakt_api, dynamic=False):
@@ -160,7 +236,8 @@ class BridgeSync:
         self.trakt = trakt_api
         self.mdb = mdblist_api
         self.simkl = simkl_api
-        self.wetrakr = wetrakr_api   # created on first use (see _wetrakr_client): only the WeTrakr pass needs it
+        self.wetrakr = wetrakr_api   # created on first use (see _wetrakr_client): only the WeTrakr reads and writes need it
+        self.wetrakr_last_stamp = None   # wetrakr_stamp() of this run's last_activities read; None after a write
         self._snapshots = None     # {label: {item_key: tmdb_id}} loaded lazily from _SNAPSHOT_FILE
         self._snapshots_ok = True  # False when the snapshot file can't be read/written: no pushes
         self._meta = {}            # persisted beside the snapshots: Simkl's last-seen activity stamp + its saved views
@@ -168,7 +245,13 @@ class BridgeSync:
         self._simkl_prepared = False
         self._simkl_loaded = False    # True when this run re-read Simkl (not the saved views)
         self._simkl_last_write = 0.0
-        self._stamps = {}          # {(media, item_key): newest last_watched_at seen on MDBList / Simkl}
+        self._stamps = {}          # {(media, item_key): newest last_watched_at seen on MDBList / Simkl / WeTrakr}
+        self._by_service = {}      # {(service, media, item_key): the date that service itself holds}: what a copy FROM it carries
+        self._date_source = None   # the service the WeTrakr push in progress copies from
+        self._wt_lists = None      # this run's WeTrakr tracking lists {'planning': {key: tracked_at}, 'other': {key: list name}}; None = not read
+        self._wt_activity = None   # this run's /sync/last_activities answer (False = it failed)
+        self._wt_kept = set()      # library titles WeTrakr still lists after the bridge removed its own copies (the user's copies stay)
+        self._coll_at = {}         # {(service, item_key): when it was collected there}: what a collection copy carries
         self._mdb_watched_cache = None   # one MDBList /sync/watched read per run (movies + episodes)
         self._pushed = {}          # {service: items confirmed pushed to it this run}, for the finishing notification
         self._tstamps = {}         # {(media, item_key): last_watched_at from the Trakt DB}, to tell a newer play from an old one
@@ -182,6 +265,8 @@ class BridgeSync:
         self._anime_known_memo = {}   # {tmdb id: True if the Fribb index knows the show}
         self._anime_dirty = False  # this run wrote anime episodes to Simkl: its saved views are stale, read it again next cycle
         self._anime_stamps = {}    # {key: Simkl's watched_at} of the mapped anime episodes: the date they carry on Trakt, whichever service sends them
+        self._simkl_mark_lookups = 0   # shows looked up this run by _gate_simkl_episodes
+        self._simkl_gave_up = set()    # (show, season) given up on in this run: every target gets the same answer
         self._anime_keys = set()   # Simkl anime episodes taken into this run's Simkl view (mode 2): only ever sources, never removal sources or Simkl targets
         self._run_started = ''     # UTC ISO time this run started
         self._removed = {}         # {service: items the bridge removed this run}, for the finishing notification
@@ -212,12 +297,20 @@ class BridgeSync:
         return self._trakt_authorized
 
     def _is_authorized(self):
-        """At least two of Trakt, MDBList and Simkl are authorized (any two). Trakt that takes part but is not authorized in this process
+        """At least two of Trakt, MDBList, Simkl and WeTrakr (as a member) are authorized (any two). Trakt that takes part but is not authorized in this process
         (its sign-in not loaded yet, a lapsed token) skips the whole run, as in 7.5.13: a partial run would use up the interval and delay the
         first run that includes Trakt, and what was exchanged without it would never reach Trakt through the other services' snapshots."""
         if self._trakt_listed and not self._trakt_ok:
             return False
-        return (self._trakt_ok + self._mdb_ok + self._simkl_ok) >= 2
+        return (self._trakt_ok + self._mdb_ok + self._simkl_ok + self._wetrakr_ok) >= 2
+
+    @property
+    def _wetrakr_ok(self):
+        """WeTrakr takes part as a member (setting On and signed in)."""
+        try:
+            return self._wetrakr_mode() == 2 and bool(self._wetrakr_client().is_authorized)
+        except Exception:
+            return False
 
     # ── Interval gate ──────────────────────────────────────────────────────────
 
@@ -241,13 +334,6 @@ class BridgeSync:
                 at = (seen.get(label) or {}).get(key)
                 if at and now - at <= 2 * _REMOVE_CONFIRM_SECONDS:
                     return True
-        for items in (self._meta.get('wetrakr_gone') or {}).values():       # 7.5.25: a title taken for gone on WeTrakr's side waits for its second check too
-            for rec in (items or {}).values():
-                try:
-                    if now - float(rec[0]) <= 2 * _REMOVE_CONFIRM_SECONDS:
-                        return True
-                except (TypeError, ValueError, IndexError):
-                    continue
         return False
 
     def _mark_done(self):
@@ -265,10 +351,13 @@ class BridgeSync:
             return
         self._trakt_authorized = None
         if not self._is_authorized():
-            kodi_log('BridgeSync: skipped — fewer than two of Trakt, MDBList and Simkl are authorized', 2)
+            kodi_log('BridgeSync: skipped — fewer than two of Trakt, MDBList, Simkl and WeTrakr are authorized', 2)
             return
         get_property(_RUNNING_PROP, set_property='true')
         self._mdb_watched_cache = None
+        self.wetrakr_last_stamp = None
+        self._wt_lists = self._wt_activity = None
+        self._wt_kept, self._coll_at = set(), {}
         self._simkl_prepared = False
         self._pushed = {}
         self._removed = {}
@@ -469,7 +558,7 @@ class BridgeSync:
             tmdb_id = ((item.get('movie') or {}).get('ids') or {}).get('tmdb')
             if tmdb_id:
                 result[str(tmdb_id)] = int(tmdb_id)
-                self._note_stamp('movie', str(tmdb_id), item.get('last_watched_at'))
+                self._note_stamp('movie', str(tmdb_id), item.get('last_watched_at'), 'mdblist')
         return result
 
     def _mdb_watched_episodes(self):
@@ -488,7 +577,7 @@ class BridgeSync:
                 continue
             key = f'{tmdb_id}:{season}:{number}'
             result[key] = int(tmdb_id)
-            self._note_stamp('episode', key, item.get('last_watched_at'))
+            self._note_stamp('episode', key, item.get('last_watched_at'), 'mdblist')
         return result
 
     def _mdb_list_ids(self, *path_parts):
@@ -516,6 +605,12 @@ class BridgeSync:
         for item in (raw.get('items') or []):
             mediatype = str(item.get('mediatype') or item.get('type') or '')
             add('movie' if 'movie' in mediatype else 'show', item.get('id') or item.get('tmdb'))
+        if path_parts == ('sync', 'collection'):
+            for bucket, media in (('movies', 'movie'), ('shows', 'show')):
+                for item in (raw.get(bucket) or []):
+                    tmdb_id = item.get('id') or ((item.get(media) or {}).get('ids') or {}).get('tmdb')
+                    if tmdb_id and isinstance(item.get('collected_at'), str):
+                        self._coll_at[('mdblist', f'{media}:{tmdb_id}')] = item['collected_at']
         if path_parts == ('watchlist', 'items'):
             stamps = {}
             for bucket, media in (('movies', 'movie'), ('shows', 'show')):
@@ -960,7 +1055,7 @@ class BridgeSync:
         for tmdb_id, (status, stamp) in views['movies'].items():
             if status == 'completed':
                 result[tmdb_id] = int(tmdb_id)
-                self._note_stamp('movie', tmdb_id, stamp)
+                self._note_stamp('movie', tmdb_id, stamp, 'simkl')
         return result
 
     def _simkl_watched_episodes(self):
@@ -969,7 +1064,7 @@ class BridgeSync:
         if views is None:
             return None
         for key, stamp in views['ep_real'].items():
-            self._note_stamp('episode', key, stamp)
+            self._note_stamp('episode', key, stamp, 'simkl')
         result = {k: int(v) for k, v in views['ep_yes'].items()}
         if self._anime_mode() == 2:
             # Simkl's anime episodes in TMDb numbering. Never put in ep_yes / ep_real (saved views) and never a removal source
@@ -1129,7 +1224,7 @@ class BridgeSync:
             rec.pop(key, None)
         rec.update({k: now for k in keys})
 
-    def _reconcile(self, domain, media, current, push_fn, caps=None, skip=None, remove_fn=None, removal_ok=None):
+    def _reconcile(self, domain, media, current, push_fn, caps=None, skip=None, remove_fn=None, removal_ok=None, gate=None):
         """current: {service: {item_key: tmdb_id} or None (read failed / not ready)}.
         remove_fn(items, source, target) -> succeeded keys, removal_ok(source, key) -> bool: carry removals made outside
         Kodi over to the other services (see _removals; the cross_sync_removals setting decides whether and what).
@@ -1173,7 +1268,8 @@ class BridgeSync:
             lagging = {k for k, at in (recent.get(label) or {}).items()
                        if time.time() - at <= _REMOVE_RECENT_DAYS * 86400
                        and not (domain == 'watched' and self._newer_than(media, k, self._iso_utc(at)))}    # played again since: new, not lagging
-            newly = {k: v for k, v in cur.items() if k not in snap and k not in pushed.get(source, {}) and k not in lagging}
+            newly = {k: v for k, v in cur.items() if k not in snap and k not in pushed.get(source, {}) and k not in lagging
+                     and not self._simkl_keeps(domain, media, source, k)}   # kept on Simkl: never new there, even if its snapshot was not saved
             carried = {k: v for k, v in snap.items() if k in cur or k in held.get(source, ()) or (source == 'trakt' and k in awaiting)}
             unresolved = set()
             for target in services:
@@ -1186,6 +1282,10 @@ class BridgeSync:
                 if missing and skip:
                     skipped = set(skip(missing, source, target))
                     missing = {k: v for k, v in missing.items() if k not in skipped}
+                if missing and gate:           # before the cap, like skip; held keys stay unresolved and come back next run
+                    drop, hold = gate(missing, source, target)
+                    unresolved.update(hold)
+                    missing = {k: v for k, v in missing.items() if k not in drop and k not in hold}
                 if not missing:
                     continue
                 if target in budget:
@@ -1220,7 +1320,7 @@ class BridgeSync:
             label = f'{domain}|{target}|{media}'
             snapshots[label] = {**snapshots.get(label, {}), **{k: v for k, v in items.items() if k in current[target]}}
         self._gap_record(domain, media, current, snapshots, before, pushed)
-        self._gap_catch_up(domain, media, current, snapshots, push_fn, skip, budget, awaiting)
+        self._gap_catch_up(domain, media, current, snapshots, push_fn, skip, budget, awaiting, gate)
         self._queues_prune(domain, media, current)
         self._snapshot_save()
 
@@ -1235,16 +1335,20 @@ class BridgeSync:
     # sent from one of those: a copy made by the bridge has lost the rules tied to the real source (e.g. a Simkl row the user never recorded
     # must not reach Trakt history through MDBList's copy). If no origin lists the key any more it is dropped, never sent from a copy.
 
+    def _gap_service(self, domain, service, media):
+        """A WeTrakr label written by the old one-way copy is not a membership: nothing is queued for it until it has joined (_wetrakr_join)."""
+        return service != 'wetrakr' or f'{domain}|{service}|{media}' in (self._meta.get('wetrakr_member') or {})
+
     def _gap_record(self, domain, media, current, snapshots, before, pushed):
         import time
         origins = {}
         for service in current:
             for key in set(snapshots.get(f'{domain}|{service}|{media}', {})) - before.get(service, set()):
-                if key not in pushed.get(service, {}):
+                if key not in pushed.get(service, {}) and not self._simkl_keeps(domain, media, service, key):
                     origins.setdefault(key, []).append(service)
         if not origins:
             return
-        absent = [s for s in _GAP_SERVICES if s not in current and f'{domain}|{s}|{media}' in snapshots]
+        absent = [s for s in _GAP_SERVICES if s not in current and self._gap_service(domain, s, media) and f'{domain}|{s}|{media}' in snapshots]
         if not absent:
             return
         queue = self._meta.setdefault('gap_queue', {})
@@ -1259,7 +1363,7 @@ class BridgeSync:
                     if source not in rec['from']:
                         rec['from'].append(source)
 
-    def _gap_catch_up(self, domain, media, current, snapshots, push_fn, skip, budget, awaiting):
+    def _gap_catch_up(self, domain, media, current, snapshots, push_fn, skip, budget, awaiting, gate=None):
         queue = self._meta.get('gap_queue')
         if not queue:
             return
@@ -1280,6 +1384,8 @@ class BridgeSync:
                 rec = entry[key]
                 origins = [s for s in (rec.get('from') or ()) if s != target] if isinstance(rec, dict) else []
                 holders = [s for s in current if s in origins and current[s] is not None and key in current[s]]    # an ORIGIN that still lists it
+                if media == 'episode' and domain == 'watched':
+                    holders.sort(key=lambda s: s == 'simkl')      # episodes only, Simkl last: its numbering has to pass a check
                 if not holders:
                     if not origins or all(current.get(s) is not None for s in origins):
                         entry.pop(key)         # every origin was read and none lists it any more (or the record is empty): never sent from a copy
@@ -1294,6 +1400,11 @@ class BridgeSync:
                     for key in skipped:
                         entry.pop(key, None)   # skipped = reconciled by the same rule as in the main pass
                     items = {k: v for k, v in items.items() if k not in skipped}
+                if gate:
+                    drop, hold = gate(items, source, target)
+                    for key in drop:
+                        entry.pop(key, None)
+                    items = {k: v for k, v in items.items() if k not in drop and k not in hold}    # held keys stay queued
                 if target in budget:
                     cap = budget[target]
                     if len(items) > cap:
@@ -1372,6 +1483,8 @@ class BridgeSync:
     def _removal_ok(self, domain, media):
         """removal_ok(source, key): False for a change that only looks like a removal on that service."""
         def ok(source, key):
+            if source == 'wetrakr' and domain == 'watchlist':
+                return self._wetrakr_status(key) is None       # moved to watched / watching / on hold ... is not a removal
             if source != 'simkl':
                 return True
             views = self._simkl or {}
@@ -1498,7 +1611,10 @@ class BridgeSync:
             if not gone:
                 continue
             cap = max(_REMOVE_MASS_CAP_EPISODES if media == 'episode' else _REMOVE_MASS_CAP, len(snap) // 20)
-            if len(gone) > cap:
+            waiting = (self._meta.get('simkl_remove_held') or {}) if domain == 'watched' and media == 'episode' else {}
+            if source == 'simkl' and domain == 'watched' and media == 'episode':
+                waiting = {**waiting, **(self._meta.get('simkl_unwatch_held') or {})}
+            if len([k for k in gone if k not in waiting]) > cap:   # held for Simkl's check: counted when they first went
                 kodi_log(f'BridgeSync: {label}: {len(gone)} items vanished at once - looks like an incomplete read, '
                          f'nothing removed from the other services for it', 2)
                 pend.clear()
@@ -1518,7 +1634,7 @@ class BridgeSync:
                 continue
             had = {k: [s for s in current if k in (snapshots.get(f'{domain}|{s}|{media}') or {})] for k in confirmed}      # who held it, before the removal empties their snapshots
             unresolved = self._apply_removals(domain, media, source, confirmed, pend, current, snapshots, remove_fn)
-            self._removal_gap_record(domain, media, current, snapshots, source, {k: pend.get(k) for k in confirmed - unresolved}, had)
+            self._removal_gap_record(domain, media, current, snapshots, source, {k: pend.get(k) for k in confirmed - unresolved - self._simkl_blocked}, had)
             for key in confirmed - unresolved:
                 pend.pop(key, None)
                 held[source].discard(key)
@@ -1541,7 +1657,7 @@ class BridgeSync:
             return
         queue = None
         for service in _GAP_SERVICES:
-            if service in current:
+            if service in current or not self._gap_service(domain, service, media):
                 continue
             held = snapshots.get(f'{domain}|{service}|{media}') or {}
             wanted = [k for k in keys if k in held]
@@ -1597,6 +1713,20 @@ class BridgeSync:
     def _queues_prune(self, domain, media, current):
         """Each run, for this domain/media and whether or not the target service is back: drop queued entries the evidence has settled, so what is left is real pending
         work. Gap queue: every origin was read and none lists the title any more. Removal queue: a service lists it again (not just the bridge's own removal showing)."""
+        if domain == 'watched' and media == 'episode':
+            if current.get('simkl') is not None:       # a kept key Simkl no longer lists needs no booking
+                for key in [k for k in self._meta.get('simkl_kept') or () if k not in current['simkl']]:
+                    del self._meta['simkl_kept'][key]
+            for name in ('simkl_remove_held', 'simkl_unwatch_held'):
+                waiting = self._meta.get(name)
+                if waiting:                                # a held removal no longer pending or queued (listed again) is forgotten
+                    live = set()
+                    for queue_name in ('removals', 'removal_queue'):
+                        for label, entry in (self._meta.get(queue_name) or {}).items():
+                            if label.startswith('watched|') and label.endswith('|episode'):
+                                live.update(entry)
+                    for key in [k for k in waiting if k not in live]:
+                        del waiting[key]
         recent = self._meta.get('removed_recent') or {}
         for name in ('gap_queue', 'removal_queue'):
             queue = self._meta.get(name)
@@ -1611,7 +1741,8 @@ class BridgeSync:
                         origins = [s for s in (rec.get('from') or ()) if s != target] if isinstance(rec, dict) else []
                         if origins and all(current.get(s) is not None for s in origins) and not any(key in current[s] for s in origins):
                             entry.pop(key)
-                    elif any(s != target and current[s] is not None and key in current[s] and key not in (recent.get(f'{domain}|{s}|{media}') or {}) for s in current):
+                    elif any(s != target and current[s] is not None and key in current[s] and key not in (recent.get(f'{domain}|{s}|{media}') or {})
+                             and not self._simkl_keeps(domain, media, s, key) for s in current):
                         entry.pop(key)
                 if not entry:
                     queue.pop(label)
@@ -1689,16 +1820,19 @@ class BridgeSync:
                     continue
                 if any(current[s] is None for s in others):
                     continue                   # cannot tell whether it was added again: wait
-                if any(key in current[s] and key not in (recent.get(f'{domain}|{s}|{media}') or {}) for s in others):
+                listing = [s for s in others if key in current[s] and not self._simkl_keeps(domain, media, s, key)]
+                if any(key not in (recent.get(f'{domain}|{s}|{media}') or {}) for s in listing):
                     entry.pop(key)             # listed by another service again (added back / sent there): no longer a removal
                     continue
-                if any(key in current[s] for s in others):
+                if listing:
                     continue                   # a service the bridge removed it from still lists it (slow to drop it): wait
                 sources = [s for s in (rec.get('from') or ()) if s in current and s != target]
                 if not sources and rec.get('from') and all(self._absent_days(s) >= _VOUCH_DAYS for s in rec['from']):
                     # every service it was removed on has been out of the sync for good (not just switched off for a while): a service that held the
                     # title when it was removed, and no longer lists it, vouches for the removal
                     sources = [s for s in (rec.get('had') or ()) if s in current and s != target]
+                if media == 'episode' and domain == 'watched':
+                    sources.sort(key=lambda s: s == 'simkl')      # episodes only, Simkl last: its numbering has to pass a check
                 if not sources:
                     continue                   # the service it was removed on is out of the sync now: wait
                 ready.setdefault(sources[0], {})[key] = cur_t[key]
@@ -1717,8 +1851,14 @@ class BridgeSync:
                 queue.pop(label_t, None)
 
     def _apply_removals(self, domain, media, source, confirmed, pend, current, snapshots, remove_fn):
-        """Remove the confirmed items from every other service that still lists them. Returns the keys not finished."""
+        """Remove the confirmed items from every other service that still lists them. Returns the keys not finished.
+        self._simkl_blocked = those finished without being removed anywhere (see _gate_simkl_unwatches)."""
         unresolved = set()
+        self._simkl_blocked = set()
+        if source == 'simkl' and media == 'episode' and domain == 'watched':
+            self._simkl_blocked, held = self._gate_simkl_unwatches(confirmed, current, snapshots)
+            unresolved.update(held)        # stays pending: removed elsewhere once the numbering can be checked
+            confirmed = set(confirmed) - self._simkl_blocked - held
         for target, cur in current.items():
             if target == source:
                 continue
@@ -1742,6 +1882,9 @@ class BridgeSync:
                 # TMDb numbers are the wrong coordinates on Simkl's anime entries: those go by (entry, number) or not at all
                 anime_items = self._anime_removable({k: v for k, v in items.items() if k in self._anime_keys})
                 items = {k: v for k, v in items.items() if k not in self._anime_keys}
+            if target == 'simkl' and media == 'episode' and domain == 'watched' and items:
+                items, held = self._gate_simkl_removals(items, cur, snapshots.setdefault('watched|simkl|episode', {}))
+                unresolved.update(held)   # stays pending: removed once the numbering can be checked
             if not items and not anime_items:
                 continue
             self._journal(domain, media, source, target, {**items, **anime_items})
@@ -1754,7 +1897,8 @@ class BridgeSync:
             except Exception as exc:
                 kodi_log(f'BridgeSync: {domain}|{target}|{media} removal error: {exc}', 2)
             self._removed_done(domain, media, source, target, done, current, snapshots)
-            unresolved.update((set(items) | set(anime_items)) - done)
+            kept = self._wt_kept if (target, domain) == ('wetrakr', 'collection') else set()
+            unresolved.update((set(items) | set(anime_items)) - done - kept)    # a kept copy stays listed and accounted for: finished
         return unresolved
 
     def _anime_removable(self, items):
@@ -1825,6 +1969,8 @@ class BridgeSync:
 
     def _remove_watched(self, media, items, source, target):
         """Unwatch items {key: tmdb_id} on `target`. Returns the keys that went through."""
+        if target == 'wetrakr':
+            return self._remove_wetrakr(media, items)
         succeeded = set()
         path = ('sync', 'watched', 'remove') if target == 'mdblist' else ('sync', 'history', 'remove')
         for chunk in self._chunks(items, _MDB_CHUNK if target == 'mdblist' else _BATCH_SIZE):
@@ -1848,6 +1994,8 @@ class BridgeSync:
 
     def _remove_set(self, domain, items, source, target):
         """Take items {'movie:<id>' / 'show:<id>': tmdb_id} off the watchlist / collection of `target`."""
+        if target == 'wetrakr':
+            return self._remove_wetrakr_set(domain, items)
         succeeded = set()
         if target == 'simkl':
             path = ('sync', 'history', 'remove')       # clears every status, so only an item still on plan-to-watch goes
@@ -1903,13 +2051,28 @@ class BridgeSync:
         for i in range(0, len(keys), size):
             yield {k: items[k] for k in keys[i:i + size]}
 
-    def _note_stamp(self, media, item_key, stamp):
+    def _note_stamp(self, media, item_key, stamp, service=None):
         """Remember the newest valid ISO last_watched_at seen for an item (used as watched_at on Trakt / Simkl)."""
         if not item_key or not isinstance(stamp, str) or not _STAMP_RE.match(stamp):
             return
         key = (media, str(item_key))
+        if service and stamp > self._by_service.get((service,) + key, ''):
+            self._by_service[(service,) + key] = stamp
         if stamp > self._stamps.get(key, ''):
             self._stamps[key] = stamp
+
+    def _source_date(self, source, media, key):
+        """The date the service being copied from holds (a mapped anime episode: Simkl's own), or '' when it holds none."""
+        if media == 'episode' and self._anime_stamps.get(key):
+            return self._anime_stamps[key]
+        if source == 'trakt':
+            return self._tstamps.get((media, key), '')
+        return self._by_service.get((source, media, key), '')
+
+    def _push_date(self, source, media, key):
+        """Date a copy carries: the source's own. Only when it holds none, the newest any other service holds - never one that merely
+        records when a copy arrived somewhere ahead of the real one."""
+        return self._source_date(source, media, key) or self._stamps.get((media, key))
 
     def _watched_since(self, media, item_key, paused_at):
         """True when MDBList or Simkl recorded the item as watched at or after `paused_at` (when Trakt saved its resume point).
@@ -2031,13 +2194,16 @@ class BridgeSync:
         """items {tmdb_id_str: tmdb_id}. Trakt history logs a new play per item, so a chunk whose result
         does not add up is given up on rather than retried; MDBList / Simkl are set-membership
         endpoints and are simply retried."""
+        if target == 'wetrakr':
+            self._date_source = source
+            return self._push_wetrakr('movie', items)
         succeeded, given_up = set(), set()
         for chunk in self._chunks(items, _MDB_CHUNK if target == 'mdblist' else _BATCH_SIZE):
             entries = []
             for key, tmdb_id in sorted(chunk.items()):
                 entry = {'ids': {'tmdb': int(tmdb_id)}}
-                stamp = self._stamps.get(('movie', key))
-                if stamp and target in ('trakt', 'simkl'):
+                stamp = self._push_date(source, 'movie', key)
+                if stamp:
                     entry['watched_at'] = stamp
                 entries.append(entry)
             ok, data = self._post(target, ('sync', 'watched') if target == 'mdblist' else ('sync', 'history'),
@@ -2071,9 +2237,172 @@ class BridgeSync:
                 return guard and sv not in shows and self._anime_known(v)    # new to Simkl: not an ordinary Simkl show
             return {k for k, v in missing.items()
                     if is_anime(v) or shows.get(str(v), [None])[0] in _SIMKL_DROPPED}
-        if source == 'simkl' and target == 'trakt':
+        if source == 'simkl' and target in ('trakt', 'wetrakr'):
             return {k for k in missing if k not in (views.get('ep_real') or {}) and k not in self._anime_keys}
         return set()
+
+    def _gate_simkl_removals(self, items, listed, snapshot):
+        """(items that may be removed from Simkl, keys held for a later run) for episode removals the sync is about to send there, checked
+        like the copies. Where Simkl numbers the season differently the same numbers may be another episode, so nothing is removed: the key
+        counts as dealt with, stays in Simkl's snapshot (so it is never copied back as new) and is booked in meta 'simkl_kept', so that
+        Simkl still listing it does not pass for the title having been added again."""
+        import time
+        drop, hold = self._gate_simkl_episodes(items, 'removal', 'simkl', removal=True)
+        waiting = self._meta.setdefault('simkl_remove_held', {})
+        kept = self._meta.setdefault('simkl_kept', {})
+        now = time.time()
+        for key in items:
+            if key in hold:
+                waiting.setdefault(key, now)
+            else:
+                waiting.pop(key, None)
+            if key in drop:
+                kept[key] = now
+                snapshot[key] = listed[key]
+            elif key not in hold:
+                kept.pop(key, None)
+        for label, entry in (self._meta.get('gap_queue') or {}).items():   # a queued copy must not take a kept key from Simkl
+            if label.startswith('watched|') and label.endswith('|episode'):
+                for key in [k for k in drop if k in entry]:
+                    rec = entry[key]
+                    if isinstance(rec, dict):
+                        rec['from'] = [s for s in (rec.get('from') or ()) if s != 'simkl']
+                    if not isinstance(rec, dict) or not rec['from']:
+                        del entry[key]
+        return {k: v for k, v in items.items() if k not in drop and k not in hold}, hold
+
+    def _gate_simkl_unwatches(self, keys, current, snapshots):
+        """(keys not to be removed anywhere, keys held for a later run) among episodes Simkl no longer lists. Where Simkl numbers the
+        season differently, the same numbers elsewhere may be another episode: the other services keep it, and as they have it in their
+        snapshots it is not copied back. Only episodes another service holds are looked up; mapped anime is already in TMDb numbering."""
+        import time
+        exempt = set(self._anime_keys) | set(self._anime_gone)
+        items = {}
+        for target, cur in current.items():
+            if target == 'simkl':
+                continue
+            listed = cur if cur is not None else (snapshots.get(f'watched|{target}|episode') or {})
+            items.update({k: listed[k] for k in keys if k in listed and k not in exempt})
+        drop, hold = self._gate_simkl_episodes(items, 'simkl', 'other', removal=True)
+        waiting = self._meta.setdefault('simkl_unwatch_held', {})
+        now = time.time()
+        for key in keys:
+            if key in hold:
+                waiting.setdefault(key, now)
+            else:
+                waiting.pop(key, None)
+        return drop, hold
+
+    def _simkl_keeps(self, domain, media, service, key):
+        """True when Simkl lists this episode only because its removal was not carried out there (see _gate_simkl_removals)."""
+        return service == 'simkl' and media == 'episode' and domain == 'watched' and key in (self._meta.get('simkl_kept') or {})
+
+    def _gate_simkl_episodes(self, missing, source, target, removal=False):
+        """(drop, hold) for episodes about to be copied to Simkl, or from Simkl to another service (and for Simkl's un-watches, see
+        _gate_simkl_unwatches): Simkl numbers some shows' seasons differently (7.5.45). Dropped =
+        the numbering differs (or Specials, or Simkl does not know the show): dealt with like a skipped episode, never sent there.
+        Held = it could not be checked this run (a failed request, or the run's lookup budget is used up): left for a later run."""
+        incoming = source == 'simkl' and target != 'simkl'
+        if incoming:       # mapped anime episodes are already in TMDb numbering (Fribb): their numbers are not Simkl's
+            missing = {k: v for k, v in missing.items() if k not in self._anime_keys}
+        if not (incoming or target == 'simkl') or not missing:
+            return set(), set()
+        shows = {}
+        for key, show_id in missing.items():
+            shows.setdefault(str(show_id), {}).setdefault(int(key.split(':')[1]), set()).add(key)
+        drop, hold = set(), set()
+        for show_id in sorted(shows):
+            wanted = {season: {int(k.split(':')[2]) for k in keys} for season, keys in shows[show_id].items()}
+            states = self._simkl_numbering_states(show_id, wanted)
+            for season, keys in shows[show_id].items():
+                for key in keys:
+                    state = states[season, int(key.split(':')[2])]
+                    if state is None:
+                        hold.add(key)
+                    elif not state:
+                        drop.add(key)
+        if incoming and (drop or hold):
+            what = ('un-watches from Simkl: {0} not removed from the other services' if removal
+                    else 'copies from Simkl to ' + _TARGET_NAMES.get(target, target) + ': {0} not sent').format(len(drop))
+            kodi_log(f'BridgeSync: episode {what} (Simkl numbers the season differently or does not know the show), '
+                     f'{len(hold)} held for a later run (numbering not checked yet)', 1)
+        elif removal and (drop or hold):
+            kodi_log(f'BridgeSync: episode removals for Simkl: {len(drop)} not removed there (Simkl numbers the season differently or does not know the '
+                     f'show - kept on Simkl), {len(hold)} held for a later run (numbering not checked yet)', 1)
+        elif drop or hold:
+            kodi_log(f'BridgeSync: episodes for Simkl: {len(drop)} not sent (Simkl numbers the season differently or does not know the show), '
+                     f'{len(hold)} held for a later run (numbering not checked yet)', 1)
+        return drop, hold
+
+    def _simkl_numbering_states(self, show_id, wanted):
+        """{(season, number): True / False / None} for wanted {season: {episode numbers}}: is the number the same episode on TMDb and on
+        Simkl (simkl_numbering.same_numbers: titles and air dates; before 7.5.48 only the seasons' episode counts were compared, which
+        passes a shifted season). None = not checked. One TMDb read per season plus one and two Simkl reads answer a show. A season's
+        answer is remembered (two weeks when everything on it is the same, a day when not) and asked again for a number it has not
+        seen. A show whose check failed is not asked again for an hour."""
+        import time
+        self._snapshot_data()
+        now = time.time()
+        self._meta.pop('simkl_numbering_marks', None)          # the answers of the count test are not to be trusted
+        book = self._meta.setdefault('simkl_numbering_eps', {})      # {show:season: [same numbers, when, numbers either side listed]}
+        for old in [k for k, v in book.items() if now - v[1] > 14 * 86400]:
+            del book[old]
+        states, ask = {}, []
+        for season, numbers in wanted.items():
+            rec = book.get(f'{show_id}:{season}')
+            if season <= 0 or (str(show_id), season) in self._simkl_gave_up:
+                states.update({(season, n): False for n in numbers})
+            elif rec and numbers <= set(rec[2]) and now - rec[1] < (14 * 86400 if set(rec[0]) == set(rec[2]) else 86400):
+                states.update({(season, n): n in rec[0] for n in numbers})
+            else:
+                ask.append(season)
+        if not ask:
+            return states
+        waiting = {(season, n): None for season in ask for n in wanted[season]}
+        states.update(waiting)
+        failed = book.get(f'{show_id}:failed')
+        if (failed and now - failed[1] < 3600) or self._simkl_mark_lookups >= _SIMKL_MARK_LOOKUPS:
+            return states
+        self._simkl_mark_lookups += 1
+        lists = None
+        try:
+            lists = self._numbering_lists(int(show_id), ask)
+        except Exception as exc:
+            kodi_log(f'BridgeSync: Simkl numbering check error: {exc}', 2)
+        if lists is None:
+            # [None, last try, first failure]; a pause of two days or more (the sync was off) starts the count again
+            since = failed[2] if failed and now - failed[1] < 2 * 86400 else now
+            if now - since < _SIMKL_MARK_GIVE_UP:
+                book[f'{show_id}:failed'] = [None, now, since]
+                return states
+            book.pop(f'{show_id}:failed', None)
+            kodi_log(f'BridgeSync: Simkl numbering of show {show_id} could not be checked for 7 days - its episodes waiting for Simkl are not sent', 1)
+            states.update(dict.fromkeys(waiting, False))
+            self._simkl_gave_up.update((str(show_id), season) for season in ask)
+            return states
+        book.pop(f'{show_id}:failed', None)
+        from tmdbhelper.lib.script.sync.simkl_numbering import same_numbers
+        for season in ask:
+            ours, theirs = lists[season]
+            good = same_numbers(ours, theirs)
+            book[f'{show_id}:{season}'] = [sorted(good), now, sorted(set(ours) | set(theirs))]
+            states.update({(season, n): n in good for n in wanted[season]})
+        return states
+
+    def _numbering_lists(self, tmdb_id, seasons):
+        """{season: (TMDb rows, Simkl rows)}, or None when a request failed (simkl_numbering.season_lists)."""
+        from tmdbhelper.lib.script.sync.simkl_numbering import season_lists
+        from tmdbhelper.lib.api.tmdb.api import TMDb
+        tmdb = TMDb(language='en-US')       # the titles are compared with Simkl's, which are English
+
+        def tmdb_get(season):
+            return tmdb.get_request_sc('tv', tmdb_id) if season is None else tmdb.get_request_sc('tv', tmdb_id, 'season', season)
+
+        def simkl_get(kind, value):
+            path = f'/search/id?tmdb={value}&type=show' if kind == 'search' else f'/tv/episodes/{value}?extended=full'
+            ok, data = self._simkl_get_ok(path)
+            return data if ok else None
+        return season_lists(tmdb_id, seasons, simkl_get, tmdb_get)
 
     def _skip_movies(self, missing, source, target):
         """A watched mark moves a Simkl movie out of its status: leave a movie the user dropped alone."""
@@ -2083,7 +2412,12 @@ class BridgeSync:
         return {k for k in missing if (movies.get(k) or [None])[0] in _SIMKL_DROPPED}
 
     def _skip_watchlist(self, missing, source, target):
-        """Plan-to-watch adds move an item's status: never overwrite one Simkl has in another status."""
+        """Plan-to-watch adds move an item's status: never overwrite one Simkl or WeTrakr has in another status."""
+        if target == 'wetrakr':
+            blocked = {k for k in missing if self._wetrakr_status(k) not in (None, 'planning')}
+            if blocked:
+                kodi_log(f'BridgeSync: {len(blocked)} watchlist item(s) already on another WeTrakr list - left alone', 1)
+            return blocked
         if target != 'simkl':
             return set()
         blocked = {k for k in missing if self._simkl_status(k) not in (None, 'plantowatch')}
@@ -2095,15 +2429,18 @@ class BridgeSync:
         """items {'show:season:number': show_tmdb_id} -> one shows[] entry per episode (Seren's payload).
         Simkl: anime shows are never pushed TO it (different numbering). From Simkl to Trakt only episodes the user
         actually recorded on Simkl go out (plus the mapped anime episodes) - the rest are synthetic rows with approximate dates."""
+        if target == 'wetrakr':
+            self._date_source = source
+            return self._push_wetrakr('episode', items)
         succeeded, given_up = set(), set()
         for chunk in self._chunks(items, _MDB_CHUNK if target == 'mdblist' else _BATCH_SIZE):
             shows = []
             for key, show_id in sorted(chunk.items()):
                 _, season, number = key.split(':')
                 episode = {'number': int(number)}
-                # a mapped anime episode keeps the date Simkl recorded, also when MDBList (which stores no date) is the one sending it
-                stamp = self._anime_stamps.get(key) or self._stamps.get(('episode', key))
-                if stamp and target in ('trakt', 'simkl'):
+                # MDBList takes the date too (without one it stamps 'now', which then looked like the newest watch)
+                stamp = self._push_date(source, 'episode', key)
+                if stamp:
                     episode['watched_at'] = stamp
                 shows.append({'ids': {'tmdb': int(show_id)}, 'seasons': [{'number': int(season), 'episodes': [episode]}]})
             ok, data = self._post(target, ('sync', 'watched') if target == 'mdblist' else ('sync', 'history'),
@@ -2127,8 +2464,18 @@ class BridgeSync:
                 given_up |= sent
         return succeeded, given_up
 
+    def _collected_at(self, source, key):
+        """When `source` says the title was collected, in the form a collection copy carries; '' when it holds no usable date (none, unreadable
+        or in the future)."""
+        at = self._coll_at.get((source, key), '')
+        if isinstance(at, str) and _STAMP_RE.match(at) and at[:19] <= self._utc_now()[:19]:
+            return f'{at[:19]}.000Z'
+        return ''
+
     def _push_set(self, domain, items, source, target):
         """Watchlist / collection push. items {'movie:<id>' / 'show:<id>': tmdb_id}."""
+        if target == 'wetrakr':
+            return self._push_wetrakr_set(domain, items, source)
         succeeded, given_up = set(), set()
         is_watchlist = domain == 'watchlist'
         path = ('sync', domain) if target == 'trakt' else (('watchlist', 'items', 'add') if is_watchlist else ('sync', 'collection'))
@@ -2142,6 +2489,9 @@ class BridgeSync:
                     entry = {'ids': {'tmdb': int(tmdb_id)}, 'to': 'plantowatch'}
                 else:
                     entry = {'tmdb': int(tmdb_id)} if (target == 'mdblist' and is_watchlist) else {'ids': {'tmdb': int(tmdb_id)}}
+                    collected = '' if is_watchlist else self._collected_at(source, key)
+                    if collected:
+                        entry['collected_at'] = collected      # without it Trakt / MDBList date the copy with the moment it arrives
                 payload.setdefault(kind, []).append(entry)
             ok, data = self._post(target, path, payload)
             if not ok:
@@ -2177,7 +2527,7 @@ class BridgeSync:
 
     # ── Sync domains ───────────────────────────────────────────────────────────
 
-    def _current(self, trakt, mdb=None, simkl=None):
+    def _current(self, trakt, mdb=None, simkl=None, wetrakr=None):
         """Assemble {service: dict or None} for the services that take part; `mdb` / `simkl` are
         zero-argument readers. `trakt` is Trakt's view, None when it could not be read; Trakt is absent when it does not take part."""
         current = {}
@@ -2191,6 +2541,10 @@ class BridgeSync:
             current['simkl'] = simkl()
             if current['simkl'] is None:
                 kodi_log('BridgeSync: Simkl read failed - skipping Simkl this cycle', 1)
+        if wetrakr and self._wetrakr_ok:
+            current['wetrakr'] = wetrakr()
+            if current['wetrakr'] is None:
+                kodi_log('BridgeSync: WeTrakr read failed - skipping WeTrakr this cycle', 1)
         return current
 
     def _sync_watched_movies(self):
@@ -2199,30 +2553,32 @@ class BridgeSync:
         if self._trakt_ok:
             fresh = self._trakt_refresh('movie', ('last_watched_at',))
             trakt = self._trakt_ids('movie', 'last_watched_at') if fresh and self._trakt_ready('movie', 'watched') else None
-        current = self._current(trakt, self._mdb_watched_movies, self._simkl_watched_movies)
+        current = self._current(trakt, self._mdb_watched_movies, self._simkl_watched_movies, lambda: self._wetrakr_watched('movie'))
+        self._wetrakr_join('movie', current)
         if trakt is not None:
             self._load_trakt_stamps('movie')
         self._reconcile('watched', 'movie', current, self._push_watched_movies,
-                        caps={'trakt': _HISTORY_CAP, 'simkl': _SIMKL_CAP}, skip=self._skip_movies,
+                        caps={'trakt': _HISTORY_CAP, 'simkl': _SIMKL_CAP, 'wetrakr': _WETRAKR_CAP['movie']}, skip=self._skip_movies,
                         remove_fn=lambda i, s, t: self._remove_watched('movie', i, s, t),
                         removal_ok=self._removal_ok('watched', 'movie'))
         self._simkl_record_movies(current.get('simkl'))
-        self._sync_wetrakr('movie', current)
+        self._wetrakr_preview('movie', current)
 
     def _sync_watched_episodes(self):
         """Trakt ↔ MDBList ↔ Simkl. No show-level pushes: a whole-show mark means every episode."""
-        if not (self._mdb_ok or self._simkl_ok):
+        if not (self._mdb_ok or self._simkl_ok or self._wetrakr_ok):
             return
         trakt = None
         if self._trakt_ok:
             fresh = self._trakt_refresh('show', ('last_watched_at',))
             trakt = self._trakt_episode_keys() if fresh and self._trakt_episodes_ready() else None
-        current = self._current(trakt, self._mdb_watched_episodes, self._simkl_watched_episodes)
+        current = self._current(trakt, self._mdb_watched_episodes, self._simkl_watched_episodes, lambda: self._wetrakr_watched('episode'))
+        self._wetrakr_join('episode', current)
         if trakt is not None:
             self._load_trakt_stamps('episode')
         self._reconcile('watched', 'episode', current, self._push_watched_episodes,
-                        caps={'trakt': _HISTORY_CAP, 'mdblist': _MDB_EPISODE_CAP, 'simkl': _SIMKL_CAP},
-                        skip=self._skip_episodes,
+                        caps={'trakt': _HISTORY_CAP, 'mdblist': _MDB_EPISODE_CAP, 'simkl': _SIMKL_CAP, 'wetrakr': _WETRAKR_CAP['episode']},
+                        skip=self._skip_episodes, gate=self._gate_simkl_episodes,
                         remove_fn=lambda i, s, t: self._remove_watched('episode', i, s, t),
                         removal_ok=self._removal_ok('watched', 'episode'))
         if self._simkl is not None and current.get('simkl') is not None:
@@ -2230,7 +2586,7 @@ class BridgeSync:
         if self._anime_mode() == 1:
             self._anime_log_only(current)
         self._anime_simkl_sync(current)
-        self._sync_wetrakr('episode', current)
+        self._wetrakr_preview('episode', current)
 
     def _anime_log_only(self, current):
         # cross_sync_anime = 1: say what mode 2 would send, change nothing (no snapshot, no push)
@@ -2278,16 +2634,26 @@ class BridgeSync:
                     if row and row[0] and isinstance(row[1], str):
                         stamps[f'{kind}:{row[0]}'] = row[1]
             self._list_stamps['trakt'] = stamps
+        if clause_key == 'collection_last_collected_at':
+            for kind in ('movie', 'show'):
+                for row in self._trakt_rows(('tmdb_id', clause_key), kind, f'{clause_key} IS NOT NULL') or ():
+                    if row and row[0] and isinstance(row[1], str):
+                        self._coll_at[('trakt', f'{kind}:{row[0]}')] = row[1]
         return {**{f'movie:{k}': v for k, v in movies.items()}, **{f'show:{k}': v for k, v in shows.items()}}
 
     def _sync_watchlist(self):
-        """Trakt ↔ MDBList ↔ Simkl plan-to-watch."""
-        if not (self._mdb_ok or self._simkl_ok):
+        """Trakt ↔ MDBList ↔ Simkl plan-to-watch ↔ WeTrakr planning."""
+        lists = self._wetrakr_lists_mode()
+        wt = lists == 2 and self._wetrakr_ok
+        if not (self._mdb_ok or self._simkl_ok or wt):
             return
         trakt = self._trakt_set('watchlist_listed_at', 'watchlist') if self._trakt_ok else None
-        current = self._current(trakt, lambda: self._mdb_list_ids('watchlist', 'items'), self._simkl_set)
+        current = self._current(trakt, lambda: self._mdb_list_ids('watchlist', 'items'), self._simkl_set,
+                                self._wetrakr_watchlist if wt else None)
+        if wt:
+            self._wetrakr_join('movie_or_show', current, 'watchlist')
         self._reconcile('watchlist', 'movie_or_show', current, lambda i, s, t: self._push_set('watchlist', i, s, t),
-                        caps={'simkl': _SIMKL_CAP}, skip=self._skip_watchlist,
+                        caps={'simkl': _SIMKL_CAP, 'wetrakr': _WETRAKR_LIST_CAP}, skip=self._skip_watchlist,
                         remove_fn=lambda i, s, t: self._remove_set('watchlist', i, s, t),
                         removal_ok=self._removal_ok('watchlist', 'movie_or_show'))
         if self._simkl is not None and current.get('simkl') is not None:
@@ -2295,40 +2661,302 @@ class BridgeSync:
                 kind, _, tmdb_id = key.partition(':')
                 bucket = self._simkl['movies' if kind == 'movie' else 'shows']
                 bucket.setdefault(tmdb_id, ['plantowatch', ''])
+        if lists == 1:
+            self._wetrakr_lists_preview('watchlist', current)
 
     def _sync_collection(self):
-        """Trakt ↔ MDBList only — Simkl has no collection endpoint."""
-        if not (self._mdb_ok and self._trakt_ok):
-            return                             # needs both: without Trakt there is no second service to reconcile with (and no MDBList request is spent)
-        current = self._current(self._trakt_set('collection_last_collected_at', 'collection'),
-                                lambda: self._mdb_list_ids('sync', 'collection'))
+        """Trakt ↔ MDBList ↔ WeTrakr library - Simkl has no collection endpoint."""
+        lists = self._wetrakr_lists_mode()
+        wt = lists == 2 and self._wetrakr_ok
+        if self._trakt_ok + self._mdb_ok + wt < 2:
+            return                             # one service alone has nothing to reconcile with (and no request is spent)
+        trakt = self._trakt_set('collection_last_collected_at', 'collection') if self._trakt_ok else None
+        current = self._current(trakt, lambda: self._mdb_list_ids('sync', 'collection'), None,
+                                self._wetrakr_library if wt else None)
+        if wt:
+            self._wetrakr_join('movie_or_show', current, 'collection')
         self._reconcile('collection', 'movie_or_show', current, lambda i, s, t: self._push_set('collection', i, s, t),
+                        caps={'wetrakr': _WETRAKR_LIST_CAP},
                         remove_fn=lambda i, s, t: self._remove_set('collection', i, s, t),
                         removal_ok=self._removal_ok('collection', 'movie_or_show'))
+        if lists == 1:
+            self._wetrakr_lists_preview('collection', current)
 
-    # ── WeTrakr: watched marks, one way (setting cross_sync_wetrakr) ────────────
-    # Runs after the watched reconcile of a media type, on its result: what Trakt, MDBList and Simkl hold now (the `current` views, already
-    # updated by this run's pushes) is copied to WeTrakr. Never a source, never read back into the others. 7.5.25: a title the BRIDGE itself sent
-    # there (book `wetrakr_sent`, only titles whose push was confirmed) is taken off again once no other service lists it any more, see
-    # _wetrakr_remove (settings: WeTrakr 'on' and cross_sync_removals 'also watched history'); what WeTrakr already had, or the user marked there,
-    # is never removed.
-    #  - snapshot-delta like the rest of the bridge, with its own labels: a title in the WeTrakr snapshot is accounted for and is not sent
-    #    again, so one the user unwatched on WeTrakr is not put back. A title leaves the snapshot once no source lists it (a later
-    #    re-watch is then new again), but only while every source could be read.
-    #  - nothing is asked of WeTrakr unless something is new to the bridge: a quiet run costs no WeTrakr request.
-    #  - POST /sync/tracking with allow_rewatch false (a title WeTrakr already has is never logged twice) and the play's own date.
-    #  - the push is confirmed by reading WeTrakr's list back, not by the answer (an `errored` episode is named by WeTrakr's own id only).
-    #  - up to _WETRAKR_CAP titles a run; specials, Simkl's synthetic episode rows and anything not read this run stay out.
+    # ── WeTrakr: watchlist and collection (setting cross_sync_wetrakr_lists, 7.5.33) ──
+    #  - watchlist = WeTrakr's planning list. A title WeTrakr holds in ANY other list is never sent there (adding would move it off that list),
+    #    and leaving planning counts as a removal only when the title is then on no list at all. Removals name status planning, never remove/all.
+    #  - collection = WeTrakr's library. The bridge's copies carry a copy_key 'bridge:...' and removals touch only those. A title still listed
+    #    afterwards is the user's own copy: it stays on WeTrakr, stays accounted for there, and is not sent back to the others.
+
+    @staticmethod
+    def _wetrakr_lists_mode():
+        return _wetrakr_lists_mode()
+
+    def _wetrakr_forget_activity(self):
+        """Drops this run's /sync/last_activities answer and the stamp taken from it (after a write both are older than the data)."""
+        self.wetrakr_last_stamp = self._wt_activity = None
+
+    def _wetrakr_activity(self):
+        if self._wt_activity is None:
+            data = self._wetrakr_client().get_json('/sync/last_activities')
+            self._wt_activity = data if isinstance(data, dict) and data else False
+        return self._wt_activity or None
+
+    @staticmethod
+    def _wetrakr_list_rows(kind, rows):
+        found = {}
+        for row in rows or ():
+            tmdb = (row.get('ids') or {}).get('tmdb') if isinstance(row, dict) else None
+            if tmdb:
+                found[f'{kind}:{tmdb}'] = str(row.get('tracked_at') or row.get('last_watched_at') or '')
+        return found
+
+    def _wetrakr_tracking(self):
+        """{'planning': {key: tracked_at}, 'other': {key: list}} from every tracking list (re-read only when a stamp moved), or None."""
+        if self._wt_lists is not None:
+            return self._wt_lists
+        self._snapshot_data()
+        if not self._snapshots_ok:
+            return None
+        stamp = wetrakr_lists_stamp(self._wetrakr_activity())
+        if stamp is None:
+            return None
+        saved = self._meta.get('wetrakr_tracking')
+        if not saved or saved.get('stamp') != stamp:
+            planning, other = {}, {}
+            for kind, statuses in _WETRAKR_LISTS.items():
+                for status in statuses:
+                    ok, rows = self._wetrakr_client().get_list(f'/sync/tracking/{status}/{kind}s')
+                    if not ok:
+                        return None            # never a partial view: a missing list would let planning take a title off it
+                    found = self._wetrakr_list_rows(kind, rows)
+                    if status == 'planning':
+                        planning.update(found)
+                    else:
+                        other.update(dict.fromkeys(found, status))
+            saved = self._meta['wetrakr_tracking'] = {'stamp': stamp, 'planning': planning, 'other': other}
+        self._wt_lists = {'planning': dict(saved['planning']), 'other': dict(saved['other'])}
+        return self._wt_lists
+
+    def _wetrakr_watchlist(self):
+        lists = self._wetrakr_tracking()
+        if lists is None:
+            return None
+        self._list_stamps['wetrakr'] = {k: v for k, v in lists['planning'].items() if v}
+        return {k: int(k.partition(':')[2]) for k in lists['planning']}
+
+    def _wetrakr_status(self, key):
+        """The WeTrakr list a 'movie:<id>' / 'show:<id>' is on ('planning' or another), or None."""
+        lists = self._wt_lists or {}
+        return lists.get('other', {}).get(key) or ('planning' if key in lists.get('planning', {}) else None)
+
+    def _wetrakr_library_read(self):
+        """Every title in the library as ({'movie:<id>' / 'show:<id>': id}, {key: collected date, where WeTrakr knows it}), or None (never a
+        partial list)."""
+        found, dates, page, pages = {}, {}, 1, 1
+        rows_read = 0
+        total = None
+        while page <= pages:
+            if page > 100:
+                return None
+            response = self._wetrakr_client().user_request('GET', '/sync/library/all', params={'page': page, 'limit': 100})
+            if response is None or response.status_code != 200:
+                return None
+            try:
+                data = response.json()
+                pages = int(response.headers.get('X-Pagination-Page-Count') or 0)
+                total = int(response.headers.get('X-Pagination-Item-Count'))
+            except (ValueError, TypeError):
+                return None
+            if not isinstance(data, list):
+                return None
+            rows_read += len(data)
+            for row in data:
+                media = row.get('type')
+                tmdb = (row.get('ids') or {}).get('tmdb')
+                if media not in ('movie', 'show'):
+                    return None                # an answer not understood must not read as an emptier library
+                if tmdb:
+                    found[f'{media}:{tmdb}'] = int(tmdb)
+                    held = row.get('library') or {}
+                    if not held.get('collected_at_unknown') and isinstance(held.get('collected_at'), str):
+                        dates[f'{media}:{tmdb}'] = held['collected_at']
+            page += 1
+        return (found, dates) if rows_read == total else None
+
+    def _wetrakr_library_unchanged(self, since):
+        response = self._wetrakr_client().user_request('GET', '/sync/library/all', params={'from_date': since, 'limit': 1})
+        if response is None or response.status_code != 200:
+            return False
+        try:
+            return int(response.headers.get('X-Pagination-Item-Count')) == 0
+        except (ValueError, TypeError):
+            return False
+
+    def _wetrakr_library(self):
+        """The library, re-read only when WeTrakr reports a change since the saved read (one small request otherwise)."""
+        from datetime import datetime, timedelta
+        self._snapshot_data()
+        if not self._snapshots_ok:
+            return None
+        saved = self._meta.get('wetrakr_library')
+        if saved and 'dates' in saved and self._wetrakr_library_unchanged(saved['since']):   # a read saved without dates (7.5.34) is redone
+            return self._wetrakr_library_view(saved)
+        fmt = '%Y-%m-%dT%H:%M:%S'
+        since = (datetime.strptime(self._utc_now()[:19], fmt) - timedelta(minutes=10)).strftime(fmt) + '.000Z'   # margin for clock difference
+        read = self._wetrakr_library_read()
+        if read is None:
+            return None
+        saved = self._meta['wetrakr_library'] = {'since': since, 'rows': read[0], 'dates': read[1]}
+        return self._wetrakr_library_view(saved)
+
+    def _wetrakr_library_view(self, saved):
+        self._coll_at.update({('wetrakr', key): at for key, at in saved['dates'].items()})
+        return dict(saved['rows'])
+
+    @staticmethod
+    def _wetrakr_list_payload(items, entry_of):
+        payload = {}
+        for key, tmdb_id in sorted(items.items()):
+            payload.setdefault(key.partition(':')[0] + 's', []).append({'ids': {'tmdb': int(tmdb_id)}, **entry_of(key)})
+        return payload
+
+    def _wetrakr_list_post(self, path, payload):
+        response = self._wetrakr_client().user_request('POST', path, body=payload)
+        code = getattr(response, 'status_code', None)
+        if code is None or not 200 <= code < 300:
+            kodi_log(f'BridgeSync: WeTrakr {path.strip("/")} failed (HTTP {code or "no answer"})', 2)
+        return code
+
+    def _wetrakr_list_view(self, domain):
+        """A fresh read after a write."""
+        self._wetrakr_forget_activity()       # the trigger takes a fresh baseline: our own list write is not a change to react to
+        if domain == 'watchlist':
+            self._wt_lists = None
+            self._meta.pop('wetrakr_tracking', None)
+            return self._wetrakr_watchlist()
+        self._meta.pop('wetrakr_library', None)
+        return self._wetrakr_library()
+
+    def _push_wetrakr_set(self, domain, items, source):
+        """(succeeded, given_up) for the watchlist / library. Success is what WeTrakr lists afterwards."""
+        import time
+        if domain == 'collection' and time.time() - self._meta.get('wetrakr_library_full', 0) < _WETRAKR_FULL_SECONDS:
+            return set(), set()
+        posted = set()
+        for chunk in self._chunks(items, _WETRAKR_CHUNK):
+            if domain == 'watchlist':
+                path, body = '/sync/tracking', self._wetrakr_list_payload(chunk, lambda key: {'status': 'planning'})
+            else:
+                def copy_of(key):
+                    entry = {'copy_key': _WETRAKR_COPY_PREFIX + key}
+                    collected = self._collected_at(source, key)
+                    if collected:
+                        entry['collected_at'] = collected
+                    else:
+                        entry['collected_at_unknown'] = True
+                    return entry
+                path, body = '/sync/library', self._wetrakr_list_payload(chunk, copy_of)
+            code = self._wetrakr_list_post(path, body)
+            if code == 420 and domain == 'collection':
+                self._meta['wetrakr_library_full'] = time.time()
+                kodi_log('BridgeSync: the WeTrakr library is full for this account plan - nothing more is sent to it for a day', 2)
+                break
+            if code is None or not 200 <= code < 300:
+                break
+            posted |= set(chunk)
+        if not posted:
+            return set(), set()
+        after = self._wetrakr_list_view(domain)
+        if after is None:
+            return set(), set()
+        done = {k for k in posted if k in after}
+        given_up = set()
+        tries = self._meta.setdefault('wetrakr_tries', {})
+        for key in posted - done:
+            book = f'{domain}|{key}'
+            tries[book] = tries.get(book, 0) + 1
+            if tries[book] >= _WETRAKR_TRIES:
+                given_up.add(key)
+                kodi_log(f'BridgeSync: WeTrakr {domain}: {key} still not listed after {_WETRAKR_TRIES} tries - giving up on it', 1)
+        for key in done | given_up:
+            tries.pop(f'{domain}|{key}', None)
+        return done, given_up
+
+    def _remove_wetrakr_set(self, domain, items):
+        """Take titles off the watchlist (status planning only) / the bridge's own library copies. Returns the keys no longer listed. A library
+        title still listed after an accepted removal has a copy of the user's own: it is named in _wt_kept and not retried."""
+        sent = set()
+        for chunk in self._chunks(items, _WETRAKR_CHUNK):
+            if domain == 'watchlist':
+                path, body = '/sync/tracking/remove', self._wetrakr_list_payload(chunk, lambda key: {'status': 'planning'})
+            else:
+                path = '/sync/library/remove'
+                body = {**self._wetrakr_list_payload(chunk, lambda key: {}), 'copy_key_prefix': _WETRAKR_COPY_PREFIX}
+            code = self._wetrakr_list_post(path, body)
+            if code is None or not 200 <= code < 300:
+                break
+            sent |= set(chunk)
+        if not sent:
+            return set()
+        after = self._wetrakr_list_view(domain)
+        if after is None:
+            return set()
+        still = sent & set(after)
+        if domain == 'collection' and still:
+            self._wt_kept |= still
+            kodi_log(f'BridgeSync: WeTrakr library: {len(still)} title(s) kept - they hold a copy the sync did not make ({", ".join(sorted(still)[:10])})', 1)
+        return sent - still
+
+    def _wetrakr_lists_preview(self, domain, current):
+        """Log only: what turning 'watchlist and collection' On would copy each way. Nothing is changed on any service and no snapshot is touched."""
+        import time
+        try:
+            if not self._wetrakr_client().is_authorized:
+                return
+            snapshots = self._snapshot_data()
+            if not self._snapshots_ok:
+                return
+            logged = self._meta.setdefault('wetrakr_logged', {})
+            label = f'{domain}|wetrakr|movie_or_show'
+            if time.time() - logged.get(label, 0) < _WETRAKR_LOG_SECONDS or label in (self._meta.get('wetrakr_member') or {}):
+                return
+            if not current or any(v is None for v in current.values()):
+                return
+            view = self._wetrakr_watchlist() if domain == 'watchlist' else self._wetrakr_library()
+            if view is None:
+                return
+            others = {s: snapshots.get(f'{domain}|{s}|movie_or_show', {}) for s in _GAP_SERVICES if s != 'wetrakr'}
+            member, queued, held = self._wetrakr_plan('movie_or_show', current, view, snapshots.get(label, {}), others, domain)
+            new = {k: v for k, v in view.items() if k not in member}
+            parts = []
+            for target, items in current.items():
+                missing = {k: v for k, v in new.items() if k not in items}
+                if domain == 'watchlist':
+                    for key in set(self._skip_watchlist(missing, 'wetrakr', target)):
+                        missing.pop(key, None)
+                parts.append(f'{_TARGET_NAMES[target]} {len(missing)}')
+            sendable = self._wetrakr_sendable('movie_or_show', current, queued, domain)
+            kodi_log(f'BridgeSync (WeTrakr, log only): {domain} - On would copy from WeTrakr: {", ".join(parts)}; queue {sendable} to be sent to '
+                     f'WeTrakr ({len(queued) - sendable} left alone: on another WeTrakr list); already matched {len(member)} of the {len(view)} WeTrakr holds', 1)
+            logged[label] = time.time()
+            self._snapshot_save()
+        except Exception as exc:
+            kodi_log(f'BridgeSync: WeTrakr ({domain}) preview error: {exc}', 2)
+
+    # ── WeTrakr: watched marks (setting cross_sync_wetrakr) ─────────────────────
+    # 7.5.30: with the setting On WeTrakr is a member of the two watched domains like the other three: _reconcile copies to and from it, removals go both
+    # ways under cross_sync_removals (journal, two runs, mass limit, played-again check), and the gap / removal queues cover it.
+    #  - its view is the watch history (one row per play), so "unwatched" means no play is left; moving a title to another WeTrakr list is not a removal.
+    #  - the history is read only when /sync/last_activities says watched marks were added or removed (otherwise the view saved from the last read is used).
+    #  - pushes: POST /sync/tracking with allow_rewatch false and the play's own date, confirmed by reading the history back.
+    #  - removals: POST /sync/tracking/remove/all, confirmed the same way.
+    #  - joining (_wetrakr_join) turns the labels the one-way copy wrote into member snapshots, so nothing looks removed.
+    #  - Log only reads WeTrakr and writes to the log what would be copied each way.
 
     @staticmethod
     def _wetrakr_mode():
-        if not (get_setting('cross_sync_services') and get_setting('service_wetrakr')):
-            return 0
-        try:
-            mode = int(get_setting('cross_sync_wetrakr', 'int'))
-        except Exception:
-            return 1
-        return mode if 0 <= mode <= 2 else 1
+        return _wetrakr_setting_mode()
 
     def _wetrakr_client(self):
         if self.wetrakr is None:
@@ -2336,46 +2964,179 @@ class BridgeSync:
             self.wetrakr = WeTrakrAPI()
         return self.wetrakr
 
-    def _wetrakr_sources(self, media, current):
-        """{item_key: id} of every watched title the readable services hold. Season 0 is left out (Trakt's copy never holds specials, so
-        the services disagree on them); from Simkl only an episode the user really recorded there (or a mapped anime episode) counts."""
-        real = (self._simkl or {}).get('ep_real') or {}
-        union = {}
-        for service, items in current.items():
-            for key, value in (items or {}).items():
-                if media == 'episode':
-                    try:
-                        if int(key.split(':')[1]) < 1:
-                            continue
-                    except (IndexError, ValueError):
-                        continue
-                    if service == 'simkl' and key not in real and key not in self._anime_keys:
-                        continue
-                union.setdefault(key, value)
-        return union
+    def _wetrakr_watched(self, media):
+        """{key: id} of what WeTrakr has at least one play of (movies 'tmdb', episodes 'show:season:number' without specials), or None."""
+        self._snapshot_data()                      # the saved view lives in the snapshot meta
+        if not self._snapshots_ok:
+            return None
+        api = self._wetrakr_client()
+        if self.wetrakr_last_stamp is None:        # one read per run serves the lists, both media types and the trigger's new baseline
+            self.wetrakr_last_stamp = wetrakr_stamp(self._wetrakr_activity())
+        stamp = self.wetrakr_last_stamp
+        if stamp is None:
+            return None
+        views = self._meta.setdefault('wetrakr_views', {})
+        saved = views.get(media)
+        if not saved or saved.get('stamp') != stamp:
+            ok, rows = api.get_list(_WETRAKR_PATHS[media])
+            if not ok:
+                return None
+            saved = views[media] = {'stamp': stamp, 'rows': self._wetrakr_rows(media, rows)}
+        result = {}
+        for key, at in saved['rows'].items():
+            result[key] = int(key.split(':')[0])
+            self._note_stamp(media, key, at, 'wetrakr')
+        return result
 
     @staticmethod
-    def _wetrakr_keys(media, rows):
-        """Item keys of a compact watched list read from WeTrakr: movies 'tmdb', episodes 'show:season:number' (TMDb numbering)."""
-        keys = set()
+    def _wetrakr_rows(media, rows):
+        """History rows -> {key: newest watched_at}."""
+        found = {}
         for row in rows or ():
             if not isinstance(row, dict):
                 continue
             if media == 'movie':
                 tmdb = (row.get('ids') or {}).get('tmdb')
-                if tmdb:
-                    keys.add(f'{tmdb}')
+                key = f'{tmdb}' if tmdb else None
+            else:
+                tmdb, season, number = (row.get('show_ids') or {}).get('tmdb'), row.get('season_number'), row.get('number')
+                key = f'{tmdb}:{season}:{number}' if tmdb and season and number is not None else None
+            if not key:
                 continue
-            tmdb, season, number = (row.get('show_ids') or {}).get('tmdb'), row.get('season_number'), row.get('number')
-            if tmdb and season is not None and number is not None:
-                keys.add(f'{tmdb}:{season}:{number}')
-        return keys
+            at = row.get('watched_at')
+            at = at if isinstance(at, str) else ''
+            if key not in found or at > found[key]:
+                found[key] = at
+        return found
+
+    def _wetrakr_plan(self, media, current, view, old, others_snaps, domain='watched'):
+        """What joining does, worked out without changing anything (Log only reports the same figures): (member snapshot, {key: services
+        to send it to WeTrakr from}, keys any other service holds or held)."""
+        held = set()
+        for service, snap in others_snaps.items():
+            held |= set(snap) | set(current.get(service) or ())
+        waiting = set()                       # a removal waiting for its second check: not a title only WeTrakr has, so never copied back
+        for label, items in (self._meta.get('removals') or {}).items():
+            if label.startswith(f'{domain}|') and label.endswith(f'|{media}'):
+                waiting |= set(items or ())
+        if domain == 'watched':
+            # the old one-way copy dropped a title from its snapshot once no other service listed it, but kept what it SENT in
+            # 'wetrakr_sent'. Both mean 'dealt with': such a title left on WeTrakr alone is never copied back to the others
+            sent = (self._meta.get('wetrakr_sent') or {}).get(f'{domain}|wetrakr|{media}') or {}
+            member = {k: v for k, v in view.items() if k in waiting or k in old or k in sent}
+        else:
+            member = {k: v for k, v in view.items() if k in waiting or (k in old and k in held)}
+        queued = {}
+        for service, items in current.items():
+            if service == 'wetrakr':
+                continue
+            for key in items or ():
+                if key in others_snaps.get(service, {}) and key not in view and key not in old:   # not yet accounted there: the normal pass sends it
+                    queued.setdefault(key, []).append(service)
+        return member, queued, held
+
+    def _wetrakr_sendable(self, media, current, queued, domain='watched'):
+        """How many queued keys the catch-up would really send (for the messages): the holder it picks (the first of the key's origins) and
+        the same skip rule, so a Simkl row the user never recorded is not counted."""
+        skip = {'watched': self._skip_movies if media == 'movie' else self._skip_episodes, 'watchlist': self._skip_watchlist}.get(domain)
+        recent = (self._meta.get('removed_recent') or {}).get(f'{domain}|wetrakr|{media}') or {}
+        by_source = {}
+        for key, sources in queued.items():
+            if key not in recent:
+                holder = next(s for s in current if s in sources)
+                by_source.setdefault(holder, {})[key] = current[holder][key]
+        return sum(len(items) - (len(set(skip(items, source, 'wetrakr'))) if skip else 0) for source, items in by_source.items())
+
+    def _wetrakr_join(self, media, current, domain='watched'):
+        """First run as a member, per media type. The label the one-way copy wrote means 'dealt with', not 'WeTrakr has it', so:
+          - for watched marks it keeps every title WeTrakr still has that the one-way copy dealt with or sent, even one no other service holds
+            any more (it was removed there: never copied back); only a title in neither book is new and is copied to the others. Watchlist and
+            collection keep only what another service also holds;
+          - what the others hold that WeTrakr lacks and the one-way copy never dealt with is queued to be sent to it. What it did deal with and
+            WeTrakr no longer has (unwatched there, or refused) is not sent again.
+        Needs every service in this run to be readable; otherwise WeTrakr waits."""
+        import time
+        if current.get('wetrakr') is None:
+            return
+        label = f'{domain}|wetrakr|{media}'
+        what = f'{media}s' if domain == 'watched' else domain
+        snapshots = self._snapshot_data()
+        if not self._snapshots_ok:
+            current.pop('wetrakr')
+            return
+        if label in (self._meta.get('wetrakr_member') or {}):
+            return
+        others = [s for s in current if s != 'wetrakr']
+        if not others or any(current[s] is None for s in others):
+            current.pop('wetrakr')
+            kodi_log(f'BridgeSync: WeTrakr {what} join the sync on a run in which every other service can be read', 1)
+            return
+        view = current['wetrakr']
+        others_snaps = {s: snapshots.get(f'{domain}|{s}|{media}', {}) for s in _GAP_SERVICES if s != 'wetrakr'}
+        member, queued, held = self._wetrakr_plan(media, current, view, snapshots.get(label, {}), others_snaps, domain)
+        for key in list(queued):       # an episode only Simkl still lists because its removal was not carried out there is not sent on
+            queued[key] = [s for s in queued[key] if not self._simkl_keeps(domain, media, s, key)]
+            if not queued[key]:
+                del queued[key]
+        if queued:
+            entry = self._meta.setdefault('gap_queue', {}).setdefault(label, {})
+            for key, sources in queued.items():
+                entry[key] = {'at': time.time(), 'from': sources}
+        snapshots[label] = member
+        self._meta.setdefault('wetrakr_member', {})[label] = self._utc_now()
+        for book in ('wetrakr_sent', 'wetrakr_gone', 'wetrakr_lost', 'wetrakr_remove_tries', 'wetrakr_tries', 'wetrakr_logged'):
+            (self._meta.get(book) or {}).pop(label, None)
+        kodi_log(f'BridgeSync: WeTrakr {what} joined the sync: {len(set(view) - held - set(member))} only on WeTrakr (to be copied to the others), '
+                 f'{self._wetrakr_sendable(media, current, queued, domain)} to be sent to WeTrakr, {len(member)} already matched', 1)
+        self._snapshot_save()
+
+    def _wetrakr_preview(self, media, current):
+        """Log only: what turning WeTrakr On would copy each way. Nothing is changed on any service and no snapshot is touched."""
+        import time
+        if self._wetrakr_mode() != 1:
+            return
+        try:
+            if not self._wetrakr_client().is_authorized:
+                return
+            self._snapshot_data()
+            if not self._snapshots_ok:
+                return
+            logged = self._meta.setdefault('wetrakr_logged', {})
+            label = f'watched|wetrakr|{media}'
+            if time.time() - logged.get(label, 0) < _WETRAKR_LOG_SECONDS:
+                return
+            if not current or any(v is None for v in current.values()):
+                return
+            if label in (self._meta.get('wetrakr_member') or {}):
+                return                 # already joined once: the join figures no longer apply
+            view = self._wetrakr_watched(media)
+            if view is None:
+                return
+            snapshots = self._snapshot_data()
+            others_snaps = {s: snapshots.get(f'watched|{s}|{media}', {}) for s in _GAP_SERVICES if s != 'wetrakr'}
+            member, queued, held = self._wetrakr_plan(media, current, view, snapshots.get(label, {}), others_snaps)
+            skip = self._skip_movies if media == 'movie' else self._skip_episodes
+            new = {k: v for k, v in view.items() if k not in member}
+            parts = []
+            for target, items in current.items():
+                missing = {k: v for k, v in new.items() if k not in items}
+                for key in set(skip(missing, 'wetrakr', target)):
+                    missing.pop(key, None)
+                parts.append(f'{_TARGET_NAMES[target]} {len(missing)}')
+            only = sorted(set(view) - held)
+            kodi_log(f'BridgeSync (WeTrakr, log only): {media}s - On would copy from WeTrakr: {", ".join(parts)}; '
+                     f'only on WeTrakr {len(only)} ({", ".join(only[:10])}); queue {self._wetrakr_sendable(media, current, queued)} to be sent to WeTrakr '
+                     f'(plus anything new on the others); already matched {len(member)} of the {len(view)} WeTrakr holds', 1)
+            logged[label] = time.time()
+            self._snapshot_save()
+        except Exception as exc:
+            kodi_log(f'BridgeSync: WeTrakr ({media}) preview error: {exc}', 2)
 
     def _wetrakr_date(self, entry, media, key):
-        """The play's own date (newest one the services recorded) as tracked_at; none known (MDBList stores no date): tracked_at_unknown,
+        """The date held by the service copied from (else the newest any service holds) as tracked_at; none known: tracked_at_unknown,
         which WeTrakr logs as 'now' and flags. A date in the future is not sent."""
-        best = ''
-        for stamp in (self._stamps.get((media, key)), self._tstamps.get((media, key)), self._anime_stamps.get(key) if media == 'episode' else None):
+        best = (self._source_date(self._date_source, media, key) or '')[:19]
+        for stamp in () if best else (self._stamps.get((media, key)), self._tstamps.get((media, key))):
             if isinstance(stamp, str) and _STAMP_RE.match(stamp) and stamp[:19] > best:
                 best = stamp[:19]
         if best and best <= self._utc_now():
@@ -2435,6 +3196,42 @@ class BridgeSync:
             rejected |= self._wetrakr_rejected(media, chunk, data if isinstance(data, dict) else {})
         return posted, rejected
 
+    def _wetrakr_changed(self):
+        """After a write: the saved views and the menus' last-activities answer are stale."""
+        self._wetrakr_forget_activity()
+        self._meta.pop('wetrakr_views', None)
+        try:
+            self._wetrakr_client().wetrakr_syncdata.reset_lastactivities()
+        except Exception as exc:
+            kodi_log(f'BridgeSync: WeTrakr last activities not reset - {type(exc).__name__}', 1)
+
+    def _wetrakr_read_back(self, media):
+        ok, rows = self._wetrakr_client().get_list(_WETRAKR_PATHS[media])
+        return set(self._wetrakr_rows(media, rows)) if ok else None
+
+    def _push_wetrakr(self, media, items):
+        """(succeeded, given_up) like the other pushes. Success is what the history shows afterwards; a title accepted but not listed on
+        _WETRAKR_TRIES runs is given up on."""
+        posted, rejected = self._wetrakr_push(media, items)
+        if not posted:
+            return set(), set()
+        self._wetrakr_changed()
+        after = self._wetrakr_read_back(media)
+        if after is None:
+            return set(), set()                     # cannot tell: retried next run (allow_rewatch false, so nothing is logged twice)
+        done = {k for k in posted if k in after}
+        given_up = {k for k in rejected if k not in after}
+        tries = self._meta.setdefault('wetrakr_tries', {})
+        for key in posted - done - given_up:
+            book = f'{media}|{key}'
+            tries[book] = tries.get(book, 0) + 1
+            if tries[book] >= _WETRAKR_TRIES:
+                given_up.add(key)
+                kodi_log(f'BridgeSync: WeTrakr: {key} still not listed after {_WETRAKR_TRIES} tries - giving up on it', 1)
+        for key in done | given_up:
+            tries.pop(f'{media}|{key}', None)
+        return done, given_up
+
     @staticmethod
     def _wetrakr_remove_payload(media, items):
         """Body of POST /sync/tracking/remove/all: the same shape the context menu sends (movies by TMDb id, episodes nested by number), no dates."""
@@ -2448,194 +3245,21 @@ class BridgeSync:
                            'seasons': [{'number': season, 'episodes': episodes} for season, episodes in sorted(seasons.items())]}
                           for show_id, seasons in sorted(shows.items())]}
 
-    def _wetrakr_remove(self, media, label, union, out_held, complete, push_mode):
-        """7.5.25: take a title off WeTrakr again once the bridge's own copy of it is the only one left. Candidates are only titles the bridge SENT
-        (`wetrakr_sent`, filled from confirmed pushes), never what WeTrakr already had or the user marked there. A title counts as gone only when no
-        other service lists it, every service could be read, it is no mapped anime episode, and it stayed gone on two runs and at least
-        _REMOVE_CONFIRM_SECONDS (_WETRAKR_MASS_SECONDS when as many vanish at once as the mass-vanish limit). Sent to WeTrakr in small batches
-        (POST /sync/tracking/remove/all) and counted done only when WeTrakr's list no longer shows them; the saved last-activities answer is dropped
-        after that, so the calendar tiles read the change. Settings: WeTrakr 'on' (2) and cross_sync_removals 1 (log only) or 3 (also watched history)."""
-        import time
-        sent_all = self._meta.setdefault('wetrakr_sent', {})
-        gone_all = self._meta.setdefault('wetrakr_gone', {})
-        tries_all = self._meta.setdefault('wetrakr_remove_tries', {})
-        sent = sent_all.get(label) or {}
-        removal_mode = self._removal_mode()
-        if push_mode != 2 or removal_mode not in (1, 3) or not sent or not complete:
-            if gone_all.pop(label, None):
-                self._snapshot_save()
-            return
-        now = time.time()
-        lost = {}
-        for key, value in sent.items():
-            if key in union or key in out_held:
-                continue
-            if media == 'episode' and (key in self._anime_keys or key in self._anime_gone):
-                continue       # a mapped anime episode: its mapping can change with the index, so it never counts as an un-watch
-            lost[key] = value
-        gone = gone_all.setdefault(label, {})
-        dirty = False
-        for key in [k for k in gone if k not in lost]:
-            del gone[key]
-            dirty = True
-        for key in lost:
-            rec = gone.get(key)
-            if rec:
-                rec[1] += 1
-            else:
-                gone[key] = [now, 1]
-            dirty = True
-        mass = len(lost) > (_REMOVE_MASS_CAP_EPISODES if media == 'episode' else _REMOVE_MASS_CAP) and len(lost) > len(sent) * 0.05
-        wait = _WETRAKR_MASS_SECONDS if mass else _REMOVE_CONFIRM_SECONDS
-        due = sorted(k for k in lost if gone[k][1] >= 2 and now - gone[k][0] >= wait)
-        if not due:
-            if dirty:
-                self._snapshot_save()
-            return
-        batch = {k: lost[k] for k in due[:_WETRAKR_REMOVE_CAP[media]]}
-        if removal_mode == 1:
-            kodi_log(f'BridgeSync (WeTrakr, log only): {len(batch)} {media}s the bridge sent are unwatched on every other service and would be taken off WeTrakr', 1)
-            if dirty:
-                self._snapshot_save()
-            return
-        path = _WETRAKR_PATHS[media]
-        removed, failed = set(), False
-        response = self._wetrakr_client().user_request('POST', '/sync/tracking/remove/all', body=self._wetrakr_remove_payload(media, batch))
-        code = getattr(response, 'status_code', None)
-        if code is None or not 200 <= code < 300:
-            kodi_log(f'BridgeSync: WeTrakr sync/tracking/remove/all failed (HTTP {code or "no answer"}) - retry next cycle', 2)
-            failed = True
-        else:
-            ok_after, rows_after = self._wetrakr_client().get_list(path)
-            if ok_after:
-                after = self._wetrakr_keys(media, rows_after)
-                removed = {k for k in batch if k not in after}
-        tries = tries_all.setdefault(label, {})
-        for key in batch:
-            if key in removed:
-                tries.pop(key, None)
-            elif not failed:
-                tries[key] = tries.get(key, 0) + 1
-                if tries[key] >= _WETRAKR_REMOVE_TRIES:
-                    removed.add(key)       # given up on: the bridge stops trying (WeTrakr keeps it)
-                    tries.pop(key, None)
-                    kodi_log(f'BridgeSync: {label} -> WeTrakr: {key} still listed after {_WETRAKR_REMOVE_TRIES} removal tries - giving up on it', 1)
-        for key in removed:
-            sent.pop(key, None)
-            gone.pop(key, None)
-        if removed:
-            kodi_log(f'BridgeSync -> WeTrakr: took {len(removed)} {media}s off (unwatched on every other service)', 1)
-            try:
-                self._wetrakr_client().wetrakr_syncdata.reset_lastactivities()
-            except Exception as exc:
-                kodi_log(f'BridgeSync: WeTrakr last activities not reset - {type(exc).__name__}', 1)
-        self._snapshot_save()
-
-    def _sync_wetrakr(self, media, current):
-        mode = self._wetrakr_mode()
-        if not mode:
-            return
-        try:
-            self._wetrakr_pass(media, current, mode)
-        except Exception as exc:
-            kodi_log(f'BridgeSync: WeTrakr ({media}) error: {exc}', 2)
-
-    def _wetrakr_pass(self, media, current, mode):
-        import time
-        if not self._wetrakr_client().is_authorized:
-            return
-        snapshots = self._snapshot_data()
-        if not self._snapshots_ok:
-            return
-        label = f'watched|wetrakr|{media}'
-        union = self._wetrakr_sources(media, current)
-        snap = snapshots.get(label, {})
-        # a title no source lists any more leaves the snapshot, so a later re-watch counts as new - only when every service was read
-        # 7.5.15 / 7.5.16: with a service not taking part (Trakt, MDBList or Simkl switched off or not signed in) its titles are not in `union`, so a
-        # title only that service holds must not be taken for "gone": the titles the bridge last saw on it (its own snapshot, untouched while it
-        # is out) stay too, or they would be sent to WeTrakr again (and one the user unwatched on WeTrakr would come back) when it returns
-        out_held = set()
-        for service in _GAP_SERVICES:
-            if service not in current:
-                out_held |= set(snapshots.get(f'watched|{service}|{media}', {}))
-        carried = ({k: v for k, v in snap.items() if k in union or k in out_held}
-                   if all(v is not None for v in current.values()) else dict(snap))
-        self._wetrakr_remove(media, label, union, out_held, all(v is not None for v in current.values()), mode)
-        dirty = False
-        if mode == 2:
-            # many titles vanishing at once looks like an incomplete read: the snapshot is kept until the same titles are still gone after
-            # _REMOVE_CONFIRM_SECONDS (a real loss, e.g. a whole show unwatched everywhere); only then are they dropped
-            lost = sorted(set(snap) - set(carried))
-            book = self._meta.setdefault('wetrakr_lost', {})
-            rec = book.get(label)
-            if len(lost) > (_REMOVE_MASS_CAP_EPISODES if media == 'episode' else _REMOVE_MASS_CAP) and len(lost) > len(snap) * 0.05:
-                if rec and rec.get('keys') == lost and time.time() - rec.get('at', 0) >= _REMOVE_CONFIRM_SECONDS:
-                    book.pop(label)
-                    dirty = True
-                else:
-                    if not rec or rec.get('keys') != lost:
-                        book[label] = {'keys': lost, 'at': time.time()}
-                        dirty = True
-                        kodi_log(f'BridgeSync: {label}: {len(lost)} titles vanished from the other services at once - looks like an incomplete read, '
-                                 f'kept until they are still gone in {_REMOVE_CONFIRM_SECONDS} s', 1)
-                    carried = dict(snap)       # (dropping them early and re-adding them later would put back what the user unwatched on WeTrakr)
-            elif rec:
-                book.pop(label)
-                dirty = True
-        newly = {k: v for k, v in union.items() if k not in snap}
-        if not newly:
-            if mode == 2 and (carried != snap or dirty):
-                snapshots[label] = carried
-                self._snapshot_save()
-            return
-        logged = self._meta.setdefault('wetrakr_logged', {})
-        if mode == 1 and time.time() - logged.get(label, 0) < _WETRAKR_LOG_SECONDS:
-            return
-        path = _WETRAKR_PATHS[media]
-        ok, rows = self._wetrakr_client().get_list(path)
-        if not ok:
-            kodi_log(f'BridgeSync: WeTrakr {media}s not read - nothing sent this cycle', 1)
-            return
-        have = self._wetrakr_keys(media, rows)
-        missing = {k: v for k, v in newly.items() if k not in have}
-        accounted = {k: v for k, v in newly.items() if k in have}
-        if mode == 1:
-            of_shows = f' of {len({k.split(":")[0] for k in missing})} shows' if media == 'episode' else ''
-            kodi_log(f'BridgeSync (WeTrakr, log only): {len(missing)} watched {media}s{of_shows} would be sent to WeTrakr '
-                     f'({len(accounted)} already there; WeTrakr holds {len(have)}, the other services {len(union)})', 1)
-            logged[label] = time.time()
-            self._snapshot_save()
-            return
-        batch = dict(sorted(missing.items())[:_WETRAKR_CAP[media]])
-        if len(batch) < len(missing):
-            kodi_log(f'BridgeSync: {label}: {len(missing)} new, sending {len(batch)} this cycle', 1)
-        done, given_up, attempted = set(), set(), set()
-        if batch:
-            posted, rejected = self._wetrakr_push(media, batch)
-            if posted:
-                ok_after, rows_after = self._wetrakr_client().get_list(path)
-                after = self._wetrakr_keys(media, rows_after) if ok_after else set()
-                done = {k for k in posted if k in after}
-                given_up = {k for k in rejected if k not in after}
-                if ok_after:
-                    attempted = posted - done - given_up       # accepted but not listed: counted, so one that never shows up is given up on
-            if given_up:
-                kodi_log(f'BridgeSync: {label} →WeTrakr: {len(given_up)} not accepted, giving up on them', 1)
-        tries = self._meta.setdefault('wetrakr_tries', {}).setdefault(label, {})
-        for key in attempted:
-            tries[key] = tries.get(key, 0) + 1
-            if tries[key] >= _WETRAKR_TRIES:
-                given_up.add(key)
-                kodi_log(f'BridgeSync: {label} →WeTrakr: {key} still not listed after {_WETRAKR_TRIES} tries - giving up on it', 1)
-        for key in list(tries):
-            if key in done or key in given_up or key not in newly:
-                tries.pop(key)
-        if done:
-            self._meta.setdefault('wetrakr_sent', {}).setdefault(label, {}).update({k: int(batch[k]) for k in done})   # 7.5.25: only these can be taken off again
-            self._pushed['wetrakr'] = self._pushed.get('wetrakr', 0) + len(done)
-            kodi_log(f'BridgeSync →WeTrakr: {len(done)} {media} (watched)', 1)
-        snapshots[label] = {**carried, **accounted, **{k: batch[k] for k in done | given_up}}
-        self._snapshot_save()
+    def _remove_wetrakr(self, media, items):
+        """Take every play of these titles off WeTrakr. Returns the keys the history no longer shows."""
+        done = set()
+        for chunk in self._chunks(items, _WETRAKR_CHUNK):
+            response = self._wetrakr_client().user_request('POST', '/sync/tracking/remove/all', body=self._wetrakr_remove_payload(media, chunk))
+            code = getattr(response, 'status_code', None)
+            if code is None or not 200 <= code < 300:
+                kodi_log(f'BridgeSync: WeTrakr sync/tracking/remove/all failed (HTTP {code or "no answer"}) - retry next cycle', 2)
+                break
+            done |= set(chunk)
+        if not done:
+            return done
+        self._wetrakr_changed()
+        after = self._wetrakr_read_back(media)
+        return set() if after is None else {k for k in done if k not in after}
 
     def _resume_refused(self, key, paused_at, book='simkl_resume_failed'):
         """True when Simkl refused this exact resume point (same Trakt paused_at) on the last runs and a day has not passed.
@@ -2760,28 +3384,32 @@ class BridgeSync:
                 points[key] = (progress, at)
         return points, anime
 
-    def _simkl_numbering_ok(self, tmdb_id, season):
-        """Simkl numbers seasons the TVDB way: True only when the season exists on both sides with about the same episode count
-        (unwatch_lists.simkl_numbering_agrees: one TMDb and two Simkl requests). Remembered per show and season - a day when it
-        did not agree or could not be checked, two weeks when it did - so a point that stays due does not repeat the requests."""
+    def _simkl_numbering_ok(self, tmdb_id, season, episode):
+        """For a resume point: True only when this number is the same episode on TMDb and on Simkl (simkl_numbering.same_numbers).
+        Anything that cannot be checked is False. The season's answer is remembered: two weeks for a number that is the same, a day
+        for any other (or a failed check), so a point that stays due does not repeat the requests."""
         import time
         self._snapshot_data()
         now = time.time()
-        book = self._meta.setdefault('simkl_numbering', {})
+        self._meta.pop('simkl_numbering', None)                # the answers of the count test are not to be trusted
+        book = self._meta.setdefault('simkl_numbering_points', {})   # {show:season: [same numbers, when]}
         for old in [k for k, v in book.items() if now - v[1] > 14 * 86400]:
             del book[old]
         key = f'{tmdb_id}:{season}'
         rec = book.get(key)
-        if rec and now - rec[1] < (14 * 86400 if rec[0] else 86400):
-            return bool(rec[0])
+        if rec and (int(episode) in rec[0] or now - rec[1] < 86400):
+            return int(episode) in rec[0]
+        good = []
         try:
-            from tmdbhelper.lib.script.sync.unwatch_lists import simkl_numbering_agrees
-            ok = bool(simkl_numbering_agrees(tmdb_id, [season], self.simkl))
+            if int(season) > 0:
+                from tmdbhelper.lib.script.sync.simkl_numbering import same_numbers
+                lists = self._numbering_lists(int(tmdb_id), [int(season)])
+                if lists is not None:
+                    good = sorted(same_numbers(*lists[int(season)]))
         except Exception as exc:
             kodi_log(f'BridgeSync: Simkl numbering check error: {exc}', 2)
-            ok = False
-        book[key] = [ok, now]
-        return ok
+        book[key] = [good, now]
+        return int(episode) in good
 
     def _mirror_confirm(self, key):
         """Called after a post answered: remember that this point was mirrored just now (only for a point _mirror_resume chose this run)."""
@@ -2866,7 +3494,7 @@ class BridgeSync:
             else:
                 ok = due(point, None, key_str)
             if ok and not finished('episode', f'{show}:{key[2]}:{key[3]}', at):
-                if self._simkl_numbering_ok(show, key[2]):
+                if self._simkl_numbering_ok(show, key[2], key[3]):
                     to_simkl_eps[show] = (show, point[0], key[2], key[3], at)
                     chosen.add(key_str)
                 else:
@@ -2877,7 +3505,7 @@ class BridgeSync:
                     to_mdb_movies.append((key[1], point[0], point[1]))
                     chosen.add(f'm:{key[1]}')
             elif key[1:] not in trakt_eps and due(point, mp.get(key), f'e:{key[1]}:{key[2]}:{key[3]}')                     and not finished('episode', f'{key[1]}:{key[2]}:{key[3]}', point[1]):
-                if self._simkl_numbering_ok(key[1], key[2]):
+                if self._simkl_numbering_ok(key[1], key[2], key[3]):
                     to_mdb_eps.append((key[1], point[0], key[2], key[3], point[1]))
                     chosen.add(f'e:{key[1]}:{key[2]}:{key[3]}')
                 else:
@@ -2889,11 +3517,128 @@ class BridgeSync:
                     f'{stats["numbering"]} with unconfirmed Simkl numbering, {stats["dropped"]} dropped where they began')
         return to_simkl_movies, to_simkl_eps, to_mdb_movies, to_mdb_eps, text
 
+    # ── WeTrakr: resume points (setting cross_sync_wetrakr_resume, 7.5.36) ─────
+
+    def _wetrakr_paused(self):
+        """{'m:<tmdb>' / 'e:<tmdb>:<season>:<episode>': when it was paused (False: a row that is not a dated resume point, such as a
+        session being played)}, or None when either list could not be read."""
+        have = {}
+        for target in ('movies', 'episodes'):
+            ok, rows = self._wetrakr_client().get_list(f'/sync/tracking/playing/{target}')
+            if not ok:
+                return None
+            for row in rows:
+                if target == 'movies':
+                    tmdb = (row.get('ids') or {}).get('tmdb')
+                    key = f'm:{tmdb}'
+                else:
+                    tmdb = (row.get('show_ids') or {}).get('tmdb')
+                    key = f"e:{tmdb}:{row.get('season_number')}:{row.get('number')}"
+                if tmdb:
+                    at = row.get('tracked_at')
+                    have[key] = at if row.get('status') == 'paused' and isinstance(at, str) else False
+        return have
+
+    @staticmethod
+    def _wetrakr_resume_payload(batch):
+        """Body of POST /sync/tracking. For an episode the status sits on the EPISODE only: 'paused' on a show means 'on hold'."""
+        movies, shows = [], {}
+        for point in batch.values():
+            paused = {'status': 'paused', 'progress': point['progress'], 'paused_at': f"{point['at'][:19]}.000Z"}
+            if point['season'] is None:
+                movies.append({'ids': {'tmdb': point['tmdb']}, **paused})
+            else:
+                shows.setdefault(point['tmdb'], {}).setdefault(point['season'], []).append({'number': point['episode'], **paused})
+        body = {}
+        if movies:
+            body['movies'] = movies
+        if shows:
+            body['shows'] = [{'ids': {'tmdb': tmdb}, 'seasons': [{'number': n, 'episodes': eps} for n, eps in seasons.items()]}
+                             for tmdb, seasons in shows.items()]
+        return body
+
+    def _wetrakr_resume(self, movie_rows, ep_rows):
+        """Trakt's resume points -> WeTrakr. The upload logs no play; WeTrakr refuses a title already watched and keeps a position that is
+        the same or newer. Each point is dealt with once (meta 'wetrakr_resume_done'), so one cleared on WeTrakr is not put back."""
+        import time
+        mode = _wetrakr_resume_mode()
+        if not mode or getattr(self, '_trakt_progress_failed', False):
+            return
+        if not self._wetrakr_client().is_authorized:
+            return
+        self._snapshot_data()
+        if not self._snapshots_ok:
+            return
+        now = self._utc_now()
+        points = {}
+        rows = [(r[0], r[1], None, None, r[2]) for r in movie_rows] + [(r[0], r[1], r[2], r[3], r[4]) for r in ep_rows]
+        for tmdb, progress, season, episode, at in rows:
+            try:
+                progress, tmdb = round(float(progress), 2), int(tmdb)
+                season, episode = (None, None) if season is None else (int(season), int(episode))
+            except (TypeError, ValueError):
+                continue
+            if season == 0 or not 0 < progress < 100 or not isinstance(at, str) or not _STAMP_RE.match(at) or at[:19] > now[:19]:
+                continue                           # specials are left out, as for watched marks; a date in the future is refused
+            key = f'm:{tmdb}' if season is None else f'e:{tmdb}:{season}:{episode}'
+            points[key] = {'tmdb': tmdb, 'season': season, 'episode': episode, 'progress': progress, 'at': at}
+        done = self._meta.get('wetrakr_resume_done') or {}
+        todo = {k: p for k, p in points.items() if done.get(k) != p['at'] and not self._resume_refused(k, p['at'], 'wetrakr_resume_refused')}
+        if not todo:
+            return
+        if mode == 1:
+            logged = self._meta.setdefault('wetrakr_logged', {})
+            if time.time() - logged.get('resume', 0) < _WETRAKR_LOG_SECONDS:
+                return
+        have = self._wetrakr_paused()
+        if have is None:
+            kodi_log('BridgeSync: WeTrakr resume points could not be read - none sent to it this cycle', 1)
+            return
+        due = {k: p for k, p in todo.items() if self._resume_due(have.get(k), p['at'])}
+        if mode == 1:
+            kodi_log(f'BridgeSync (WeTrakr resume points, log only): On would send {len(due)} of {len(points)} Trakt resume point(s)', 1)
+            logged['resume'] = time.time()
+            self._snapshot_save()
+            return
+        done = {k: v for k, v in done.items() if k in points}
+        self._meta['wetrakr_resume_done'] = done
+        for key, point in todo.items():
+            if key not in due and isinstance(have.get(key), str):
+                done[key] = point['at']                # WeTrakr holds this position or a newer one
+        batch = dict(sorted(due.items(), key=lambda kv: kv[1]['at'], reverse=True)[:_WETRAKR_LIST_CAP])
+        if not batch:
+            self._snapshot_save()
+            return
+        code = self._wetrakr_list_post('/sync/tracking', self._wetrakr_resume_payload(batch))
+        if code is None or not 200 <= code < 300:
+            self._snapshot_save()
+            return
+        self._wetrakr_forget_activity()            # the trigger takes a fresh baseline: our own write is not a change to react to
+        after = self._wetrakr_paused()
+        if after is None:
+            kodi_log(f'BridgeSync: {len(batch)} resume point(s) sent to WeTrakr, but its list could not be read back', 2)
+            self._snapshot_save()
+            return
+        landed = 0
+        for key, point in batch.items():
+            ok = isinstance(after.get(key), str) and after[key][:19] >= point['at'][:19]     # success is what WeTrakr lists afterwards
+            self._resume_note(key, point['at'], ok, 'wetrakr_resume_refused')
+            if ok:
+                done[key] = point['at']
+                landed += 1
+        if landed:
+            kodi_log(f'BridgeSync →WeTrakr: {landed} resume point(s)', 1)
+        if landed < len(batch):
+            kodi_log(f'BridgeSync: {len(batch) - landed} Trakt resume point(s) not taken by WeTrakr (already watched there, being played, '
+                     f'or not known to it)', 1)
+        self._snapshot_save()
+
     def _sync_progress(self):
         """Push Trakt resume points to MDBList and Simkl; mirror the ones only MDBList or Simkl holds between those two (_mirror_resume).
         Reverse direction not possible: Trakt /sync/playback is read-only.
         """
-        if not self._mdb_ok and not self._simkl_ok:
+        wetrakr = bool(_wetrakr_resume_mode())
+        if not self._mdb_ok and not self._simkl_ok and not wetrakr:
             return
         self._mdb_playback_raw = self._simkl_playback_raw = None
         self._trakt_progress_failed = False
@@ -2920,6 +3665,12 @@ class BridgeSync:
         if total != len(movie_rows) + len(ep_rows):
             kodi_log(f'BridgeSync: {total - len(movie_rows) - len(ep_rows)} Trakt resume point(s) not sent - the item was watched '
                      f'on MDBList or Simkl after Trakt saved it', 1)
+
+        if wetrakr:
+            try:
+                self._wetrakr_resume(movie_rows, ep_rows)
+            except Exception as exc:
+                kodi_log(f'BridgeSync: WeTrakr resume points error: {exc}', 2)
 
         # A resume point the target already holds, or holds newer, is left alone: sending it again would overwrite
         # progress made there since. A target whose resume points cannot be read is skipped this run.
